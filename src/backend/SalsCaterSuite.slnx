@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="SalsCaterSuite.Application/SalsCaterSuite.Application.csproj" />
+  <Project Path="SalsCaterSuite.Domain/SalsCaterSuite.Domain.csproj" />
+  <Project Path="SalsCaterSuite.Infrastructure/SalsCaterSuite.Infrastructure.csproj" />
+  <Project Path="SalsCaterSuite.WebApi/SalsCaterSuite.WebApi.csproj" />
+  <Project Path="../../tests/SalsCaterSuite.UnitTests/SalsCaterSuite.UnitTests.csproj" />
+</Solution>
