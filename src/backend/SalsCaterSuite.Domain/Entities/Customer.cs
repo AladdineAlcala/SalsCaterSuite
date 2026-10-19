@@ -1,6 +1,8 @@
+using SalsCaterSuite.Domain.Common;
+
 namespace SalsCaterSuite.Domain.Entities;
 
-public class Customer
+public class Customer : BaseEntity
 {
     public int CustomerId { get; set; }
     public string LastName { get; set; } = string.Empty;

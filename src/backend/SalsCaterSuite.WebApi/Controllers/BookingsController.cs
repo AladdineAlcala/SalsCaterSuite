@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SalsCaterSuite.Application.Common.Authorization;
 using SalsCaterSuite.Application.Features.Bookings.Commands;
 using SalsCaterSuite.Application.Features.Bookings.DTOs;
 using SalsCaterSuite.Application.Features.Bookings.Queries;
+using SalsCaterSuite.Application.Features.Payments.DTOs;
 
 namespace SalsCaterSuite.WebApi.Controllers;
 
@@ -30,6 +32,8 @@ public class BookingsController : ControllerBase
 
     /// <summary>GET /api/bookings/{id} — Get booking details</summary>
     [HttpGet("{id:int}")]
+    [ProducesResponseType(typeof(BookingDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetDetails(int id, CancellationToken cancellationToken)
     {
         var result = await _getDetails.ExecuteAsync(id, cancellationToken);
@@ -40,6 +44,8 @@ public class BookingsController : ControllerBase
 
     /// <summary>GET /api/bookings/{id}/ledger — Get payment ledger summary</summary>
     [HttpGet("{id:int}/ledger")]
+    [ProducesResponseType(typeof(LedgerSummaryDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetLedger(int id, CancellationToken cancellationToken)
     {
         var result = await _getLedger.ExecuteAsync(id, cancellationToken);
@@ -50,6 +56,8 @@ public class BookingsController : ControllerBase
 
     /// <summary>POST /api/bookings — Create a new booking</summary>
     [HttpPost]
+    [ProducesResponseType(typeof(CreateBookingResponseDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Create([FromBody] CreateBookingRequestDto request, CancellationToken cancellationToken)
     {
         var result = await _createBooking.ExecuteAsync(request, cancellationToken);
@@ -58,11 +66,15 @@ public class BookingsController : ControllerBase
             return BadRequest(new { errors = result.Errors });
         }
 
-        return CreatedAtAction(nameof(GetDetails), new { id = result.Data }, new { transactionId = result.Data });
+        return CreatedAtAction(
+            nameof(GetDetails),
+            new { id = result.Data },
+            new CreateBookingResponseDto { TransactionId = result.Data });
     }
 
     /// <summary>POST /api/bookings/{id}/cancel — Cancel a booking</summary>
     [HttpPost("{id:int}/cancel")]
+    [Authorize(Policy = AuthorizationPolicies.BookingsCancel)]
     public async Task<IActionResult> Cancel(int id, [FromBody] CancelBookingRequestDto request, CancellationToken cancellationToken)
     {
         var result = await _cancelBooking.ExecuteAsync(id, request.Reason, request.RefundAmount, cancellationToken);

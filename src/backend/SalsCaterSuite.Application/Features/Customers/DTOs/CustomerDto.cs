@@ -39,3 +39,13 @@ public class CustomerStatementLineDto
     public string Status { get; set; } = string.Empty;
 }
 
+/// <summary>Request body for creating or updating a customer.</summary>
+public record CreateCustomerRequestDto(
+    string LastName,
+    string FirstName,
+    string? Middle,
+    string? Address,
+    string? Contact1,
+    string? Contact2,
+    string? Company);
+

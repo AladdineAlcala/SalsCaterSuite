@@ -40,7 +40,7 @@ public class ContractDocument : IDocument
                 {
                     row.RelativeItem().Column(c =>
                     {
-                        c.Item().Text($"Contract Ref: {Booking.Reference ?? $"TRN-{Booking.TransactionId:D5}"}").Bold();
+                        c.Item().Text($"Contract Ref: {ResolveContractReference()}").Bold();
                         c.Item().Text($"Client Name: {Booking.CustomerName}");
                         c.Item().Text($"Contact No: {Booking.CustomerContact ?? "N/A"}");
                     });
@@ -109,6 +109,23 @@ public class ContractDocument : IDocument
                 x.TotalPages();
             });
         });
+    }
+
+    /// <summary>
+    /// Reference printed on the agreement. The human-readable <see cref="BookingDto.BookingNumber"/>
+    /// is authoritative (DEC-016 / DEC-023); the free-text reference and finally the legacy
+    /// <c>TRN-{id}</c> form are used only when the booking number is blank.
+    /// </summary>
+    private string ResolveContractReference()
+    {
+        if (!string.IsNullOrWhiteSpace(Booking.BookingNumber))
+        {
+            return Booking.BookingNumber;
+        }
+
+        return string.IsNullOrWhiteSpace(Booking.Reference)
+            ? $"TRN-{Booking.TransactionId:D5}"
+            : Booking.Reference;
     }
 }
 

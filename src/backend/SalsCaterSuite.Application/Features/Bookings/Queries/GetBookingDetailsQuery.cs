@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
 using SalsCaterSuite.Application.Features.Bookings.DTOs;
@@ -8,42 +7,33 @@ namespace SalsCaterSuite.Application.Features.Bookings.Queries;
 
 public class GetBookingDetailsQuery
 {
-    private readonly ISalsCaterSuiteDbContext _context;
+    private readonly IBookingRepository _bookings;
     private readonly BookingAmountDueCalculator _calculator;
 
-    public GetBookingDetailsQuery(ISalsCaterSuiteDbContext context, BookingAmountDueCalculator calculator)
+    public GetBookingDetailsQuery(IBookingRepository bookings, BookingAmountDueCalculator calculator)
     {
-        _context = context;
+        _bookings = bookings;
         _calculator = calculator;
     }
 
     public async Task<Result<BookingDto>> ExecuteAsync(int transactionId, CancellationToken cancellationToken = default)
     {
-        var booking = await _context.Bookings
-            .Include(b => b.Customer)
-            .Include(b => b.Package)
-            .Include(b => b.Payments)
-            .FirstOrDefaultAsync(b => b.TransactionId == transactionId, cancellationToken);
+        var booking = await _bookings.GetWithDetailsAsync(transactionId, cancellationToken);
 
         if (booking == null)
         {
             return Result<BookingDto>.Failure("Booking not found.");
         }
 
+        // The sum of Payment rows is the authoritative "amount paid" (DEC-012).
+        // Booking.AmountPaid is only a denormalized cache; use the ledger figure here
+        // so the details view always reconciles with GET .../ledger.
+        var totalPayments = booking.Payments.Sum(p => p.AmountPaid);
+
         // Recompute from the frozen price snapshot using the calculator.
         // Uses the booking's own stored snapshot values — not the live Package price.
-        var breakdown = _calculator.Calculate(
-            packageAmount: booking.PackageAmount,
-            numberOfHeads: booking.NumberOfHeads,
-            pricePerPax: booking.PricePerHead,
-            extendedAreaRate: 0m,
-            applyExtendedArea: booking.ApplyExtendedAmount,
-            addonsTotal: 0m,
-            otherChargesTotal: 0m,
-            discountPercentage: booking.DiscountPercentage,
-            discountFixedAmount: booking.DiscountAmount > 0 ? booking.DiscountAmount : null,
-            totalPaymentsReceived: booking.AmountPaid
-        );
+        // The shared overload keeps the argument set in one place (DEC-042).
+        var breakdown = _calculator.Calculate(booking, totalPayments);
 
         var dto = new BookingDto
         {
@@ -78,11 +68,11 @@ public class GetBookingDetailsQuery
             TaxAmount = booking.TaxAmount,
             AmountDue = breakdown.NetAmountDue,
             DepositAmount = booking.DepositAmount,
-            AmountPaid = booking.AmountPaid,
+            AmountPaid = totalPayments,
             Balance = breakdown.RemainingBalance,
 
             // Status
-            Status = booking.Status.ToString(),
+            Status = booking.Status,
             ReminderSent = booking.ReminderSent,
         };
 

@@ -8,6 +8,7 @@ namespace SalsCaterSuite.Domain.Entities;
 /// </summary>
 public class Payment : BaseEntity
 {
+    public Guid PaymentId { get; set; }
     public string PaymentNo { get; set; } = string.Empty;
 
     /// <summary>FK to Booking.TransactionId. Non-nullable — a payment must belong to a booking.</summary>

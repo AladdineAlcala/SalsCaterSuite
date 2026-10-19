@@ -33,9 +33,9 @@ public class CollectionSummaryExport
         {
             worksheet.Cell(row, 1).Value = p.PaymentNo;
             worksheet.Cell(row, 2).Value = p.TransactionId;
-            worksheet.Cell(row, 3).Value = p.DateOfPayment?.ToString("yyyy-MM-dd HH:mm");
+            worksheet.Cell(row, 3).Value = p.DateOfPayment.ToString("yyyy-MM-dd HH:mm");
             worksheet.Cell(row, 4).Value = p.Particular;
-            worksheet.Cell(row, 5).Value = p.PaymentMeans;
+            worksheet.Cell(row, 5).Value = p.PaymentMeans.ToString();
             worksheet.Cell(row, 6).Value = p.CheckNo ?? "-";
             worksheet.Cell(row, 7).Value = p.AmountPaid;
             worksheet.Cell(row, 8).Value = p.CreatedByUser ?? "N/A";

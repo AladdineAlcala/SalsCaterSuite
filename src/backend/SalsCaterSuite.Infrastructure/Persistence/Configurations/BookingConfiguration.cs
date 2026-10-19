@@ -21,10 +21,18 @@ public class BookingConfiguration : IEntityTypeConfiguration<Booking>
         builder.Property(e => e.CreatedByUser).HasColumnName("b_createdbyUser").HasMaxLength(100);
         builder.Property(e => e.CreatedDate).HasColumnName("b_createdDate");
         builder.Property(e => e.UpdatedDate).HasColumnName("b_updatedDate");
-        builder.Property(e => e.IsDeleted).HasColumnName("is_deleted");
+        // DEC-038: is_deleted is BIT NOT NULL DEFAULT 0 on every entity. The column was
+        // created by InitialCreate without a default; the accompanying migration adds it.
+        builder.Property(e => e.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);
 
-        // BaseEntity.Id (Guid) is not present in the legacy schema — ignore it.
-        builder.Ignore(e => e.Id);
+        // ── Identity (DEC-016) ──────────────────────────────────────────────
+        // BK-{yyyyMMdd}-{TransactionId:D5}; assigned after insert, never reused.
+        builder.Property(e => e.BookingNumber)
+            .HasMaxLength(30)
+            .IsRequired();
+
+        builder.HasIndex(e => e.BookingNumber)
+            .IsUnique();
 
         // ── Classification ───────────────────────────────────────────────────
         builder.Property(e => e.TransactionDate).HasColumnName("transdate");
@@ -51,10 +59,11 @@ public class BookingConfiguration : IEntityTypeConfiguration<Booking>
         builder.Property(e => e.ApplyExtendedAmount).HasColumnName("apply_extendedAmount");
 
         // ── Event Details ────────────────────────────────────────────────────
-        builder.Property(e => e.NoOfPerson).HasColumnName("noofperson");
+        builder.Property(e => e.NumberOfHeads).HasColumnName("numberOfHeads");
         builder.Property(e => e.Venue).HasColumnName("venue").HasMaxLength(200);
-        builder.Property(e => e.StartDate).HasColumnName("startdate");
-        builder.Property(e => e.EndDate).HasColumnName("enddate");
+        builder.Property(e => e.EventDate).HasColumnName("eventDate");
+        builder.Property(e => e.EventStartTime).HasColumnName("startTime");
+        builder.Property(e => e.EventEndTime).HasColumnName("endTime");
         builder.Property(e => e.SpecialInstructions).HasColumnName("specialInstructions").HasMaxLength(500);
 
         // ── Price Snapshot (frozen at creation) ──────────────────────────────

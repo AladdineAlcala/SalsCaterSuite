@@ -11,13 +11,28 @@
 
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.104.2" />
-    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.2" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.2" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.13" />
+    <!--
+      Required by the EF Core CLI (`dotnet ef`) for the design-time factory
+      (SalsCaterSuiteDbContextFactory). PrivateAssets=all so it never flows to the
+      WebApi runtime or downstream consumers; it is a build/design-time-only dependency.
+    -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.13">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.13" />
     <PackageReference Include="QuestPDF" Version="2024.12.1" />
+    <!--
+      Transitive pin (security): Microsoft.Data.SqlClient 6.1.7 (pulled in by EF Core 10) resolves
+      System.Security.Cryptography.Pkcs 9.0.11, which NuGet reports as NU1902/NU1903 vulnerable.
+      Pinning the 10.0.13 line (same version as the installed .NET 10 runtime) clears both warnings.
+    -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
   </ItemGroup>
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SalsCaterSuite.Application.Common.Authorization;
 using SalsCaterSuite.Application.Features.Payments.DTOs;
 using SalsCaterSuite.Application.Features.Payments.Services;
 
@@ -19,6 +20,7 @@ public class PaymentsController : ControllerBase
 
     /// <summary>POST /api/payments — Record a payment for a booking</summary>
     [HttpPost]
+    [Authorize(Policy = AuthorizationPolicies.PaymentsRecord)]
     public async Task<IActionResult> RecordPayment([FromBody] RecordPaymentRequestDto request, CancellationToken cancellationToken)
     {
         var result = await _ledgerService.RecordPaymentAsync(request, cancellationToken);

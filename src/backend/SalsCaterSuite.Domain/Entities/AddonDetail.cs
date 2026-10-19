@@ -1,6 +1,8 @@
+using SalsCaterSuite.Domain.Common;
+
 namespace SalsCaterSuite.Domain.Entities;
 
-public class AddonDetail
+public class AddonDetail : BaseEntity
 {
     public int AddonId { get; set; }
     public string Description { get; set; } = string.Empty;

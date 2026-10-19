@@ -18,7 +18,7 @@ public class BookingDto
     public string? CustomerContact { get; set; }
     public string? Occasion { get; set; }
     public string? Venue { get; set; }
-    public DateTime EventDate { get; set; }
+    public DateOnly EventDate { get; set; }
     public TimeSpan EventStartTime { get; set; }
     public TimeSpan EventEndTime { get; set; }
     public int NumberOfHeads { get; set; }
@@ -43,7 +43,7 @@ public class BookingDto
     public decimal Balance { get; set; }
 
     // Status
-    public string Status { get; set; } = "Pending";           // enum name
+    public BookingStatus Status { get; set; } = BookingStatus.Pending;
     public bool ReminderSent { get; set; }
 }
 

@@ -1,3 +1,5 @@
+using SalsCaterSuite.Domain.Entities;
+
 namespace SalsCaterSuite.Application.Services;
 
 public record BookingCalculationBreakdown(
@@ -65,5 +67,46 @@ public class BookingAmountDueCalculator
             isFullyPaid
         );
     }
-}
 
+    /// <summary>
+    /// The single authoritative net-amount-due path for a persisted booking (DEC-042, AC-B3).
+    /// <para>
+    /// Every consumer that needs a booking's net amount due or remaining balance — the payment
+    /// ledger, the booking details view, the calendar feed and the operations dashboard — calls
+    /// this overload, so the argument set exists in exactly one place and a dashboard-vs-ledger
+    /// divergence is structurally impossible. The argument set is deliberately identical to the
+    /// one the ledger has always used:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description><c>packageAmount</c> is the <b>frozen stored column</b>
+    /// (<c>Booking.PackageAmount</c>), never a recomputed <c>PricePerHead × NumberOfHeads</c>.</description></item>
+    /// <item><description><c>discountFixedAmount</c> converts a zero stored discount to
+    /// <c>null</c>. The calculator gives the fixed discount precedence and only falls back to the
+    /// percentage when the fixed value is <c>null</c> or <c>≤ 0</c>; passing the stored
+    /// <c>0</c> directly would silently change which discount rule applies.</description></item>
+    /// <item><description><c>applyExtendedArea</c> is passed even though
+    /// <c>extendedAreaRate</c> is <c>0m</c>, so the call stays textually identical to the
+    /// ledger's and cannot drift later.</description></item>
+    /// </list>
+    /// <para>
+    /// <paramref name="totalPaymentsReceived"/> must be the authoritative payment sum
+    /// (<c>Σ Payment.AmountPaid</c>, DEC-012) — never the denormalized
+    /// <c>Booking.AmountPaid</c> cache.
+    /// </para>
+    /// </summary>
+    public BookingCalculationBreakdown Calculate(Booking booking, decimal totalPaymentsReceived)
+    {
+        return Calculate(
+            packageAmount: booking.PackageAmount,
+            numberOfHeads: booking.NumberOfHeads,
+            pricePerPax: booking.PricePerHead,
+            extendedAreaRate: 0m,
+            applyExtendedArea: booking.ApplyExtendedAmount,
+            addonsTotal: 0m,
+            otherChargesTotal: 0m,
+            discountPercentage: booking.DiscountPercentage,
+            discountFixedAmount: booking.DiscountAmount > 0 ? booking.DiscountAmount : null,
+            totalPaymentsReceived: totalPaymentsReceived
+        );
+    }
+}

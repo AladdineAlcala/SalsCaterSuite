@@ -21,7 +21,7 @@ public class RecordPaymentValidator : AbstractValidator<RecordPaymentRequestDto>
             .WithMessage("Payment particular / description is required.");
 
         RuleFor(x => x.PaymentMeans)
-            .NotEmpty()
+            .IsInEnum()
             .WithMessage("Payment means is required (e.g., Cash, Check, GCash, LDDAP).");
     }
 }

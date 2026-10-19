@@ -1,6 +1,8 @@
+using SalsCaterSuite.Domain.Common;
+
 namespace SalsCaterSuite.Domain.Entities;
 
-public class Reservation
+public class Reservation : BaseEntity
 {
     public int ReservationId { get; set; }
     public int CustomerId { get; set; }

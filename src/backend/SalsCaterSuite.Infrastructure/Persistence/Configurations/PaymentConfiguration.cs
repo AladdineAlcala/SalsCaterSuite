@@ -31,15 +31,17 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         builder.Property(e => e.AmountPaid).HasColumnName("amtPay").HasPrecision(18, 2);
         builder.Property(e => e.CheckNo).HasColumnName("checkNo").HasMaxLength(50);
         builder.Property(e => e.Notes).HasColumnName("notes").HasMaxLength(500);
+        // DEC-038: all four BaseEntity audit columns are persisted. Payment keeps its
+        // existing p_* convention; is_deleted follows the schema-wide is_deleted name
+        // already used by Booking (the only pre-existing soft-delete flag).
         builder.Property(e => e.CreatedByUser).HasColumnName("p_createdbyUser").HasMaxLength(100);
         builder.Property(e => e.CreatedDate).HasColumnName("p_createdDate");
         builder.Property(e => e.UpdatedDate).HasColumnName("p_updatedDate");
+        builder.Property(e => e.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);
 
         // PayType was a legacy magic-number int column — no longer in the entity.
-        // IsDeleted not in legacy payment schema.
-        builder.Ignore(e => e.IsDeleted);
 
-        // Ignore legacy BaseEntity.Id (Guid) — Payment PK is PaymentNo (string).
-        builder.Ignore(e => e.Id);
+        // PaymentId is not persisted — Payment PK is PaymentNo (string).
+        builder.Ignore(e => e.PaymentId);
     }
 }

@@ -1,3 +1,4 @@
+using System.Globalization;
 using SalsCaterSuite.Domain.Common;
 using SalsCaterSuite.Domain.Enums;
 using SalsCaterSuite.Domain.Exceptions;
@@ -38,7 +39,7 @@ public class Booking : BaseEntity
 
     // ─────────────── Event Details ───────────────
     public string? Venue { get; set; }
-    public DateTime EventDate { get; set; }
+    public DateOnly EventDate { get; set; }
     public TimeSpan EventStartTime { get; set; }
     public TimeSpan EventEndTime { get; set; }
     public int NumberOfHeads { get; set; }
@@ -97,6 +98,7 @@ public class Booking : BaseEntity
         int noOfPerson,
         BookingType bookType,
         ServiceType typeOfService,
+        DateOnly eventDate,
         DateTime startDate,
         DateTime endDate,
         string? occasion = null,
@@ -123,7 +125,7 @@ public class Booking : BaseEntity
             NumberOfHeads = noOfPerson,
             BookType = bookType,
             TypeOfService = typeOfService,
-            EventDate = startDate.Date,
+            EventDate = eventDate,
             EventStartTime = startDate.TimeOfDay,
             EventEndTime = endDate.TimeOfDay,
             Occasion = occasion,
@@ -155,6 +157,26 @@ public class Booking : BaseEntity
         PackageAmount = pricePerHead * noOfPerson;
         Subtotal = PackageAmount;
         AmountDue = PackageAmount; // will be recalculated once discounts/addons are applied
+    }
+
+    /// <summary>
+    /// Assigns the human-readable business number exactly once. Must be called
+    /// only after the booking has been persisted, because the format embeds the
+    /// IDENTITY-generated <see cref="TransactionId"/>:
+    /// <c>BK-{yyyyMMdd}-{TransactionId:D5}</c> (DEC-016).
+    /// The guard makes the operation idempotent-safe: a second assignment is a
+    /// domain error rather than a silent overwrite of an issued number.
+    /// </summary>
+    public void AssignBookingNumber()
+    {
+        if (!string.IsNullOrWhiteSpace(BookingNumber))
+            throw new DomainException("Booking number has already been assigned.");
+        if (TransactionId <= 0)
+            throw new DomainException("Booking number cannot be assigned before the booking is persisted.");
+
+        BookingNumber = string.Create(
+            CultureInfo.InvariantCulture,
+            $"BK-{TransactionDate:yyyyMMdd}-{TransactionId:D5}");
     }
 
     /// <summary>

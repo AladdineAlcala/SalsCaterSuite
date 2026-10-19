@@ -1,14 +1,13 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Domain.Entities;
 using SalsCaterSuite.Infrastructure.Identity;
 using SalsCaterSuite.Infrastructure.Persistence.Configurations;
 
 namespace SalsCaterSuite.Infrastructure.Persistence;
 
-public class SalsCaterSuiteDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, string>, ISalsCaterSuiteDbContext
+public class SalsCaterSuiteDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, string>
 {
     public SalsCaterSuiteDbContext(DbContextOptions<SalsCaterSuiteDbContext> options) : base(options)
     {
@@ -73,6 +72,12 @@ public class SalsCaterSuiteDbContext : IdentityDbContext<ApplicationUser, Applic
             entity.HasKey(e => e.CourseId).HasName("PK_CourseCategory");
             entity.Property(e => e.CourseId).HasColumnName("courseId");
             entity.Property(e => e.CourseName).HasColumnName("course").HasMaxLength(100);
+
+            // DEC-038: BaseEntity audit columns (documented generic pattern).
+            entity.Property(e => e.CreatedDate).HasColumnName("createdDate");
+            entity.Property(e => e.CreatedByUser).HasColumnName("createdByUser").HasMaxLength(100);
+            entity.Property(e => e.UpdatedDate).HasColumnName("updatedDate");
+            entity.Property(e => e.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);
         });
 
         builder.Entity<Area>(entity =>
@@ -82,6 +87,12 @@ public class SalsCaterSuiteDbContext : IdentityDbContext<ApplicationUser, Applic
             entity.Property(e => e.AreaId).HasColumnName("areaId");
             entity.Property(e => e.AreaDetails).HasColumnName("areaDetails").HasMaxLength(150);
             entity.Property(e => e.AdditionalRate).HasColumnName("additionalRate").HasPrecision(18, 2);
+
+            // DEC-038: BaseEntity audit columns (documented generic pattern).
+            entity.Property(e => e.CreatedDate).HasColumnName("createdDate");
+            entity.Property(e => e.CreatedByUser).HasColumnName("createdByUser").HasMaxLength(100);
+            entity.Property(e => e.UpdatedDate).HasColumnName("updatedDate");
+            entity.Property(e => e.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);
         });
 
         builder.Entity<AddonDetail>(entity =>
@@ -93,6 +104,12 @@ public class SalsCaterSuiteDbContext : IdentityDbContext<ApplicationUser, Applic
             entity.Property(e => e.UnitPrice).HasColumnName("unitPrice").HasPrecision(18, 2);
             entity.Property(e => e.Unit).HasColumnName("unit").HasMaxLength(50);
             entity.Property(e => e.IsActive).HasColumnName("isActive");
+
+            // DEC-038: BaseEntity audit columns (documented generic pattern).
+            entity.Property(e => e.CreatedDate).HasColumnName("createdDate");
+            entity.Property(e => e.CreatedByUser).HasColumnName("createdByUser").HasMaxLength(100);
+            entity.Property(e => e.UpdatedDate).HasColumnName("updatedDate");
+            entity.Property(e => e.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);
         });
 
         builder.Entity<Discount>(entity =>
@@ -105,10 +122,13 @@ public class SalsCaterSuiteDbContext : IdentityDbContext<ApplicationUser, Applic
             entity.Property(e => e.Percentage).HasColumnName("percentage").HasPrecision(18, 2);
             entity.Property(e => e.FixedAmount).HasColumnName("fixed_amount").HasPrecision(18, 2);
             entity.Property(e => e.IsActive).HasColumnName("isActive");
+            // DEC-038: all four BaseEntity audit columns are persisted. Discount keeps its
+            // existing date_Created/date_Updated convention; the other two use the generic
+            // pattern (is_deleted matches Booking's existing soft-delete column name).
             entity.Property(e => e.CreatedDate).HasColumnName("date_Created");
+            entity.Property(e => e.CreatedByUser).HasColumnName("createdByUser").HasMaxLength(100);
             entity.Property(e => e.UpdatedDate).HasColumnName("date_Updated");
-            entity.Ignore(e => e.CreatedByUser);
-            entity.Ignore(e => e.IsDeleted);
+            entity.Property(e => e.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);
         });
 
         builder.Entity<Reservation>(entity =>
@@ -126,6 +146,12 @@ public class SalsCaterSuiteDbContext : IdentityDbContext<ApplicationUser, Applic
             entity.HasOne(e => e.Customer)
                 .WithMany(c => c.Reservations)
                 .HasForeignKey(e => e.CustomerId);
+
+            // DEC-038: BaseEntity audit columns (documented generic pattern).
+            entity.Property(e => e.CreatedDate).HasColumnName("createdDate");
+            entity.Property(e => e.CreatedByUser).HasColumnName("createdByUser").HasMaxLength(100);
+            entity.Property(e => e.UpdatedDate).HasColumnName("updatedDate");
+            entity.Property(e => e.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);
         });
 
         builder.Entity<Refund>(entity =>
@@ -145,6 +171,12 @@ public class SalsCaterSuiteDbContext : IdentityDbContext<ApplicationUser, Applic
                 .HasColumnName("rf_Stat")
                 .HasConversion<int>()
                 .HasDefaultValue(Domain.Enums.RefundStatus.Pending);
+
+            // DEC-038: BaseEntity audit columns (documented generic pattern).
+            entity.Property(e => e.CreatedDate).HasColumnName("createdDate");
+            entity.Property(e => e.CreatedByUser).HasColumnName("createdByUser").HasMaxLength(100);
+            entity.Property(e => e.UpdatedDate).HasColumnName("updatedDate");
+            entity.Property(e => e.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);
         });
 
         // Apply custom configurations

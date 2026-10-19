@@ -1,5 +1,6 @@
 using ClosedXML.Excel;
 using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Domain.Enums;
 
 namespace SalsCaterSuite.Infrastructure.Exports;
 
@@ -34,16 +35,16 @@ public class CateringMonthlyReportExport
         foreach (var b in bookings)
         {
             worksheet.Cell(row, 1).Value = b.TransactionId;
-            worksheet.Cell(row, 2).Value = b.StartDate?.ToString("yyyy-MM-dd");
+            worksheet.Cell(row, 2).Value = b.EventDate.ToString("yyyy-MM-dd");
             worksheet.Cell(row, 3).Value = b.CustomerName;
             worksheet.Cell(row, 4).Value = b.Occasion;
             worksheet.Cell(row, 5).Value = b.Venue;
             worksheet.Cell(row, 6).Value = b.PackageName;
-            worksheet.Cell(row, 7).Value = b.NoOfPerson ?? 0;
-            worksheet.Cell(row, 8).Value = b.PackageAmount ?? 0m;
-            worksheet.Cell(row, 9).Value = b.TotalPayments;
-            worksheet.Cell(row, 10).Value = b.BalanceDue;
-            worksheet.Cell(row, 11).Value = b.IsCancelled ? "Cancelled" : (b.ServeStatus ? "Completed" : "Confirmed");
+            worksheet.Cell(row, 7).Value = b.NumberOfHeads;
+            worksheet.Cell(row, 8).Value = b.PackageAmount;
+            worksheet.Cell(row, 9).Value = b.AmountDue;
+            worksheet.Cell(row, 10).Value = b.Balance;
+            worksheet.Cell(row, 11).Value = b.Status == BookingStatus.Cancelled ? "Cancelled" : (b.Status == BookingStatus.Completed ? "Completed" : "Confirmed");
 
             worksheet.Cell(row, 8).Style.NumberFormat.Format = "#,##0.00";
             worksheet.Cell(row, 9).Style.NumberFormat.Format = "#,##0.00";

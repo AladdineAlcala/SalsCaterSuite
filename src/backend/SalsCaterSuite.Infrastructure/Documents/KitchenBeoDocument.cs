@@ -47,9 +47,9 @@ public class KitchenBeoDocument : IDocument
                     });
                     r.RelativeItem().Column(c =>
                     {
-                        c.Item().Text($"Event Date: {Booking.StartDate:MMMM dd, yyyy}").Bold();
-                        c.Item().Text($"Serving Time: {Booking.StartDate:hh:mm tt} - {Booking.EndDate:hh:mm tt}");
-                        c.Item().Text($"Guaranteed Pax: {Booking.NoOfPerson} Persons").Bold().FontColor(Colors.Blue.Darken2);
+                        c.Item().Text($"Event Date: {Booking.EventDate:MMMM dd, yyyy}").Bold();
+                        c.Item().Text($"Serving Time: {Booking.EventStartTime:hh:mm tt} - {Booking.EventEndTime:hh:mm tt}");
+                        c.Item().Text($"Guaranteed Pax: {Booking.NumberOfHeads} Persons").Bold().FontColor(Colors.Blue.Darken2);
                     });
                     r.RelativeItem().Column(c =>
                     {

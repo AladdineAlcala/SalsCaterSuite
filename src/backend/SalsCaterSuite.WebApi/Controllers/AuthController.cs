@@ -1,28 +1,31 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
-using SalsCaterSuite.Infrastructure.Identity;
+using SalsCaterSuite.Application.Common.Interfaces;
+using SalsCaterSuite.Application.Common.Models;
 
 namespace SalsCaterSuite.WebApi.Controllers;
 
+/// <summary>
+/// Login endpoint. The controller performs no database access (DEC-037): credential
+/// verification goes through the Application's <see cref="IAuthenticationRepository"/>, and
+/// JWT creation — which is pure token composition, not persistence — stays here in the
+/// WebApi layer.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
-    private readonly UserManager<ApplicationUser> _userManager;
-    private readonly SignInManager<ApplicationUser> _signInManager;
+    private readonly IAuthenticationRepository _authenticationRepository;
     private readonly IConfiguration _configuration;
 
     public AuthController(
-        UserManager<ApplicationUser> userManager,
-        SignInManager<ApplicationUser> signInManager,
+        IAuthenticationRepository authenticationRepository,
         IConfiguration configuration)
     {
-        _userManager = userManager;
-        _signInManager = signInManager;
+        _authenticationRepository = authenticationRepository;
         _configuration = configuration;
     }
 
@@ -34,45 +37,45 @@ public class AuthController : ControllerBase
             return BadRequest(new { message = "Username and password are required." });
         }
 
-        var user = await _userManager.FindByNameAsync(request.Username);
-        if (user == null || !user.IsActive)
+        var attempt = await _authenticationRepository.AuthenticateAsync(request.Username, request.Password);
+
+        if (attempt.Status == AuthenticationStatus.UserUnavailable)
         {
             return Unauthorized(new { message = "Invalid credentials or account is inactive." });
         }
 
-        var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
-        if (!result.Succeeded)
+        if (attempt.Status != AuthenticationStatus.Succeeded || attempt.User is null)
         {
             return Unauthorized(new { message = "Invalid credentials." });
         }
 
-        var roles = await _userManager.GetRolesAsync(user);
-        var token = GenerateJwtToken(user, roles);
+        var user = attempt.User;
+        var token = GenerateJwtToken(user);
 
         return Ok(new
         {
             token,
-            userId = user.Id,
+            userId = user.UserId,
             userName = user.UserName,
             fullName = user.FullName,
-            roles = roles
+            roles = user.Roles
         });
     }
 
-    private string GenerateJwtToken(ApplicationUser user, IList<string> roles)
+    private string GenerateJwtToken(AuthenticatedUser user)
     {
         var jwtSection = _configuration.GetSection("Jwt");
         var secretKey = Encoding.UTF8.GetBytes(jwtSection["SecretKey"]!);
 
         var claims = new List<Claim>
         {
-            new(ClaimTypes.NameIdentifier, user.Id),
-            new(ClaimTypes.Name, user.UserName!),
-            new("fullName", user.FullName ?? user.UserName!),
+            new(ClaimTypes.NameIdentifier, user.UserId),
+            new(ClaimTypes.Name, user.UserName),
+            new("fullName", user.FullName),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
-        foreach (var role in roles)
+        foreach (var role in user.Roles)
         {
             claims.Add(new Claim(ClaimTypes.Role, role));
         }

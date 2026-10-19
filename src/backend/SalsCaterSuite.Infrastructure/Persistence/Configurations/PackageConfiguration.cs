@@ -18,11 +18,13 @@ public class PackageConfiguration : IEntityTypeConfiguration<Package>
         builder.Property(e => e.AmountPax).HasColumnName("p_amountPax").HasPrecision(18, 2);
         builder.Property(e => e.MinPax).HasColumnName("p_min");
         builder.Property(e => e.IsActive).HasColumnName("isActive");
+        // DEC-038: all four BaseEntity audit columns are persisted. Package keeps its
+        // existing date_Created/date_Updated convention; the two columns that had no
+        // equivalent use the documented generic pattern.
         builder.Property(e => e.CreatedDate).HasColumnName("date_Created");
+        builder.Property(e => e.CreatedByUser).HasColumnName("createdByUser").HasMaxLength(100);
         builder.Property(e => e.UpdatedDate).HasColumnName("date_Updated");
-
-        builder.Ignore(e => e.CreatedByUser);
-        builder.Ignore(e => e.IsDeleted);
+        builder.Property(e => e.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);
     }
 }
 

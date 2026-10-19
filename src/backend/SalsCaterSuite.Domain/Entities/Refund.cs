@@ -1,3 +1,4 @@
+using SalsCaterSuite.Domain.Common;
 using SalsCaterSuite.Domain.Enums;
 
 namespace SalsCaterSuite.Domain.Entities;
@@ -5,7 +6,7 @@ namespace SalsCaterSuite.Domain.Entities;
 /// <summary>
 /// A refund issued against a cancelled or partially-reversed booking.
 /// </summary>
-public class Refund
+public class Refund : BaseEntity
 {
     public long RefundId { get; set; }
 

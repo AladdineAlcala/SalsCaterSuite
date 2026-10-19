@@ -54,11 +54,16 @@ public class LegacyPasswordHasher<TUser> : PasswordHasher<TUser> where TUser : c
         byte[] expectedSubkey = new byte[subkeyLength];
         Buffer.BlockCopy(hashedPassword, 1 + saltSize, expectedSubkey, 0, subkeyLength);
 
-        byte[] actualSubkey;
-        using (var pbkdf2 = new Rfc2898DeriveBytes(password, salt, 1000, HashAlgorithmName.SHA1))
-        {
-            actualSubkey = pbkdf2.GetBytes(subkeyLength);
-        }
+        // .NET 10 obsoletes the Rfc2898DeriveBytes constructors (SYSLIB0060). The static Pbkdf2
+        // helper is the supported equivalent and produces byte-identical PBKDF2-HMAC-SHA1 output
+        // for the same password, salt, iteration count and output length, so legacy hash
+        // verification behaviour is unchanged.
+        byte[] actualSubkey = Rfc2898DeriveBytes.Pbkdf2(
+            password,
+            salt,
+            iterations: 1000,
+            HashAlgorithmName.SHA1,
+            subkeyLength);
 
         return CryptographicOperations.FixedTimeEquals(actualSubkey, expectedSubkey);
     }

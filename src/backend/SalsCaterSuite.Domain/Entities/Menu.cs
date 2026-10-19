@@ -1,6 +1,8 @@
+using SalsCaterSuite.Domain.Common;
+
 namespace SalsCaterSuite.Domain.Entities;
 
-public class Menu
+public class Menu : BaseEntity
 {
     public string MenuId { get; set; } = string.Empty;
     public int? CourseId { get; set; }

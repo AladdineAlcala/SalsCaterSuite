@@ -22,6 +22,15 @@ public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
         builder.Property(e => e.DateRegistered).HasColumnName("datereg");
         builder.Property(e => e.Company).HasColumnName("company").HasMaxLength(150);
 
+        // DEC-038: BaseEntity audit columns are persisted for every domain entity.
+        // Customer has no pre-existing audit naming convention, so the documented
+        // generic pattern is used (and is shared with Menu, Refund, Reservation,
+        // CourseCategory, Area and AddonDetail).
+        builder.Property(e => e.CreatedDate).HasColumnName("createdDate");
+        builder.Property(e => e.CreatedByUser).HasColumnName("createdByUser").HasMaxLength(100);
+        builder.Property(e => e.UpdatedDate).HasColumnName("updatedDate");
+        builder.Property(e => e.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);
+
         builder.Ignore(e => e.FullName);
     }
 }

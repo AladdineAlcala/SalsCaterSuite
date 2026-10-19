@@ -1,6 +1,8 @@
+using SalsCaterSuite.Domain.Common;
+
 namespace SalsCaterSuite.Domain.Entities;
 
-public class CourseCategory
+public class CourseCategory : BaseEntity
 {
     public int CourseId { get; set; }
     public string CourseName { get; set; } = string.Empty;

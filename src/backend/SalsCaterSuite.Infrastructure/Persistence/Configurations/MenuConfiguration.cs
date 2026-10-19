@@ -23,6 +23,14 @@ public class MenuConfiguration : IEntityTypeConfiguration<Menu>
         builder.Property(e => e.DateAdded).HasColumnName("date_added");
         builder.Property(e => e.DateUpdated).HasColumnName("date_update");
 
+        // DEC-038: BaseEntity audit columns. Note DateAdded/DateUpdated above are the
+        // legacy Menu business columns and are intentionally kept separate from the
+        // audit stamps (see the data dictionary).
+        builder.Property(e => e.CreatedDate).HasColumnName("createdDate");
+        builder.Property(e => e.CreatedByUser).HasColumnName("createdByUser").HasMaxLength(100);
+        builder.Property(e => e.UpdatedDate).HasColumnName("updatedDate");
+        builder.Property(e => e.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);
+
         builder.HasOne(e => e.CourseCategory)
             .WithMany(c => c.Menus)
             .HasForeignKey(e => e.CourseId)

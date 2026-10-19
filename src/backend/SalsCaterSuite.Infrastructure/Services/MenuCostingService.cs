@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
 using SalsCaterSuite.Application.Features.Menus.DTOs;
@@ -6,19 +5,36 @@ using SalsCaterSuite.Application.Features.Menus.Services;
 
 namespace SalsCaterSuite.Infrastructure.Services;
 
+/// <summary>
+/// Menu-costing service (DEC-037). Reads menus through <see cref="IMenuRepository"/>; it
+/// contains no EF Core reference. The costing arithmetic is unchanged.
+/// <para>
+/// The target food-cost percentage is no longer hardcoded: it is read from the deployment
+/// configuration through <see cref="IFoodCostBenchmarkProvider"/>, the same source the
+/// operations dashboard uses, so the menu screen and the dashboard can never disagree
+/// (DEC-040, AC-B8).
+/// </para>
+/// </summary>
 public class MenuCostingService : IMenuCostingService
 {
-    private readonly ISalsCaterSuiteDbContext _context;
+    private readonly IMenuRepository _menus;
+    private readonly IFoodCostBenchmarkProvider _benchmarks;
 
-    public MenuCostingService(ISalsCaterSuiteDbContext context)
+    /// <param name="menus">The menu repository.</param>
+    /// <param name="benchmarks">
+    /// The configured food-cost benchmark. The parameter is optional so the service can still be
+    /// constructed without a configuration provider; in that case the BR-07 default of 35 % is
+    /// used, which is the behaviour the service had before the benchmark became configurable.
+    /// </param>
+    public MenuCostingService(IMenuRepository menus, IFoodCostBenchmarkProvider? benchmarks = null)
     {
-        _context = context;
+        _menus = menus;
+        _benchmarks = benchmarks ?? DefaultFoodCostBenchmarkProvider.Instance;
     }
 
     public async Task<Result<MenuCostingSummaryDto>> CalculateCostingAsync(string menuId, CancellationToken cancellationToken = default)
     {
-        var menu = await _context.Menus
-            .FirstOrDefaultAsync(m => m.MenuId == menuId, cancellationToken);
+        var menu = await _menus.GetByIdAsync(menuId, cancellationToken);
 
         if (menu == null)
         {
@@ -38,7 +54,7 @@ public class MenuCostingService : IMenuCostingService
             FoodCost = foodCost,
             GrossProfit = grossProfit,
             FoodCostPercentage = foodCostPct,
-            TargetFoodCostPercentage = 35.0m
+            TargetFoodCostPercentage = _benchmarks.Current.TargetFoodCostPercentage
         };
 
         return Result<MenuCostingSummaryDto>.Success(dto);
@@ -46,9 +62,8 @@ public class MenuCostingService : IMenuCostingService
 
     public async Task<Result<List<MenuCostingSummaryDto>>> GetAllCostingsAsync(CancellationToken cancellationToken = default)
     {
-        var menus = await _context.Menus
-            .OrderBy(m => m.MenuName)
-            .ToListAsync(cancellationToken);
+        var menus = await _menus.GetOrderedByNameAsync(cancellationToken);
+        var targetFoodCostPercentage = _benchmarks.Current.TargetFoodCostPercentage;
 
         var list = menus.Select(m =>
         {
@@ -65,11 +80,10 @@ public class MenuCostingService : IMenuCostingService
                 FoodCost = foodCost,
                 GrossProfit = grossProfit,
                 FoodCostPercentage = foodCostPct,
-                TargetFoodCostPercentage = 35.0m
+                TargetFoodCostPercentage = targetFoodCostPercentage
             };
         }).ToList();
 
         return Result<List<MenuCostingSummaryDto>>.Success(list);
     }
 }
-
