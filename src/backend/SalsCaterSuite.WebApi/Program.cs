@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using SalsCaterSuite.Application;
@@ -107,7 +108,32 @@ builder.Services.AddScoped<SalsCaterSuite.Application.Common.Interfaces.ICurrent
 
 // JSON contract: enums travel as string names in both directions (approved API contract §8).
 builder.Services.AddControllers()
-    .AddJsonOptions(options => ApiJsonSerializerOptions.Configure(options.JsonSerializerOptions));
+    .AddJsonOptions(options => ApiJsonSerializerOptions.Configure(options.JsonSerializerOptions))
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        // The approved error contract (§7) is `{ "errors": [ "..." ] }` for every request
+        // validation failure — including the framework's automatic 400 for a malformed or an
+        // incomplete request body. The default ProblemDetails body carries an "errors" *object*,
+        // which the clients cannot read with the documented array contract, so the automatic
+        // response is rendered in the approved shape.
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var errors = context.ModelState
+                .Where(entry => entry.Value is { Errors.Count: > 0 })
+                .SelectMany(entry => entry.Value!.Errors.Select(error =>
+                    string.IsNullOrWhiteSpace(error.ErrorMessage)
+                        ? "The request payload is invalid."
+                        : error.ErrorMessage))
+                .ToArray();
+
+            if (errors.Length == 0)
+            {
+                errors = ["The request payload is invalid."];
+            }
+
+            return new BadRequestObjectResult(new { errors });
+        };
+    });
 builder.Services.AddEndpointsApiExplorer();
 
 // Swagger with JWT support

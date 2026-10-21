@@ -25,6 +25,21 @@ public class CreateCustomerValidator : AbstractValidator<CreateCustomerRequestDt
                 }
             });
 
+        // BR-11 / spec §7.3: the maximum lengths of the name columns are part of the
+        // database schema (nvarchar(100) / nvarchar(100) / nvarchar(50)). Without these rules
+        // an over-length name reached SQL Server and produced a truncation error (a 500)
+        // instead of a rejected request.
+        RuleFor(x => x.LastName)
+            .MaximumLength(100)
+            .WithMessage("Last name must not exceed 100 characters.");
+
+        RuleFor(x => x.FirstName)
+            .MaximumLength(100)
+            .WithMessage("First name must not exceed 100 characters.");
+
+        RuleFor(x => x.Middle)
+            .MaximumLength(50)
+            .WithMessage("Middle name must not exceed 50 characters.");
 
         RuleFor(x => x.Address)
             .MaximumLength(200)

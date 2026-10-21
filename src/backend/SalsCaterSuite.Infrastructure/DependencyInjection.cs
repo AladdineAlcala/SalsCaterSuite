@@ -81,6 +81,12 @@ public static class DependencyInjection
         services.AddTransient<CateringMonthlyReportExport>();
         services.AddTransient<CollectionSummaryExport>();
 
+        // The Customer Master directory export (spec §5.5).
+        services.AddTransient<CustomerDirectoryExport>();
+
+        // The Menu & Food Costing Master export (spec §6.3).
+        services.AddTransient<MenuFoodCostingExport>();
+
         return services;
     }
 }

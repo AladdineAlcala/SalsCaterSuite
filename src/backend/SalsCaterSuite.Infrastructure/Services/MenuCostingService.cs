@@ -43,8 +43,9 @@ public class MenuCostingService : IMenuCostingService
 
         var sellingPrice = menu.Price ?? 0m;
         var foodCost = menu.FoodCost ?? 0m;
-        var grossProfit = sellingPrice - foodCost;
-        var foodCostPct = sellingPrice > 0 ? Math.Round((foodCost / sellingPrice) * 100m, 2) : 0m;
+        var grossProfit = MenuCostingCalculator.GrossProfit(sellingPrice, foodCost);
+        var foodCostPct = MenuCostingCalculator.FoodCostPercentage(sellingPrice, foodCost);
+        var grossMarginPct = MenuCostingCalculator.GrossMarginPercentage(sellingPrice, foodCost);
 
         var dto = new MenuCostingSummaryDto
         {
@@ -54,6 +55,7 @@ public class MenuCostingService : IMenuCostingService
             FoodCost = foodCost,
             GrossProfit = grossProfit,
             FoodCostPercentage = foodCostPct,
+            GrossMarginPercentage = grossMarginPct,
             TargetFoodCostPercentage = _benchmarks.Current.TargetFoodCostPercentage
         };
 
@@ -69,8 +71,9 @@ public class MenuCostingService : IMenuCostingService
         {
             var sellingPrice = m.Price ?? 0m;
             var foodCost = m.FoodCost ?? 0m;
-            var grossProfit = sellingPrice - foodCost;
-            var foodCostPct = sellingPrice > 0 ? Math.Round((foodCost / sellingPrice) * 100m, 2) : 0m;
+            var grossProfit = MenuCostingCalculator.GrossProfit(sellingPrice, foodCost);
+            var foodCostPct = MenuCostingCalculator.FoodCostPercentage(sellingPrice, foodCost);
+            var grossMarginPct = MenuCostingCalculator.GrossMarginPercentage(sellingPrice, foodCost);
 
             return new MenuCostingSummaryDto
             {
@@ -80,6 +83,7 @@ public class MenuCostingService : IMenuCostingService
                 FoodCost = foodCost,
                 GrossProfit = grossProfit,
                 FoodCostPercentage = foodCostPct,
+                GrossMarginPercentage = grossMarginPct,
                 TargetFoodCostPercentage = targetFoodCostPercentage
             };
         }).ToList();

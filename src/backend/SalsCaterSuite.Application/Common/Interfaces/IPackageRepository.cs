@@ -23,6 +23,16 @@ public interface IPackageRepository
     /// <summary>Single-package projection.</summary>
     Task<PackageDto?> GetProjectionByIdAsync(int packageId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// The catalogue aggregate (spec §3.2, DEC-068, KPI-25..KPI-28) — the counts, the rate
+    /// average and range and the headcount-floor range of the catalogue.
+    /// <para>
+    /// The soft-deleted tiers are excluded by the query itself, exactly as the dashboard's
+    /// queries exclude them (DEC-045 / DEC-050 — there is no global query filter).
+    /// </para>
+    /// </summary>
+    Task<PackageCatalogueSummaryDto> GetCatalogueSummaryAsync(CancellationToken cancellationToken = default);
+
     Task AddAsync(Package package, CancellationToken cancellationToken = default);
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

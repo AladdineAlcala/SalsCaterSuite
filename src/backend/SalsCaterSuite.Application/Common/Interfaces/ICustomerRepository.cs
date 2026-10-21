@@ -15,6 +15,15 @@ using SalsCaterSuite.Domain.Entities;
 /// query rather than degrading to client-side evaluation.
 /// </para>
 /// <para>
+/// The Customer Master's directory projection
+/// (<see cref="GetDirectoryProjectionAsync"/>, <see cref="GetDirectoryItemsAsync"/>) is
+/// hosted here for the same reason: the customer-level filters (search, classification,
+/// soft-delete) and the ordering are applied by the database, while the money figures are
+/// composed in the Application layer through the single shared
+/// <c>BookingAmountDueCalculator</c> overload so the directory, the statement, the ledger
+/// and the dashboard can never disagree (DEC-042, DEC-046).
+/// </para>
+/// <para>
 /// Atomicity: every repository implementation shares the request-scoped
 /// <c>SalsCaterSuiteDbContext</c>, so a single <see cref="SaveChangesAsync"/> commits the
 /// entire pending change set.
@@ -35,6 +44,35 @@ public interface ICustomerRepository
 
     /// <summary>Single-customer projection carrying the DEC-025 receivables aggregate.</summary>
     Task<CustomerDto?> GetProjectionByIdAsync(int customerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The paged Customer Master directory (spec §5.1). The returned summary describes the
+    /// whole filtered result set, not the returned page; the returned quick-view counts
+    /// describe the search-filtered population with the type and AR-state filters ignored.
+    /// </summary>
+    /// <param name="search">Case-insensitive substring over last name, first name, company and contact 1.</param>
+    /// <param name="customerType"><c>Corporate</c> or <c>Private</c>; anything else is ignored.</param>
+    /// <param name="arState"><c>Clean</c>, <c>Open</c>, <c>Overdue30</c> or <c>Overdue60</c>; anything else is ignored.</param>
+    /// <param name="page">The 1-based page number.</param>
+    /// <param name="pageSize">The page size.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<CustomerDirectoryDto> GetDirectoryProjectionAsync(
+        string? search,
+        string? customerType,
+        string? arState,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The whole filtered directory result set, without paging — the XLSX export of the
+    /// current filtered result set (spec §5.5).
+    /// </summary>
+    Task<List<CustomerDirectoryItemDto>> GetDirectoryItemsAsync(
+        string? search,
+        string? customerType,
+        string? arState,
+        CancellationToken cancellationToken = default);
 
     Task AddAsync(Customer customer, CancellationToken cancellationToken = default);
 

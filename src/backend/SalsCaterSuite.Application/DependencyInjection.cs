@@ -5,6 +5,7 @@ using SalsCaterSuite.Application.Features.Bookings.Queries;
 using SalsCaterSuite.Application.Features.Calendar.Queries;
 using SalsCaterSuite.Application.Features.Customers.Commands;
 using SalsCaterSuite.Application.Features.Customers.Queries;
+using SalsCaterSuite.Application.Features.Customers.Services;
 using SalsCaterSuite.Application.Features.Dashboard.Queries;
 using SalsCaterSuite.Application.Features.Dashboard.Services;
 using SalsCaterSuite.Application.Features.Menus.Commands;
@@ -40,13 +41,21 @@ public static class DependencyInjection
         services.AddScoped<GetCustomersQuery>();
         services.AddScoped<GetCustomerByIdQuery>();
         services.AddScoped<GetCustomerStatementQuery>();
+        services.AddScoped<GetCustomerDirectoryQuery>();
         services.AddScoped<CreateCustomerCommand>();
         services.AddScoped<UpdateCustomerCommand>();
+
+        // The one aging vocabulary shared by the customer directory and the customer
+        // statement (spec §3, DEC-052). It resolves "today" from IDateTime, so the Customer
+        // Master and the operations dashboard age the same bookings on the same day.
+        services.AddScoped<ICustomerAgingService, CustomerAgingService>();
 
         // Menus
         services.AddScoped<GetMenusQuery>();
         services.AddScoped<GetCoursesQuery>();
         services.AddScoped<GetMenuByIdQuery>();
+        services.AddScoped<GetMenuMasterQuery>();
+        services.AddScoped<PreviewMenuCostingQuery>();
         services.AddScoped<CreateMenuCommand>();
         services.AddScoped<UpdateMenuCommand>();
         services.AddScoped<DeleteMenuCommand>();
@@ -54,6 +63,7 @@ public static class DependencyInjection
         // Packages
         services.AddScoped<GetPackagesQuery>();
         services.AddScoped<GetPackageByIdQuery>();
+        services.AddScoped<GetPackageCatalogueSummaryQuery>();
         services.AddScoped<CreatePackageCommand>();
         services.AddScoped<UpdatePackageCommand>();
         services.AddScoped<TogglePackageActiveCommand>();
