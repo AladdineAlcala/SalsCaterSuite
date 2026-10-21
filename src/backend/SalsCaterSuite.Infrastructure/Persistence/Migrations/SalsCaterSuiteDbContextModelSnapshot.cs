@@ -210,11 +210,25 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("createdDate");
 
+                    b.Property<int?>("DistanceKm")
+                        .HasColumnType("int")
+                        .HasColumnName("distanceKm");
+
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false)
                         .HasColumnName("is_deleted");
+
+                    b.Property<decimal?>("LogisticsCost")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("logisticsCost");
+
+                    b.Property<string>("LogisticsNote")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)")
+                        .HasColumnName("logisticsNote");
 
                     b.Property<DateTime?>("UpdatedDate")
                         .HasColumnType("datetime2")
@@ -721,6 +735,133 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                     b.ToTable("Package", (string)null);
                 });
 
+            modelBuilder.Entity("SalsCaterSuite.Domain.Entities.PackageAreaCoverage", b =>
+                {
+                    b.Property<int>("PackageAreaCoverageId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("pac_id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PackageAreaCoverageId"));
+
+                    b.Property<int>("AreaId")
+                        .HasColumnType("int")
+                        .HasColumnName("areaId");
+
+                    b.Property<string>("CreatedByUser")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("createdByUser");
+
+                    b.Property<DateTime?>("CreatedDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("createdDate");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true)
+                        .HasColumnName("isActive");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_deleted");
+
+                    b.Property<int>("PackageId")
+                        .HasColumnType("int")
+                        .HasColumnName("p_id");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("updatedDate");
+
+                    b.HasKey("PackageAreaCoverageId");
+
+                    b.HasIndex("AreaId");
+
+                    b.HasIndex("PackageId", "AreaId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_PackageAreaCoverage_Package_Area")
+                        .HasFilter("[is_deleted] = 0");
+
+                    b.ToTable("PackageAreaCoverage", (string)null);
+                });
+
+            modelBuilder.Entity("SalsCaterSuite.Domain.Entities.PackageCourseRule", b =>
+                {
+                    b.Property<int>("PackageCourseRuleId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("pcr_id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PackageCourseRuleId"));
+
+                    b.Property<int>("CourseId")
+                        .HasColumnType("int")
+                        .HasColumnName("courseId");
+
+                    b.Property<string>("CreatedByUser")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("createdByUser");
+
+                    b.Property<DateTime?>("CreatedDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("createdDate");
+
+                    b.Property<string>("InclusionTag")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("inclusionTag");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_deleted");
+
+                    b.Property<int>("PackageId")
+                        .HasColumnType("int")
+                        .HasColumnName("p_id");
+
+                    b.Property<int?>("PortionGrams")
+                        .HasColumnType("int")
+                        .HasColumnName("portionGrams");
+
+                    b.Property<int>("RequiredQuota")
+                        .HasColumnType("int")
+                        .HasColumnName("requiredQuota");
+
+                    b.Property<string>("RuleDescription")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("ruleDescription");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("updatedDate");
+
+                    b.Property<int?>("UpgradeAddonId")
+                        .HasColumnType("int")
+                        .HasColumnName("addonId");
+
+                    b.HasKey("PackageCourseRuleId");
+
+                    b.HasIndex("CourseId");
+
+                    b.HasIndex("UpgradeAddonId");
+
+                    b.HasIndex("PackageId", "CourseId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_PackageCourseRule_Package_Course")
+                        .HasFilter("[is_deleted] = 0");
+
+                    b.ToTable("PackageCourseRule", (string)null);
+                });
+
             modelBuilder.Entity("SalsCaterSuite.Domain.Entities.Payment", b =>
                 {
                     b.Property<string>("PaymentNo")
@@ -1114,6 +1255,41 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                     b.Navigation("CourseCategory");
                 });
 
+            modelBuilder.Entity("SalsCaterSuite.Domain.Entities.PackageAreaCoverage", b =>
+                {
+                    b.HasOne("SalsCaterSuite.Domain.Entities.Area", null)
+                        .WithMany()
+                        .HasForeignKey("AreaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SalsCaterSuite.Domain.Entities.Package", null)
+                        .WithMany("AreaCoverages")
+                        .HasForeignKey("PackageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SalsCaterSuite.Domain.Entities.PackageCourseRule", b =>
+                {
+                    b.HasOne("SalsCaterSuite.Domain.Entities.CourseCategory", null)
+                        .WithMany()
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SalsCaterSuite.Domain.Entities.Package", null)
+                        .WithMany("CourseRules")
+                        .HasForeignKey("PackageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SalsCaterSuite.Domain.Entities.AddonDetail", null)
+                        .WithMany()
+                        .HasForeignKey("UpgradeAddonId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("SalsCaterSuite.Domain.Entities.Payment", b =>
                 {
                     b.HasOne("SalsCaterSuite.Domain.Entities.Booking", "Booking")
@@ -1168,7 +1344,11 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("SalsCaterSuite.Domain.Entities.Package", b =>
                 {
+                    b.Navigation("AreaCoverages");
+
                     b.Navigation("Bookings");
+
+                    b.Navigation("CourseRules");
                 });
 #pragma warning restore 612, 618
         }

@@ -68,6 +68,22 @@ public static class DependencyInjection
         services.AddScoped<UpdatePackageCommand>();
         services.AddScoped<TogglePackageActiveCommand>();
 
+        // The Package Configuration Workbench (REQ-PKG-02). The validators are picked up by
+        // AddValidatorsFromAssembly above; the use cases are registered by hand.
+        services.AddScoped<GetPackageCourseRulesetQuery>();
+        services.AddScoped<GetPackageAreaCoverageMatrixQuery>();
+        services.AddScoped<GetPackageSpecSheetQuery>();
+        services.AddScoped<PreviewPackageCourseRuleQuery>();
+        services.AddScoped<PreviewPackageLocationQuery>();
+        services.AddScoped<ReplacePackageCourseRulesCommand>();
+        services.AddScoped<ReplacePackageAreaCoverageCommand>();
+        services.AddScoped<AttachPackageAreaCoverageCommand>();
+
+        // The municipality catalogue (REQ-PKG-02).
+        services.AddScoped<GetAreasQuery>();
+        services.AddScoped<CreateAreaCommand>();
+        services.AddScoped<UpdateAreaCommand>();
+
         // Dashboard (REQ-DSH-01) — the read-only operations aggregate.
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<GetDashboardQuery>();

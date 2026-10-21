@@ -54,6 +54,12 @@ public static class DependencyInjection
         services.AddScoped<IMenuRepository, Persistence.Repositories.MenuRepository>();
         services.AddScoped<ICourseCategoryRepository, Persistence.Repositories.CourseCategoryRepository>();
 
+        // The Package Configuration Workbench repositories (REQ-PKG-02, DEC-077). They share the
+        // same request-scoped context, so a ruleset replacement commits as one change set.
+        services.AddScoped<IPackageCourseRuleRepository, Persistence.Repositories.PackageCourseRuleRepository>();
+        services.AddScoped<IPackageAreaCoverageRepository, Persistence.Repositories.PackageAreaCoverageRepository>();
+        services.AddScoped<IAreaRepository, Persistence.Repositories.AreaRepository>();
+
         // Identity credential lookup (DEC-037). The WebApi login endpoint resolves this
         // neutral Application contract; UserManager/SignInManager stay inside the
         // repositories layer.

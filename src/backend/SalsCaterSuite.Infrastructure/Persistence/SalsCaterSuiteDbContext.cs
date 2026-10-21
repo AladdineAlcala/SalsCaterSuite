@@ -25,6 +25,11 @@ public class SalsCaterSuiteDbContext : IdentityDbContext<ApplicationUser, Applic
     public DbSet<AddonDetail> AddonDetails => Set<AddonDetail>();
     public DbSet<Discount> Discounts => Set<Discount>();
 
+    // REQ-PKG-02 (DEC-077): the course-coverage ruleset and the package-to-municipality
+    // coverage matrix.
+    public DbSet<PackageCourseRule> PackageCourseRules => Set<PackageCourseRule>();
+    public DbSet<PackageAreaCoverage> PackageAreaCoverages => Set<PackageAreaCoverage>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -72,21 +77,6 @@ public class SalsCaterSuiteDbContext : IdentityDbContext<ApplicationUser, Applic
             entity.HasKey(e => e.CourseId).HasName("PK_CourseCategory");
             entity.Property(e => e.CourseId).HasColumnName("courseId");
             entity.Property(e => e.CourseName).HasColumnName("course").HasMaxLength(100);
-
-            // DEC-038: BaseEntity audit columns (documented generic pattern).
-            entity.Property(e => e.CreatedDate).HasColumnName("createdDate");
-            entity.Property(e => e.CreatedByUser).HasColumnName("createdByUser").HasMaxLength(100);
-            entity.Property(e => e.UpdatedDate).HasColumnName("updatedDate");
-            entity.Property(e => e.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);
-        });
-
-        builder.Entity<Area>(entity =>
-        {
-            entity.ToTable("Area");
-            entity.HasKey(e => e.AreaId);
-            entity.Property(e => e.AreaId).HasColumnName("areaId");
-            entity.Property(e => e.AreaDetails).HasColumnName("areaDetails").HasMaxLength(150);
-            entity.Property(e => e.AdditionalRate).HasColumnName("additionalRate").HasPrecision(18, 2);
 
             // DEC-038: BaseEntity audit columns (documented generic pattern).
             entity.Property(e => e.CreatedDate).HasColumnName("createdDate");
@@ -185,6 +175,12 @@ public class SalsCaterSuiteDbContext : IdentityDbContext<ApplicationUser, Applic
         builder.ApplyConfiguration(new MenuConfiguration());
         builder.ApplyConfiguration(new CustomerConfiguration());
         builder.ApplyConfiguration(new PackageConfiguration());
+        builder.ApplyConfiguration(new AreaConfiguration());
+
+        // REQ-PKG-02 (DEC-077): the course-coverage ruleset and the coverage matrix, with their
+        // filtered unique indexes (DEC-088).
+        builder.ApplyConfiguration(new PackageCourseRuleConfiguration());
+        builder.ApplyConfiguration(new PackageAreaCoverageConfiguration());
     }
 }
 
