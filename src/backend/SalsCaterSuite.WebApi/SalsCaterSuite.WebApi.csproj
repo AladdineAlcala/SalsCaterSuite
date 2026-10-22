@@ -10,6 +10,25 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.13" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.13" />
     <!--
+      REQ-OPS-01 — operational logging (DEC-092). Serilog owns the logging pipeline; the
+      "Serilog" section of appsettings.json is the destination list (BR-23) and the
+      "Logging:RequestLogging" section is the record content (§5.2).
+      Serilog.AspNetCore 10.0.0 brings Serilog 4.3.0, Serilog.Extensions.Hosting 10.0.0 and
+      Serilog.Sinks.Debug 3.0.0 transitively; the sinks and the configuration reader are
+      declared here because this project references them directly.
+    -->
+    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+    <PackageReference Include="Serilog.Settings.Configuration" Version="10.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
+    <PackageReference Include="Serilog.Formatting.Compact" Version="3.0.0" />
+    <!--
+      Declared directly because this project references Serilog.Core, Serilog.Context and
+      Serilog.Events (the logger, the log context and the event model) itself. The version is the
+      one Serilog.AspNetCore 10.0.0 already resolves, so the graph is unchanged (DEC-096).
+    -->
+    <PackageReference Include="Serilog" Version="4.3.0" />
+    <!--
       Design-time-only dependency required for the EF Core CLI (`dotnet ef`) to resolve the
       DbContext against this startup project. PrivateAssets=all keeps it out of the published
       application and out of downstream consumers.

@@ -148,11 +148,10 @@ public class DatabaseSeeder : IDatabaseSeeder
             _logger.LogWarning(
                 "==============================================================================\n" +
                 "DEVELOPMENT ONLY: Seed:Admin:Password is not configured. A well-known fallback\n" +
-                "password is being used for the bootstrap administrator ('{Email}'). This credential\n" +
+                "password is being used for the bootstrap administrator. This credential\n" +
                 "MUST NOT be used outside local development and MUST be changed before any shared,\n" +
                 "staging or production deployment.\n" +
-                "==============================================================================",
-                email);
+                "==============================================================================");
         }
 
         // Idempotency: match by email (primary natural key), falling back to user name so a
@@ -165,9 +164,12 @@ public class DatabaseSeeder : IDatabaseSeeder
 
         if (existing is not null)
         {
+            // BR-21 - the rolling log file must not carry the administrator's login name, which in
+            // this deployment is the account's e-mail address. The account is named by its id
+            // instead: the diagnostic survives, the identifier does not (DEC-097).
             _logger.LogInformation(
-                "Bootstrap administrator already present ('{UserName}'). Seeding skipped; the existing account is left untouched.",
-                existing.UserName);
+                "Bootstrap administrator already present (id '{AccountId}'). Seeding skipped; the existing account is left untouched.",
+                existing.Id);
             return;
         }
 
@@ -188,9 +190,10 @@ public class DatabaseSeeder : IDatabaseSeeder
         var createResult = await _userManager.CreateAsync(user, password);
         if (!createResult.Succeeded)
         {
+            // BR-21 / DEC-097 — the log file must not carry the administrator's login name, which in
+            // this deployment is the account's e-mail address. The failure detail is in {Errors}.
             _logger.LogError(
-                "Failed to create bootstrap administrator '{Email}': {Errors}",
-                email,
+                "Failed to create bootstrap administrator: {Errors}",
                 Describe(createResult));
             return;
         }
@@ -198,17 +201,20 @@ public class DatabaseSeeder : IDatabaseSeeder
         var addRoleResult = await _userManager.AddToRoleAsync(user, Roles.Administrator);
         if (!addRoleResult.Succeeded)
         {
+            // BR-21 / DEC-097 — the account is named by its id, never by its login name.
             _logger.LogError(
-                "Created bootstrap administrator '{Email}' but failed to assign role '{Role}': {Errors}",
-                email,
+                "Created bootstrap administrator (id '{AccountId}') but failed to assign role '{Role}': {Errors}",
+                user.Id,
                 Roles.Administrator,
                 Describe(addRoleResult));
             return;
         }
 
+        // BR-21 / DEC-097 — the account is named by its id, never by its login name: the log file
+        // must not carry the administrator's e-mail address.
         _logger.LogInformation(
-            "Seeded bootstrap administrator '{UserName}' with role '{Role}'.",
-            userName,
+            "Seeded bootstrap administrator (id '{AccountId}') with role '{Role}'.",
+            user.Id,
             Roles.Administrator);
     }
 

@@ -6,8 +6,10 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using SalsCaterSuite.Application;
 using SalsCaterSuite.Application.Common.Authorization;
+using Serilog;
 using SalsCaterSuite.Infrastructure;
 using SalsCaterSuite.Infrastructure.Persistence;
+using SalsCaterSuite.WebApi.Logging;
 using SalsCaterSuite.WebApi.Middleware;
 using SalsCaterSuite.WebApi.Serialization;
 using SalsCaterSuite.WebApi.Services;
@@ -15,6 +17,17 @@ using SalsCaterSuite.WebApi.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // ─── Services ──────────────────────────────────────────────────────────────
+// Serilog owns the logging pipeline (DEC-092). UseSerilog on the host builder REPLACES the
+// default providers (it calls ClearProviders) and reads the "Serilog" section of the
+// configuration, which is the sink list — the "text file or DataDog" switch (BR-23.1, DEC-095).
+builder.Host.UseSerilog((context, loggerConfiguration) => SerilogLoggingConfiguration
+    .Configure(context.Configuration, context.HostingEnvironment.EnvironmentName, loggerConfiguration));
+
+// The request logger's *behaviour* is configuration, not code (specification §5.2).
+builder.Services.Configure<RequestLoggingOptions>(
+    builder.Configuration.GetSection(RequestLoggingOptions.SectionName));
+builder.Services.AddSingleton<SensitiveDataRedactor>();
+
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
 
@@ -96,6 +109,16 @@ builder.Services.AddAuthorization(options =>
 
 // Global mapping: unhandled DomainException → HTTP 400 { "errors": [ ... ] } (DEC-014).
 builder.Services.AddExceptionHandler<DomainExceptionHandler>();
+
+// The operational failure event (REQ-OPS-01, AC-OPS-02). It is registered AFTER the domain
+// exception handler on purpose: IExceptionHandler implementations are invoked in registration
+// order and the chain stops at the first one that answers. A DomainException must therefore be
+// answered by DomainExceptionHandler — the approved 400 { "errors": [...] } envelope, recorded by
+// the request-completion event at the client-error level and by DomainExceptionHandler's own
+// Warning — and NOT as a failure event. The request-logging handler therefore observes exactly
+// the exceptions the domain handler declines, i.e. genuine faults, and it returns false so that
+// the response contract stays exactly as it is (DEC-026, AC-OPS-16).
+builder.Services.AddExceptionHandler<RequestLoggingExceptionHandler>();
 
 // Required fallback for app.UseExceptionHandler() with no ExceptionHandlingPath/ExceptionHandler
 // configured: any fault not handled by DomainExceptionHandler is rendered as a 500 ProblemDetails
@@ -214,6 +237,10 @@ if (applyMigrationsOnStartup || seedOnStartup)
 }
 
 // ─── Middleware pipeline ────────────────────────────────────────────────────
+// The operational request logger is the OUTERMOST middleware (specification §4.4): it observes
+// the exception object before the exception handler clears the response, and it wraps the
+// handler so the 400 { "errors": [...] } envelope is captured as the response body.
+app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
