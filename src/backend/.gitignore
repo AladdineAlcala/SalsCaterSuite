@@ -196,10 +196,20 @@ PublishScripts/
 *.nupkg
 # NuGet Symbol Packages
 *.snupkg
-# The packages folder can be ignored because of Package Restore
-**/[Pp]ackages/*
-# except build/, which is used as an MSBuild target.
-!**/[Pp]ackages/build/
+# The NuGet restore folder is ignored because of Package Restore.
+#
+# NOTE: this rule was previously `**/[Pp]ackages/*` (and `!**/[Pp]ackages/build/`),
+# copied from the VisualStudio template. That pattern matches the SOURCE feature
+# folder `SalsCaterSuite.Application/Features/Packages`, so it silently excluded
+# the entire package-configuration module from version control: the files were
+# never staged, never committed, and a fresh clone could not compile the
+# Application project (CS0234 on Features.Packages).
+#
+# PackageReference restores into the global package cache
+# (%USERPROFILE%\.nuget\packages) and this repository has no repository-local
+# restore folder, so the rule is anchored to the solution root and can no longer
+# match a source folder.
+/packages/*
 # Uncomment if necessary however generally it will be regenerated when needed
 #!**/[Pp]ackages/repositories.config
 # NuGet v3's project.json files produces more ignorable files
