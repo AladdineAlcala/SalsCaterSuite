@@ -1,0 +1,89 @@
+# ---------------------------------------------------------------------------
+# Sal's CaterSuite — repository-root ignore rules
+#
+# Scope note: this file governs the WHOLE monorepo. The backend project keeps
+# its own scoped ignore file at src/backend/.gitignore, which still applies to
+# everything under src/backend/. Anything not matched there is handled here.
+# ---------------------------------------------------------------------------
+
+# --- Node / frontend -------------------------------------------------------
+
+# The root package.json has no dependencies — the dev orchestrator uses only
+# Node built-ins. This entry is here in case a root-level install is ever added.
+node_modules/
+
+# Frontend build output (src/frontend/salscatersuite-ui/dist) and test coverage.
+dist/
+dist-ssr/
+coverage/
+*.local
+
+# --- Logs -------------------------------------------------------------------
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# The API's rolling request/response log (REQ-OPS-01, BR-23). It is a
+# runtime artefact that can contain customer names and transaction amounts
+# (DEC-093) and must never be committed.
+logs/
+
+# --- .NET build output -----------------------------------------------------
+# Required for the root-level test projects under tests/, which sit outside
+# the scope of src/backend/.gitignore.
+
+bin/
+obj/
+artifacts/
+TestResults/
+[Bb]uild[Ll]og.*
+*.binlog
+*.user
+*.suo
+*.userosscache
+*.dbmdl
+coverage*.json
+coverage*.xml
+coverage*.info
+*.coverage
+*.coveragexml
+
+# --- Visual Studio / IDE ---------------------------------------------------
+
+.vs/
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# --- Secrets and local configuration ---------------------------------------
+
+# opencode.json holds the live Context7 MCP bearer token. It is a local
+# credential file and must never be committed. Use opencode.json.example as
+# the versioned template and supply the token through the environment.
+opencode.json
+
+# Local environment / secret files.
+.env
+.env.*
+!.env.example
+
+# Publishing and signing material.
+*.pfx
+*.publishsettings
+*.snk
+
+# --- Database artefacts ----------------------------------------------------
+
+*.mdf
+*.ldf
+*.ndf
+
+# --- OS noise --------------------------------------------------------------
+
+.DS_Store
+Thumbs.db
+Desktop.ini

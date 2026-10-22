@@ -1,0 +1,140 @@
+/*
+ * Sal's CaterSuite - global stylesheet.
+ *
+ * Tailwind CSS v4 (DEC-098).
+ *
+ * The design tokens live in `tailwind.config.js` (the implementation of
+ * `business/dashboard-feature-spec.md` section 9.1) and are loaded here with
+ * `@config`, so the v3 -> v4 migration changes no token value. The v3 file's
+ * `content` array is deliberately NOT used: v4 resolves source files from CSS
+ * instead, and the scan scope is pinned explicitly below so the build does not
+ * depend on the working directory it is invoked from.
+ */
+
+@import "tailwindcss" source(none);
+
+/* The design-token source of truth. See the header comment in that file. */
+@config "../tailwind.config.js";
+
+/* Scan scope - the v3 `content` array, expressed in v4's CSS terms. */
+@source "../index.html";
+@source "./**/*.{ts,tsx}";
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: #faf8f5; /* artisan-canvas */
+    color: #1a120b; /* espresso-900 */
+    font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /*
+   * Visible focus ring for every keyboard-reachable element (WCAG 2.4.7).
+   */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid #16a34a; /* culinary-600 */
+    outline-offset: 2px;
+  }
+
+  /*
+   * Form controls use the design's emerald halo instead of a plain outline.
+   */
+  :where(input, select, textarea):focus-visible {
+    outline: none;
+    border-color: #16a34a;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.12);
+  }
+
+  /*
+   * Default border colour.
+   *
+   * v3's Preflight reset every element to `border: 0 solid #e5e7eb` (Tailwind's
+   * cool `gray-200`). v4 resets to `border: 0 solid`, which leaves the colour at
+   * `currentColor` - so a bare `border` would render in the inherited text
+   * colour (espresso-900) instead of the light hairline. The design system's
+   * hairline is the warm `artisan-border`, so the reset is restored here to
+   * keep the approved appearance; any element that names a border colour
+   * (`border-artisan-border`, `border-culinary-600`, ...) still overrides it.
+   */
+  *,
+  ::before,
+  ::after,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: #e5e7eb; /* gray-200, the v3 Preflight default */
+  }
+
+  /*
+   * Placeholder colour.
+   *
+   * v3's Preflight hard-coded Tailwind's cool `gray-400` (#9ca3af), which is
+   * off-palette for this warm design and fails WCAG 1.4.1 against a white
+   * field (2.23:1). v4 changed the default to `currentColor` at 50% opacity,
+   * which on an espresso-900 field is also wrong. The design system's own
+   * placeholder token is `espresso-400` (4.53:1 on white), so it is pinned
+   * here for every control; the two inputs that already set
+   * `placeholder:text-espresso-400` resolve to the same value.
+   */
+  ::placeholder {
+    color: #8c7362; /* espresso-400 */
+    opacity: 1;
+  }
+
+  /*
+   * Pointer cursor on buttons.
+   *
+   * v3's Preflight set `button, [role="button"] { cursor: pointer }`. v4
+   * removed it, so without this rule every button in the application loses
+   * its pointer cursor. Disabled controls keep the default cursor, and the
+   * `disabled:cursor-not-allowed` utility on the shared Button still wins
+   * over this base rule.
+   */
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+
+  /* Tabular numerals on numeric tables / readouts so values never shift width. */
+  table,
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    background-color: #dcfce7; /* culinary-100 */
+    color: #166534; /* culinary-800 */
+  }
+}
+
+@layer components {
+  /*
+   * KPI card headline.
+   *
+   * The headline carries a full-precision peso value (e.g. "₱1,425,800.00"),
+   * which is wider than a quarter of the content width once the grid reaches
+   * four columns. The card is a size container, so the headline scales with
+   * the space it actually has instead of overflowing its card. The maximum is
+   * the `data-lg` token (28px / weight 800 / -0.02em).
+   */
+  .kpi-card {
+    container-type: inline-size;
+  }
+
+  .kpi-headline {
+    font-size: clamp(0.875rem, 12cqi, 1.75rem);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    font-weight: 800;
+  }
+}

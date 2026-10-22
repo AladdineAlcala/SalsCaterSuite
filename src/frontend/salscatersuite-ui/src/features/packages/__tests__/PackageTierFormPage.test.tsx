@@ -1,0 +1,329 @@
+import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { AxiosResponse } from 'axios'
+import { apiClient, ApiError } from '@/api/apiClient'
+import { PackageTierFormPage } from '@/features/packages/PackageTierFormPage'
+import {
+  PACKAGE_LIST_QUERY_KEY,
+  PACKAGE_SUMMARY_QUERY_KEY,
+} from '@/features/packages/hooks/usePackageCatalogue'
+import { packageTierFixture } from '@/test/packageFixture'
+import { createTestQueryClient } from '@/test/testHelpers'
+
+function axiosResponse(data: unknown, status = 200): AxiosResponse {
+  return {
+    data,
+    status,
+    statusText: 'OK',
+    headers: {},
+    config: { headers: {} } as AxiosResponse['config'],
+  }
+}
+
+function renderTierForm(route: string) {
+  const queryClient = createTestQueryClient()
+  const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+  const utils = render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[route]}>
+        <Routes>
+          <Route path="/packages" element={<div>Package catalogue</div>} />
+          <Route path="/packages/new" element={<PackageTierFormPage />} />
+          <Route path="/packages/:packageId/edit" element={<PackageTierFormPage />} />
+          <Route path="/packages/:packageId/rules" element={<div>Course rules workbench</div>} />
+          <Route
+            path="/packages/:packageId/locations"
+            element={<div>Location matrix workbench</div>}
+          />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+  return { ...utils, queryClient, invalidateSpy }
+}
+
+/** Routes each call to the payload that matches its endpoint. */
+function mockApi() {
+  vi.spyOn(apiClient, 'get').mockImplementation(
+    async (url: string): Promise<AxiosResponse> => {
+      if (url.includes('/packages/')) return axiosResponse(packageTierFixture)
+      return axiosResponse({})
+    },
+  )
+  vi.spyOn(apiClient, 'post').mockResolvedValue(axiosResponse({ packageId: 91 }))
+  vi.spyOn(apiClient, 'put').mockResolvedValue(axiosResponse(null, 204))
+}
+
+describe('PackageTierFormPage', () => {
+  beforeEach(() => {
+    mockApi()
+  })
+
+  it('seeds the edit form from the tier the API published', async () => {
+    renderTierForm('/packages/12/edit')
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Tier type')).toHaveValue('Wedding')
+    })
+    expect(screen.getByLabelText('Tier name')).toHaveValue('Wedding Grand Tier')
+    expect(screen.getByLabelText('Rate per guest')).toHaveValue(1450)
+    expect(screen.getByLabelText('Minimum pax')).toHaveValue(150)
+    expect(screen.getByRole('button', { name: 'Save Changes' })).toBeInTheDocument()
+  })
+
+  it('offers the known tier names as suggestions without imposing them', async () => {
+    renderTierForm('/packages/new')
+
+    const options = screen
+      .getByLabelText('Tier type')
+      .closest('div')
+      ?.querySelectorAll('datalist option')
+
+    expect(options).toHaveLength(6)
+    expect(Array.from(options ?? []).map((option) => option.getAttribute('value'))).toEqual([
+      'Regular',
+      'Wedding',
+      'Vip',
+      'Premier',
+      'Pm',
+      'Sd',
+    ])
+
+    // A value outside the suggestion list is accepted and never rewritten.
+    await userEvent.type(screen.getByLabelText('Tier type'), 'Merienda')
+    expect(screen.getByLabelText('Tier type')).toHaveValue('Merienda')
+  })
+
+  it('rejects a blank tier type on the client with the server wording', async () => {
+    const postSpy = vi.spyOn(apiClient, 'post')
+
+    renderTierForm('/packages/new')
+
+    await userEvent.type(screen.getByLabelText('Tier name'), 'Wedding Grand Tier')
+    await userEvent.click(screen.getByRole('button', { name: 'Save Package' }))
+
+    expect(await screen.findByText('Package type is required.')).toBeInTheDocument()
+    expect(postSpy).not.toHaveBeenCalled()
+  })
+
+  it('caps the tier type at the column length', async () => {
+    renderTierForm('/packages/new')
+
+    // The column is nvarchar(50), so the browser must not accept more than the
+    // server would store (DEC-075).
+    expect(screen.getByLabelText('Tier type')).toHaveAttribute('maxlength', '50')
+    expect(screen.getByLabelText('Tier name')).toHaveAttribute('maxlength', '250')
+  })
+
+  it('rejects a blank tier name on the client and never calls the API', async () => {
+    const postSpy = vi.spyOn(apiClient, 'post')
+
+    renderTierForm('/packages/new')
+
+    await userEvent.type(screen.getByLabelText('Tier type'), 'Wedding')
+    await userEvent.click(screen.getByRole('button', { name: 'Save Package' }))
+
+    // The client message is the server's own wording, so the operator reads one
+    // message wherever the request is rejected (DEC-075).
+    expect(await screen.findByText('Package description is required.')).toBeInTheDocument()
+    expect(postSpy).not.toHaveBeenCalled()
+
+    // The message sits under the field it belongs to.
+    const nameField = screen.getByLabelText('Tier name').closest('div') as HTMLElement
+    expect(within(nameField).getByText('Package description is required.')).toBeInTheDocument()
+  })
+
+  it('rejects a negative rate and a minimum pax below one on the client', async () => {
+    const postSpy = vi.spyOn(apiClient, 'post')
+
+    renderTierForm('/packages/new')
+
+    await userEvent.type(screen.getByLabelText('Tier type'), 'Wedding')
+    await userEvent.type(screen.getByLabelText('Tier name'), 'Wedding Grand Tier')
+    await userEvent.type(screen.getByLabelText('Rate per guest'), '-10')
+    await userEvent.type(screen.getByLabelText('Minimum pax'), '0')
+    await userEvent.click(screen.getByRole('button', { name: 'Save Package' }))
+
+    expect(await screen.findByText('Rate per guest must be zero or greater.')).toBeInTheDocument()
+    expect(screen.getByText('Minimum pax must be at least 1.')).toBeInTheDocument()
+    expect(postSpy).not.toHaveBeenCalled()
+  })
+
+  it('renders the server’s errors verbatim and keeps the typed input', async () => {
+    vi.spyOn(apiClient, 'post').mockRejectedValue(
+      new ApiError(400, [
+        'Package description is required.',
+        'Rate per guest must be zero or greater.',
+      ]),
+    )
+
+    renderTierForm('/packages/new')
+
+    await userEvent.type(screen.getByLabelText('Tier type'), 'Wedding')
+    await userEvent.type(screen.getByLabelText('Tier name'), 'Wedding Grand Tier')
+    await userEvent.type(screen.getByLabelText('Rate per guest'), '1450')
+    await userEvent.click(screen.getByRole('button', { name: 'Save Package' }))
+
+    expect(await screen.findByText('Package description is required.')).toBeInTheDocument()
+    expect(screen.getByText('Rate per guest must be zero or greater.')).toBeInTheDocument()
+
+    // The operator's input survived the rejected save (AC-P11).
+    expect(screen.getByLabelText('Tier type')).toHaveValue('Wedding')
+    expect(screen.getByLabelText('Tier name')).toHaveValue('Wedding Grand Tier')
+    expect(screen.getByLabelText('Rate per guest')).toHaveValue(1450)
+  })
+
+  it('creates the tier and returns to the catalogue', async () => {
+    const postSpy = vi.spyOn(apiClient, 'post')
+    const { invalidateSpy } = renderTierForm('/packages/new')
+
+    await userEvent.type(screen.getByLabelText('Tier type'), 'Wedding')
+    await userEvent.type(screen.getByLabelText('Tier name'), 'Wedding Grand Tier')
+    await userEvent.type(screen.getByLabelText('Rate per guest'), '1450')
+    await userEvent.type(screen.getByLabelText('Minimum pax'), '150')
+    await userEvent.click(screen.getByRole('button', { name: 'Save Package' }))
+
+    await waitFor(() => {
+      expect(postSpy).toHaveBeenCalledWith('/packages', {
+        packageType: 'Wedding',
+        description: 'Wedding Grand Tier',
+        amountPax: 1450,
+        minPax: 150,
+      })
+    })
+
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: [PACKAGE_LIST_QUERY_KEY] })
+    })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: [PACKAGE_SUMMARY_QUERY_KEY] })
+    expect(await screen.findByText('Package catalogue')).toBeInTheDocument()
+  })
+
+  it('updates the tier and returns to the catalogue after a successful save', async () => {
+    const putSpy = vi.spyOn(apiClient, 'put')
+    const { invalidateSpy } = renderTierForm('/packages/12/edit')
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Tier name')).toHaveValue('Wedding Grand Tier')
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+
+    await waitFor(() => {
+      expect(putSpy).toHaveBeenCalledWith('/packages/12', {
+        packageType: 'Wedding',
+        description: 'Wedding Grand Tier',
+        amountPax: 1450,
+        minPax: 150,
+      })
+    })
+
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: [PACKAGE_LIST_QUERY_KEY] })
+    })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: [PACKAGE_SUMMARY_QUERY_KEY] })
+    expect(await screen.findByText('Package catalogue')).toBeInTheDocument()
+  })
+
+  it('sends a null rate and a null headcount when the operator leaves them empty', async () => {
+    const postSpy = vi.spyOn(apiClient, 'post')
+
+    renderTierForm('/packages/new')
+
+    await userEvent.type(screen.getByLabelText('Tier type'), 'Sd')
+    await userEvent.type(screen.getByLabelText('Tier name'), 'Special Diet Tailored')
+    await userEvent.click(screen.getByRole('button', { name: 'Save Package' }))
+
+    await waitFor(() => {
+      expect(postSpy).toHaveBeenCalledWith('/packages', {
+        packageType: 'Sd',
+        description: 'Special Diet Tailored',
+        amountPax: null,
+        minPax: null,
+      })
+    })
+  })
+
+  it('cancels back to the catalogue without a write', async () => {
+    const postSpy = vi.spyOn(apiClient, 'post')
+    const putSpy = vi.spyOn(apiClient, 'put')
+
+    renderTierForm('/packages/new')
+
+    await userEvent.type(screen.getByLabelText('Tier type'), 'Wedding')
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(await screen.findByText('Package catalogue')).toBeInTheDocument()
+    expect(postSpy).not.toHaveBeenCalled()
+    expect(putSpy).not.toHaveBeenCalled()
+  })
+
+  it('renders the error state when the tier cannot be loaded', async () => {
+    vi.spyOn(apiClient, 'get').mockRejectedValue(
+      new ApiError(404, ['No package tier was found for that reference.']),
+    )
+
+    renderTierForm('/packages/404/edit')
+
+    const alert = await screen.findByRole('alert', undefined, { timeout: 8000 })
+    expect(
+      within(alert).getByText('No package tier was found for that reference.'),
+    ).toBeInTheDocument()
+    expect(within(alert).getByRole('button', { name: /retry/i })).toBeInTheDocument()
+  })
+
+  it('offers the course-rules link for a saved tier and opens it', async () => {
+    renderTierForm('/packages/12/edit')
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Tier name')).toHaveValue('Wedding Grand Tier')
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Course Rules' }))
+
+    expect(await screen.findByText('Course rules workbench')).toBeInTheDocument()
+  })
+
+  it('offers the location-coverage link for a saved tier and opens it', async () => {
+    renderTierForm('/packages/12/edit')
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Tier name')).toHaveValue('Wedding Grand Tier')
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Location Coverage' }))
+
+    expect(await screen.findByText('Location matrix workbench')).toBeInTheDocument()
+  })
+
+  it('keeps the workbench links inactive until the tier is saved', async () => {
+    renderTierForm('/packages/new')
+
+    await screen.findByLabelText('Tier name')
+
+    expect(
+      screen.getByText('Save the tier first to open its course rules and its location coverage.'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Course Rules' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+  })
+
+  it('replaces the course-allocation and venue-coverage gaps with the workbench links', async () => {
+    renderTierForm('/packages/12/edit')
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Tier name')).toHaveValue('Wedding Grand Tier')
+    })
+
+    expect(screen.queryByText('Course allocations unavailable')).not.toBeInTheDocument()
+    expect(screen.queryByText('Venue coverage unavailable')).not.toBeInTheDocument()
+    expect(screen.getByText('Stored per-tier food cost unavailable')).toBeInTheDocument()
+    expect(screen.getByText('Event inclusions unavailable')).toBeInTheDocument()
+    expect(screen.getAllByTestId('capability-gap-notice')).toHaveLength(2)
+  })
+})

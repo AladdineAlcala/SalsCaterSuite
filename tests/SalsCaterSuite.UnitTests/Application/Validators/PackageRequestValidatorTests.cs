@@ -1,0 +1,174 @@
+namespace SalsCaterSuite.UnitTests.Application.Validators;
+
+using FluentAssertions;
+using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.Validators;
+using Xunit;
+
+/// <summary>
+/// The package write validation rules (spec §3.3, BR-11, DEC-069).
+/// <para>
+/// Before this correction neither package write command ran a validator, so a blank tier type,
+/// a blank description, a negative rate and a minimum headcount below one reached the database.
+/// </para>
+/// </summary>
+public class PackageRequestValidatorTests
+{
+    private readonly PackageRequestValidator _validator = new();
+
+    private static CreatePackageRequestDto Valid() =>
+        new("Buffet Premium", "Premium buffet package", 650m, 100);
+
+    [Fact]
+    public async Task A_valid_payload_should_pass()
+    {
+        var result = await _validator.ValidateAsync(Valid());
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task The_package_type_should_be_required()
+    {
+        var request = Valid() with { PackageType = "   " };
+
+        var result = await _validator.ValidateAsync(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage == "Package type is required.");
+    }
+
+    [Fact]
+    public async Task The_package_type_should_not_exceed_the_allowed_length()
+    {
+        // The column is nvarchar(50), so 51 characters must be refused here rather than
+        // reaching the database and failing as an unhandled 500 (DEC-075).
+        var request = Valid() with { PackageType = new string('x', 51) };
+
+        var result = await _validator.ValidateAsync(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage == "Package type must not exceed 50 characters.");
+    }
+
+    [Fact]
+    public async Task A_fifty_character_package_type_should_pass()
+    {
+        var request = Valid() with { PackageType = new string('x', 50) };
+
+        (await _validator.ValidateAsync(request)).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task The_description_should_be_required()
+    {
+        var request = Valid() with { Description = string.Empty };
+
+        var result = await _validator.ValidateAsync(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage == "Package description is required.");
+    }
+
+    [Fact]
+    public async Task The_description_should_not_exceed_the_allowed_length()
+    {
+        var request = Valid() with { Description = new string('d', 251) };
+
+        var result = await _validator.ValidateAsync(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage == "Package description must not exceed 250 characters.");
+    }
+
+    [Fact]
+    public async Task A_two_hundred_and_fifty_character_description_should_pass()
+    {
+        var request = Valid() with { Description = new string('d', 250) };
+
+        (await _validator.ValidateAsync(request)).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task The_rate_should_not_be_negative()
+    {
+        var request = Valid() with { AmountPax = -0.01m };
+
+        var result = await _validator.ValidateAsync(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage == "Rate per guest must be zero or greater.");
+    }
+
+    [Fact]
+    public async Task A_zero_rate_should_pass()
+    {
+        var request = Valid() with { AmountPax = 0m };
+
+        (await _validator.ValidateAsync(request)).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task An_absent_rate_should_pass()
+    {
+        // A null rate means "not priced" — it is not an error (spec §3.3).
+        var request = Valid() with { AmountPax = null };
+
+        (await _validator.ValidateAsync(request)).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task The_minimum_pax_should_be_at_least_one()
+    {
+        var request = Valid() with { MinPax = 0 };
+
+        var result = await _validator.ValidateAsync(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage == "Minimum pax must be at least 1.");
+    }
+
+    [Fact]
+    public async Task A_negative_minimum_pax_should_be_rejected()
+    {
+        var request = Valid() with { MinPax = -5 };
+
+        var result = await _validator.ValidateAsync(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage == "Minimum pax must be at least 1.");
+    }
+
+    [Fact]
+    public async Task An_absent_minimum_pax_should_pass()
+    {
+        // A null floor means "not set" — it is not an error (spec §3.3).
+        var request = Valid() with { MinPax = null };
+
+        (await _validator.ValidateAsync(request)).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task An_unknown_tier_type_should_pass()
+    {
+        // DEC-070: the column is free text and the type is not restricted to the PackageType
+        // enum members — the legacy import may carry other values.
+        var request = Valid() with { PackageType = "Wedding Grand" };
+
+        (await _validator.ValidateAsync(request)).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Every_broken_rule_should_be_reported_at_once()
+    {
+        var request = new CreatePackageRequestDto(string.Empty, string.Empty, -1m, 0);
+
+        var result = await _validator.ValidateAsync(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage == "Package type is required.");
+        result.Errors.Should().Contain(e => e.ErrorMessage == "Package description is required.");
+        result.Errors.Should().Contain(e => e.ErrorMessage == "Rate per guest must be zero or greater.");
+        result.Errors.Should().Contain(e => e.ErrorMessage == "Minimum pax must be at least 1.");
+    }
+}

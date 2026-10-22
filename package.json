@@ -1,0 +1,18 @@
+{
+  "name": "salscatersuite",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Sal's CaterSuite — root task runner for the .NET 10 API and the React (Vite) UI.",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:api": "dotnet watch run --project src/backend/SalsCaterSuite.WebApi/SalsCaterSuite.WebApi.csproj --launch-profile http",
+    "dev:web": "npm --prefix src/frontend/salscatersuite-ui run dev",
+    "setup": "npm --prefix src/frontend/salscatersuite-ui install",
+    "build": "npm run build:api && npm run build:web",
+    "build:api": "dotnet build src/backend/SalsCaterSuite.slnx",
+    "build:web": "npm --prefix src/frontend/salscatersuite-ui run build",
+    "test": "npm run test:api && npm run test:web",
+    "test:api": "dotnet test src/backend/SalsCaterSuite.slnx && dotnet test tests/SalsCaterSuite.IntegrationTests/SalsCaterSuite.IntegrationTests.csproj",
+    "test:web": "npm --prefix src/frontend/salscatersuite-ui run test"
+  }
+}

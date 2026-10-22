@@ -1,0 +1,21 @@
+# Datadog Agent configuration for the Sal's CaterSuite API log (REQ-OPS-01, DEC-095)
+#
+# Install as:  /etc/datadog-agent/conf.d/csharp.d/conf.yaml
+# Reload with: sudo systemctl restart datadog-agent && sudo agent status
+#
+# The application writes one JSON object per line to a rolling file under logs/
+# (see appsettings.json -> Serilog:WriteTo). Adjust `path` to wherever the
+# file sink is configured to write. The Agent's user must be able to READ it.
+
+init_config:
+
+instances:
+
+  - name: salscatersuite-api
+    logs:
+      - type: file
+        path: "/var/log/salscatersuite/salscatersuite-*.log"
+        service: "salscatersuite-api"
+        source: csharp
+        sourcecategory: sourcecode
+        tags: "env:production,app:salscatersuite"
