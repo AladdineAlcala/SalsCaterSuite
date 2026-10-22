@@ -271,6 +271,10 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
+                    b.Property<TimeSpan?>("CallTime")
+                        .HasColumnType("time")
+                        .HasColumnName("callTime");
+
                     b.Property<string>("CreatedByUser")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)")
@@ -293,6 +297,11 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
                         .HasColumnName("discountAmount");
+
+                    b.Property<string>("DiscountCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("discountCode");
 
                     b.Property<decimal>("DiscountPercentage")
                         .HasPrecision(18, 4)
@@ -319,6 +328,13 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                     b.Property<TimeSpan>("EventStartTime")
                         .HasColumnType("time")
                         .HasColumnName("startTime");
+
+                    b.Property<decimal>("ExtendedAreaAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("extendedAreaAmount");
 
                     b.Property<int?>("ExtendedAreaId")
                         .HasColumnType("int")
@@ -352,6 +368,10 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)")
                         .HasColumnName("p_name");
+
+                    b.Property<TimeSpan?>("PackoutTime")
+                        .HasColumnType("time")
+                        .HasColumnName("packoutTime");
 
                     b.Property<decimal>("PricePerHead")
                         .HasPrecision(18, 2)

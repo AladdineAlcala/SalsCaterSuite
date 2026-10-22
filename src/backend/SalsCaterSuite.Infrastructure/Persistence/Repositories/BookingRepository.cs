@@ -125,6 +125,92 @@ public class BookingRepository : IBookingRepository
             .ToListAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// The Bookings &amp; Events Register's base population (REQ-BKG-05, spec §3.3).
+    /// <para>
+    /// Every non-soft-deleted booking whose status is not <c>Cancelled</c>, narrowed by the
+    /// search term and the inclusive event-date range. The Customer, the Package, the
+    /// municipality and the Payment rows are loaded, because the Application layer derives the
+    /// net amount due, the collected amount, the payment state and the overdue flag from them.
+    /// </para>
+    /// <para>
+    /// The population is deliberately <b>unpaged</b>: the totals strip and the facet counts
+    /// describe the whole filtered population, not the page (RSK-056).
+    /// </para>
+    /// <para>
+    /// The soft-deleted exclusions are applied by this query — no global query filter is
+    /// introduced (DEC-038, DEC-045, DEC-111). A soft-deleted <b>payment</b> is excluded from
+    /// the loaded rows, so it is neither summed nor listed anywhere (BR-27).
+    /// </para>
+    /// </summary>
+    public async Task<IReadOnlyList<Booking>> GetRegisterPopulationAsync(
+        string? search,
+        DateOnly? fromDate,
+        DateOnly? toDate,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.Bookings
+            .AsNoTracking()
+            .AsSplitQuery()
+            .Include(b => b.Customer)
+            .Include(b => b.Package)
+            .Include(b => b.ExtendedArea)
+            .Include(b => b.Payments.Where(p => !p.IsDeleted))
+            .Where(b => !b.IsDeleted && b.Status != BookingStatus.Cancelled);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            // The search is a case-insensitive substring over the booking number, the occasion,
+            // the venue, the customer's first and last name and the customer's company
+            // (BR-32). The customer name is matched on its two parts because the composed
+            // FullName is not a stored column and cannot be translated into SQL.
+            var term = search.ToLower();
+            query = query.Where(b =>
+                b.BookingNumber.ToLower().Contains(term) ||
+                (b.Occasion != null && b.Occasion.ToLower().Contains(term)) ||
+                (b.Venue != null && b.Venue.ToLower().Contains(term)) ||
+                b.Customer.FirstName.ToLower().Contains(term) ||
+                b.Customer.LastName.ToLower().Contains(term) ||
+                (b.Customer.Company != null && b.Customer.Company.ToLower().Contains(term)));
+        }
+
+        if (fromDate.HasValue)
+        {
+            query = query.Where(b => b.EventDate >= fromDate.Value);
+        }
+
+        if (toDate.HasValue)
+        {
+            query = query.Where(b => b.EventDate <= toDate.Value);
+        }
+
+        return await query
+            .OrderBy(b => b.EventDate)
+            .ThenBy(b => b.TransactionId)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The live bookings (not soft-deleted, not cancelled) whose event date falls inside the
+    /// inclusive range — the near-term commissary load (KPI-38).
+    /// </summary>
+    public async Task<IReadOnlyList<Booking>> GetLiveBookingsInRangeAsync(
+        DateOnly fromDate,
+        DateOnly toDate,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Bookings
+            .AsNoTracking()
+            .Where(b =>
+                !b.IsDeleted &&
+                b.Status != BookingStatus.Cancelled &&
+                b.EventDate >= fromDate &&
+                b.EventDate <= toDate)
+            .OrderBy(b => b.EventDate)
+            .ThenBy(b => b.TransactionId)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task AddAsync(Booking booking, CancellationToken cancellationToken = default)
     {
         await _context.Bookings.AddAsync(booking, cancellationToken);

@@ -1,5 +1,6 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
+using SalsCaterSuite.Application.Features.Bookings.Services;
 using SalsCaterSuite.Application.Features.Calendar.DTOs;
 using SalsCaterSuite.Application.Services;
 using SalsCaterSuite.Domain.Enums;
@@ -33,7 +34,9 @@ public class GetCalendarEventsQuery
         var events = bookings.Select(b =>
         {
             // The sum of Payment rows is the authoritative "amount paid" (DEC-012).
-            var totalPaid = b.Payments.Sum(p => p.AmountPaid);
+            // A soft-deleted payment is excluded (BR-27, DEC-111), exactly as the operations
+            // dashboard excludes it.
+            var totalPaid = BookingPaymentPopulation.Collected(b);
 
             // Use the frozen price snapshot — never the live package price.
             // The shared overload keeps the argument set in one place (DEC-042).

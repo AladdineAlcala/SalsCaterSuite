@@ -37,6 +37,17 @@ public class Booking : BaseEntity
     public Area? ExtendedArea { get; set; }
     public bool ApplyExtendedAmount { get; set; } = false;
 
+    // ─────────────── Dispatch Schedule (DEC-106) ───────────────
+    /// <summary>
+    /// The kitchen call time. Frozen at creation (DEC-106). <c>null</c> = not stated.
+    /// </summary>
+    public TimeSpan? CallTime { get; private set; }
+
+    /// <summary>
+    /// The pack-out time. Frozen at creation (DEC-106). <c>null</c> = not stated.
+    /// </summary>
+    public TimeSpan? PackoutTime { get; private set; }
+
     // ─────────────── Event Details ───────────────
     public string? Venue { get; set; }
     public DateOnly EventDate { get; set; }
@@ -60,6 +71,29 @@ public class Booking : BaseEntity
     public decimal AmountDue { get; private set; }
     public decimal DepositAmount { get; private set; }
     public decimal AmountPaid { get; private set; }
+
+    /// <summary>
+    /// The <b>frozen</b> code of the discount that was applied (DEC-106, BR-02).
+    /// <para>
+    /// The discount's <b>amount</b> was already stored; the <b>code</b> is what makes the
+    /// booking auditable — it says <i>which</i> discount was applied, so a later change to the
+    /// discount catalogue can never alter the stored booking (BR-04). <c>null</c> = no discount
+    /// was applied.
+    /// </para>
+    /// </summary>
+    public string? DiscountCode { get; private set; }
+
+    /// <summary>
+    /// The <b>frozen</b> out-of-town surcharge in pesos (BR-26, DEC-116).
+    /// <para>
+    /// This is a column of its own and <b>not</b> an inference from
+    /// <c>Subtotal − PackageAmount</c>: <see cref="Subtotal"/> conflates the surcharge with
+    /// the add-on total and the other charges, and <see cref="ApplyExtendedAmount"/> is a
+    /// creation-time switch rather than a money switch. The stored amount is what the shared
+    /// calculator charges, so flipping the flag after the booking exists can never move it.
+    /// </para>
+    /// </summary>
+    public decimal ExtendedAreaAmount { get; private set; }
 
     /// <summary>
     /// Computed balance. Always non-negative. A negative would indicate overpayment,
@@ -110,7 +144,11 @@ public class Booking : BaseEntity
         decimal pricePerHead = 0m,
         int? extendedAreaId = null,
         bool applyExtendedAmount = false,
-        string? specialInstructions = null)
+        string? specialInstructions = null,
+        TimeSpan? callTime = null,
+        TimeSpan? packoutTime = null,
+        string? discountCode = null,
+        decimal extendedAreaAmount = 0m)
     {
         if (customerId <= 0)
             throw new DomainException("A valid customer is required.");
@@ -118,6 +156,8 @@ public class Booking : BaseEntity
             throw new DomainException("Number of persons must be greater than zero.");
         if (endDate < startDate)
             throw new DomainException("Event end date must not be before start date.");
+        if (extendedAreaAmount < 0m)
+            throw new DomainException("The extended area amount cannot be negative.");
 
         var booking = new Booking
         {
@@ -136,12 +176,15 @@ public class Booking : BaseEntity
             SpecialInstructions = specialInstructions,
             ExtendedAreaId = extendedAreaId,
             ApplyExtendedAmount = applyExtendedAmount,
+            CallTime = callTime,
+            PackoutTime = packoutTime,
+            DiscountCode = discountCode,
             Status = BookingStatus.Pending,
             TransactionDate = DateTime.UtcNow,
         };
 
         // Freeze the price snapshot
-        booking.SetPriceSnapshot(packageName, pricePerHead, noOfPerson);
+        booking.SetPriceSnapshot(packageName, pricePerHead, noOfPerson, extendedAreaAmount);
 
         return booking;
     }
@@ -150,13 +193,16 @@ public class Booking : BaseEntity
     /// Freezes package name and per-head rate. Called only at creation;
     /// subsequent price-list changes must NOT call this on existing bookings.
     /// </summary>
-    private void SetPriceSnapshot(string? packageName, decimal pricePerHead, int noOfPerson)
+    private void SetPriceSnapshot(string? packageName, decimal pricePerHead, int noOfPerson, decimal extendedAreaAmount)
     {
         PackageName = packageName;
         PricePerHead = pricePerHead;
         PackageAmount = pricePerHead * noOfPerson;
-        Subtotal = PackageAmount;
-        AmountDue = PackageAmount; // will be recalculated once discounts/addons are applied
+        // The frozen out-of-town surcharge (BR-26, DEC-116) — a column of its own, charged
+        // exactly once by the shared calculator.
+        ExtendedAreaAmount = extendedAreaAmount;
+        Subtotal = PackageAmount + extendedAreaAmount;
+        AmountDue = Subtotal; // will be recalculated once discounts/addons are applied
     }
 
     /// <summary>
@@ -190,6 +236,9 @@ public class Booking : BaseEntity
         decimal discountAmount,
         decimal taxAmount)
     {
+        // The frozen surcharge is written once, here, and read directly by the shared
+        // calculator (BR-26, DEC-116). It is never inferred from the subtotal.
+        ExtendedAreaAmount = extendedAreaAmount;
         Subtotal = PackageAmount + extendedAreaAmount + addonsAmount;
         DiscountAmount = Math.Min(discountAmount, Subtotal);        // cap at subtotal
         TaxAmount = taxAmount;

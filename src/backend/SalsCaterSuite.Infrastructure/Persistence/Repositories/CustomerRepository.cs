@@ -2,6 +2,7 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Repositories;
 
 using Microsoft.EntityFrameworkCore;
 using SalsCaterSuite.Application.Common.Interfaces;
+using SalsCaterSuite.Application.Features.Bookings.Services;
 using SalsCaterSuite.Application.Features.Customers;
 using SalsCaterSuite.Application.Features.Customers.DTOs;
 using SalsCaterSuite.Application.Features.Customers.Services;
@@ -110,12 +111,14 @@ public class CustomerRepository : ICustomerRepository
                 // Accounts Receivable = Σ max(0, NetAmountDue − PaymentsReceived) over
                 // non-cancelled bookings, using the authoritative payment sum (DEC-025).
                 // AmountDue is the frozen net amount due, so no pricing is recomputed here.
+                // A soft-deleted payment is excluded from the SQL roll-up as well
+                // (BR-27, DEC-111) — it is not money the business holds.
                 TotalReceivables = c.Bookings!
                     .Where(b => b.Status != BookingStatus.Cancelled)
                     .Select(b => new
                     {
                         b.AmountDue,
-                        AmountPaid = b.Payments!.Sum(p => p.AmountPaid)
+                        AmountPaid = b.Payments!.Where(p => !p.IsDeleted).Sum(p => p.AmountPaid)
                     })
                     .Where(x => x.AmountDue > x.AmountPaid)
                     .Sum(x => x.AmountDue - x.AmountPaid)
@@ -506,9 +509,14 @@ public class CustomerRepository : ICustomerRepository
     /// <summary>
     /// The authoritative amount paid for a booking: the sum of its <c>Payment</c> rows
     /// (DEC-012). The denormalized <c>Booking.AmountPaid</c> cache is never used.
+    /// <para>
+    /// A soft-deleted payment is excluded (BR-27, DEC-111) — the rule lives in
+    /// <see cref="BookingPaymentPopulation"/>, so the directory, the profile, the statement,
+    /// the calendar feed, the ledger and the register cannot drift apart.
+    /// </para>
     /// </summary>
     private static decimal AmountPaid(Booking booking) =>
-        booking.Payments?.Sum(p => p.AmountPaid) ?? 0m;
+        BookingPaymentPopulation.Collected(booking);
 
     /// <summary>The customer's derived figures.</summary>
     private sealed record CustomerRollUp(

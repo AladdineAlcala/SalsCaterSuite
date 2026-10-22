@@ -1,7 +1,10 @@
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
+using SalsCaterSuite.Application.Common.Interfaces;
+using SalsCaterSuite.Application.Features.Bookings;
 using SalsCaterSuite.Application.Features.Bookings.Commands;
 using SalsCaterSuite.Application.Features.Bookings.Queries;
+using SalsCaterSuite.Application.Features.Bookings.Services;
 using SalsCaterSuite.Application.Features.Calendar.Queries;
 using SalsCaterSuite.Application.Features.Customers.Commands;
 using SalsCaterSuite.Application.Features.Customers.Queries;
@@ -33,6 +36,27 @@ public static class DependencyInjection
         services.AddScoped<CancelBookingCommand>();
         services.AddScoped<GetBookingDetailsQuery>();
         services.AddScoped<GetBookingLedgerQuery>();
+
+        // The Bookings & Events Register and the Reservation Workbench (REQ-BKG-05). The
+        // validators are picked up by AddValidatorsFromAssembly above; the use cases are
+        // registered by hand.
+        services.AddScoped<BookingPricingService>();
+        services.AddScoped<BookingTierEstimateService>();
+        services.AddScoped<BookingRegisterPopulationService>();
+        services.AddScoped<GetBookingRegisterQuery>();
+        services.AddScoped<GetBookingRegisterSummaryQuery>();
+        services.AddScoped<PreviewBookingQuoteCommand>();
+
+        // The collaborators the extended create path needs. They are gathered in one object so
+        // the create command keeps a single, stable constructor (DEC-114).
+        services.AddScoped<BookingCreateCapabilities>(provider => new BookingCreateCapabilities
+        {
+            Areas = provider.GetRequiredService<IAreaRepository>(),
+            Discounts = provider.GetRequiredService<IDiscountRepository>(),
+            Payments = provider.GetRequiredService<IPaymentRepository>(),
+            Policy = provider.GetRequiredService<IBookingPolicyProvider>(),
+            Pricing = provider.GetRequiredService<BookingPricingService>()
+        });
 
         // Calendar
         services.AddScoped<GetCalendarEventsQuery>();

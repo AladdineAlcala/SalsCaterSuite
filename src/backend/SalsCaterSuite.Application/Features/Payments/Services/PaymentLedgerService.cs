@@ -1,5 +1,6 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
+using SalsCaterSuite.Application.Features.Bookings.Services;
 using SalsCaterSuite.Application.Features.Payments.DTOs;
 using SalsCaterSuite.Application.Services;
 using SalsCaterSuite.Domain.Entities;
@@ -33,23 +34,37 @@ public class PaymentLedgerService : IPaymentLedgerService
 
     public async Task<Result<PaymentEntryDto>> RecordPaymentAsync(RecordPaymentRequestDto request, CancellationToken cancellationToken = default)
     {
-        var booking = await _bookings.GetByIdAsync(request.TransactionId, cancellationToken);
+        // The booking is loaded with its payment rows, because the overpayment guard needs the
+        // authoritative collected amount (DEC-118).
+        var booking = await _bookings.GetWithPaymentsAsync(request.TransactionId, cancellationToken);
 
         if (booking == null)
         {
             return Result<PaymentEntryDto>.Failure("Booking transaction not found.");
         }
 
-        // Generate formatted receipt number e.g. OR-YYYYMMDD-XXXX
-        var datePrefix = DateTime.UtcNow.ToString("yyyyMMdd");
-        var countToday = await _payments.CountCreatedOnDateAsync(DateTime.UtcNow, cancellationToken);
-        var paymentNo = $"OR-{datePrefix}-{(countToday + 1):D4}";
+        // BR-05's overpayment prohibition (DEC-118). A payment that would take the total above
+        // the net amount due is refused, and NOTHING is written: no payment row, no status
+        // change and no change to the cached AmountPaid.
+        var collected = BookingPaymentPopulation.Collected(booking);
+        var netAmountDue = _calculator.Calculate(booking, collected).NetAmountDue;
+
+        if (collected + request.AmountPaid > netAmountDue)
+        {
+            return Result<PaymentEntryDto>.Failure(
+                "The payment would take the total collected above the net amount due of the booking.");
+        }
+
+        // The receipt number comes from the ONE generator, shared with the booking create path
+        // (DEC-112). The race the sequence can still lose stays open (RSK-013).
+        var now = DateTime.UtcNow;
+        var paymentNo = await ReceiptNumberGenerator.GenerateAsync(_payments, now, cancellationToken);
 
         var payment = new Payment
         {
             PaymentNo = paymentNo,
             TransactionId = request.TransactionId,
-            DateOfPayment = DateTime.UtcNow,
+            DateOfPayment = now,
             Particular = request.Particular,
             AmountPaid = request.AmountPaid,
             PaymentMeans = request.PaymentMeans,
@@ -105,6 +120,7 @@ public class PaymentLedgerService : IPaymentLedgerService
         }
 
         var payments = booking.Payments
+            .Where(p => !p.IsDeleted)          // a soft-deleted payment is not listed (DEC-111)
             .OrderBy(p => p.DateOfPayment)
             .Select(p => new PaymentEntryDto
             {

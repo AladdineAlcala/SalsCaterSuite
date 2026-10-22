@@ -58,6 +58,44 @@ public interface IBookingRepository
     /// </summary>
     Task<IReadOnlyList<Booking>> GetDashboardUpcomingBookingsAsync(DateOnly fromDate, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// The Bookings &amp; Events Register's <b>base population</b> (REQ-BKG-05, spec §3.3).
+    /// <para>
+    /// Every non-soft-deleted booking whose status is not <c>Cancelled</c>, narrowed by the
+    /// <b>search</b> term and the <b>inclusive</b> event-date range — the two base filters. The
+    /// status, tier-type, venue, payment-state and overdue filters are <b>facet</b> filters and
+    /// are applied by the Application layer, because the payment state and the overdue
+    /// dimension have no column and cannot be expressed in SQL (spec §3.3, RSK-056).
+    /// </para>
+    /// <para>
+    /// The Customer, the Package, the municipality and the Payment rows are loaded, because the
+    /// Application layer computes the net amount due, the collected amount, the payment state
+    /// and the overdue flag from them. The population is deliberately <b>unpaged</b>: the totals
+    /// strip and the facet counts must describe the whole filtered population, not the page.
+    /// </para>
+    /// <para>
+    /// The soft-deleted exclusions are applied by this query — no global query filter is
+    /// introduced (DEC-038, DEC-045, DEC-111).
+    /// </para>
+    /// </summary>
+    Task<IReadOnlyList<Booking>> GetRegisterPopulationAsync(
+        string? search,
+        DateOnly? fromDate,
+        DateOnly? toDate,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The live bookings (not soft-deleted, not cancelled) whose event date falls inside the
+    /// inclusive range — the near-term commissary load (KPI-38) and the quote's capacity gauge.
+    /// <para>
+    /// The population is bounded by the date range so the gauge does not read the whole book.
+    /// </para>
+    /// </summary>
+    Task<IReadOnlyList<Booking>> GetLiveBookingsInRangeAsync(
+        DateOnly fromDate,
+        DateOnly toDate,
+        CancellationToken cancellationToken = default);
+
     Task AddAsync(Booking booking, CancellationToken cancellationToken = default);
 
     void Update(Booking booking);

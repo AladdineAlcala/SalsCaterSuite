@@ -66,6 +66,12 @@ public class BookingConfiguration : IEntityTypeConfiguration<Booking>
         builder.Property(e => e.EventEndTime).HasColumnName("endTime");
         builder.Property(e => e.SpecialInstructions).HasColumnName("specialInstructions").HasMaxLength(500);
 
+        // ── Dispatch Schedule (DEC-106) ──────────────────────────────────────
+        // Two nullable time(0) columns: the kitchen call time and the pack-out time. They
+        // are frozen at creation.
+        builder.Property(e => e.CallTime).HasColumnName("callTime");
+        builder.Property(e => e.PackoutTime).HasColumnName("packoutTime");
+
         // ── Price Snapshot (frozen at creation) ──────────────────────────────
         builder.Property(e => e.PackageName).HasColumnName("p_name").HasMaxLength(250);
         builder.Property(e => e.PricePerHead).HasColumnName("p_pricePerHead").HasPrecision(18, 2);
@@ -82,6 +88,20 @@ public class BookingConfiguration : IEntityTypeConfiguration<Booking>
         builder.Property(e => e.AmountDue).HasColumnName("amountDue").HasPrecision(18, 2);
         builder.Property(e => e.DepositAmount).HasColumnName("depositAmount").HasPrecision(18, 2);
         builder.Property(e => e.AmountPaid).HasColumnName("amountPaid").HasPrecision(18, 2);
+
+        // The frozen code of the applied discount (DEC-106, BR-02). It is what makes the
+        // booking auditable — the amount was already stored.
+        builder.Property(e => e.DiscountCode).HasColumnName("discountCode").HasMaxLength(50);
+
+        // The frozen out-of-town surcharge (BR-26, DEC-116). It is a column of its own and is
+        // NEVER inferred from Subtotal − PackageAmount: the subtotal conflates the surcharge
+        // with the add-on total and the other charges, and ApplyExtendedAmount is a
+        // creation-time switch rather than a money switch.
+        builder.Property(e => e.ExtendedAreaAmount)
+            .HasColumnName("extendedAreaAmount")
+            .HasPrecision(18, 2)
+            .IsRequired()
+            .HasDefaultValue(0m);
 
         // Balance is a computed property — not stored in the database.
         builder.Ignore(e => e.Balance);

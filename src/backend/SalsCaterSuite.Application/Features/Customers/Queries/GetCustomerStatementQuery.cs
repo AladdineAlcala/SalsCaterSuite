@@ -1,5 +1,6 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
+using SalsCaterSuite.Application.Features.Bookings.Services;
 using SalsCaterSuite.Application.Features.Customers.DTOs;
 using SalsCaterSuite.Application.Features.Customers.Services;
 using SalsCaterSuite.Application.Services;
@@ -53,7 +54,9 @@ public class GetCustomerStatementQuery
 
         var lines = activeBookings.Select(b =>
         {
-            var paid = b.Payments.Sum(p => p.AmountPaid);
+            // The authoritative payment sum, excluding the soft-deleted payments (BR-27,
+            // DEC-111) — the statement, the ledger and the dashboard describe one population.
+            var paid = BookingPaymentPopulation.Collected(b);
             var breakdown = _calculator.Calculate(b, paid);
             var balance = breakdown.RemainingBalance;
 

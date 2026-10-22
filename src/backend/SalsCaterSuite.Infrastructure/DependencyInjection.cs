@@ -60,6 +60,11 @@ public static class DependencyInjection
         services.AddScoped<IPackageAreaCoverageRepository, Persistence.Repositories.PackageAreaCoverageRepository>();
         services.AddScoped<IAreaRepository, Persistence.Repositories.AreaRepository>();
 
+        // The discount catalogue (REQ-BKG-05, DEC-114). It is read by code, and the code
+        // carries no unique index — the Application layer decides that an unknown and an
+        // ambiguous code are both a 400.
+        services.AddScoped<IDiscountRepository, Persistence.Repositories.DiscountRepository>();
+
         // Identity credential lookup (DEC-037). The WebApi login endpoint resolves this
         // neutral Application contract; UserManager/SignInManager stay inside the
         // repositories layer.
@@ -83,6 +88,11 @@ public static class DependencyInjection
         // report a different target percentage (AC-B8).
         services.AddSingleton<IFoodCostBenchmarkProvider, ConfigurationFoodCostBenchmarkProvider>();
 
+        // The deployment-configured booking policy (DEC-101, DEC-102) — the required deposit
+        // percentage and the commissary capacity. Both are absent by default; an absent key
+        // means "unknown", never zero.
+        services.AddSingleton<IBookingPolicyProvider, ConfigurationBookingPolicyProvider>();
+
         // Document generators (transient - created per use)
         services.AddTransient<CateringMonthlyReportExport>();
         services.AddTransient<CollectionSummaryExport>();
@@ -92,6 +102,9 @@ public static class DependencyInjection
 
         // The Menu & Food Costing Master export (spec §6.3).
         services.AddTransient<MenuFoodCostingExport>();
+
+        // The Bookings & Events Register export (contract §14.6).
+        services.AddTransient<BookingRegisterExport>();
 
         return services;
     }
