@@ -12,7 +12,7 @@
     "build:api": "dotnet build src/backend/SalsCaterSuite.slnx",
     "build:web": "npm --prefix src/frontend/salscatersuite-ui run build",
     "test": "npm run test:api && npm run test:web",
-    "test:api": "dotnet test src/backend/SalsCaterSuite.slnx && dotnet test tests/SalsCaterSuite.IntegrationTests/SalsCaterSuite.IntegrationTests.csproj",
+    "test:api": "dotnet test src/backend/SalsCaterSuite.slnx && dotnet test src/backend/SalsCaterSuite.IntegrationTests/SalsCaterSuite.IntegrationTests.csproj",
     "test:web": "npm --prefix src/frontend/salscatersuite-ui run test"
   }
 }

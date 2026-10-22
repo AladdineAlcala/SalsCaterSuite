@@ -25,19 +25,20 @@
     <!-- The repository root, so the source-level DTO-projection guard can read the
          projection files no matter where the test assembly is built (the development
          machine redirects the output directory, which moves the assembly away from the
-         source tree). -->
+         source tree). The test project now lives inside src/backend/, so the root is
+         three levels up: src/backend/SalsCaterSuite.UnitTests/ -> src/backend/ -> src/ -> root. -->
     <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
       <_Parameter1>RepositoryRoot</_Parameter1>
-      <_Parameter2>$(MSBuildThisFileDirectory)..\..\</_Parameter2>
+      <_Parameter2>$(MSBuildThisFileDirectory)..\..\..\</_Parameter2>
     </AssemblyAttribute>
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\backend\SalsCaterSuite.Domain\SalsCaterSuite.Domain.csproj" />
-    <ProjectReference Include="..\..\src\backend\SalsCaterSuite.Application\SalsCaterSuite.Application.csproj" />
-    <ProjectReference Include="..\..\src\backend\SalsCaterSuite.Infrastructure\SalsCaterSuite.Infrastructure.csproj" />
+    <ProjectReference Include="..\SalsCaterSuite.Domain\SalsCaterSuite.Domain.csproj" />
+    <ProjectReference Include="..\SalsCaterSuite.Application\SalsCaterSuite.Application.csproj" />
+    <ProjectReference Include="..\SalsCaterSuite.Infrastructure\SalsCaterSuite.Infrastructure.csproj" />
     <!-- Referenced so the JSON-serialization tests can exercise the API's own serializer configuration. -->
-    <ProjectReference Include="..\..\src\backend\SalsCaterSuite.WebApi\SalsCaterSuite.WebApi.csproj" />
+    <ProjectReference Include="..\SalsCaterSuite.WebApi\SalsCaterSuite.WebApi.csproj" />
   </ItemGroup>
 
 </Project>

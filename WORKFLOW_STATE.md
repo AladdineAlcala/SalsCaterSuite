@@ -269,8 +269,8 @@ The plan is **approved for delivery** as **v1.1**. The eight blocking findings h
 | Check | Method | Result |
 | :--- | :--- | :--- |
 | The build | `dotnet build src/backend/SalsCaterSuite.slnx` | **0 warnings / 0 errors** |
-| The unit suite | `dotnet test tests/SalsCaterSuite.UnitTests` | **805/805** (baseline 700/700) |
-| The integration suite | `dotnet test tests/SalsCaterSuite.IntegrationTests` | **131/131** (baseline 118/118) |
+| The unit suite | `dotnet test src/backend/SalsCaterSuite.UnitTests` | **805/805** (baseline 700/700) |
+| The integration suite | `dotnet test src/backend/SalsCaterSuite.IntegrationTests` | **131/131** (baseline 118/118) |
 | The money chain | The formula traced **by hand** through every discount case — fixed, percentage, zero-value, over-capped, zero-gross | `Booking.AmountDue == calculator.NetAmountDue` to the cent holds in **all** of them |
 | The migration | The generated T-SQL, read | **Four `AddColumn` calls only** — no drop, rename, re-type or data change |
 | The two re-pointed assertions | Both read | **Strengthened, not weakened** — signed off |

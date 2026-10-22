@@ -33,8 +33,10 @@ pnpm-debug.log*
 logs/
 
 # --- .NET build output -----------------------------------------------------
-# Required for the root-level test projects under tests/, which sit outside
-# the scope of src/backend/.gitignore.
+# The backend projects (including the two test projects, which now live under
+# src/backend/) also carry their own scoped ignore file at
+# src/backend/.gitignore, which still applies to everything under src/backend/.
+# These rules cover any .NET output that appears elsewhere in the tree.
 
 bin/
 obj/

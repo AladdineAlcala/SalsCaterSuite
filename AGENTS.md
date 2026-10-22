@@ -61,7 +61,7 @@ Data Context: SalsCaterSuiteDbContext
 Backend: ASP.NET Core Web API (.NET 10, `net10.0`), Clean Architecture
 Solution: `src/backend/SalsCaterSuite.slnx`
 Frontend: React 19, Vite 8, TypeScript 6, Tailwind CSS 4
-Tests: `tests/SalsCaterSuite.UnitTests`, `tests/SalsCaterSuite.IntegrationTests`
+Tests: `src/backend/SalsCaterSuite.UnitTests`, `src/backend/SalsCaterSuite.IntegrationTests`
 Database engine: SQL Server (Development target: LocalDB `MSSQLLocalDB`)
 Persistence: repository-only — no `ISalsCaterSuiteDbContext` (DEC-037)
 

@@ -5,8 +5,8 @@ React 19 + Vite 8 operations dashboard.
 
 ```
 src/backend/      SalsCaterSuite.Domain · Application · Infrastructure · WebApi
+                  SalsCaterSuite.UnitTests · SalsCaterSuite.IntegrationTests
 src/frontend/     salscatersuite-ui (React + TypeScript + Tailwind)
-tests/            SalsCaterSuite.UnitTests · SalsCaterSuite.IntegrationTests
 scripts/          dev.mjs — the development orchestrator
 ```
 

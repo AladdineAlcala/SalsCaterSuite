@@ -15,9 +15,9 @@
 | **Solution File** | `src/backend/SalsCaterSuite.slnx` (XML solution format) |
 | **Frontend** | **React 19** + Vite 8 + TypeScript 6 + Tailwind CSS 4 |
 | **Database Engine** | SQL Server (Development target: LocalDB `MSSQLLocalDB`) |
-| **Test Projects** | `tests/SalsCaterSuite.UnitTests` (xUnit), `tests/SalsCaterSuite.IntegrationTests` (xUnit + `WebApplicationFactory`) |
+| **Test Projects** | `src/backend/SalsCaterSuite.UnitTests` (xUnit), `src/backend/SalsCaterSuite.IntegrationTests` (xUnit + `WebApplicationFactory`) |
 | **Status** | Living document — aligned to the **as-built** repository state |
-| **Last aligned** | 2026-10-22 (AGENT 01 - the **REQ-BKG-05 / REQ-BKG-01 Bookings & Events Register & Reservation Workbench** cycle is **closed**. The Debater plan review returned `PROPOSE_BETTER_PLAN` with **eight blocking findings**; **all eight were applied** and the specification was reissued as **v1.1**. The delivery added a new frontend feature folder, two routes, a client endpoint group, six backend endpoints, one purely additive migration and two absent-by-default configuration keys (DEC-114); **DEC-035 is resolved** - one net-due source, one rounding - the out-of-town surcharge is charged and stored, the soft-deleted-payment exclusion is unified across every money surface, and BR-05 overpayment prohibition is enforced. **Seven review rounds and a live end-to-end validation** found **two defects the suites could not see**, both fixed and pinned; the second is now guarded by a **DTO projection guard** that is proved by execution. AGENT 01 own verification: **823/823** unit, **133/133** integration, **327/327** Vitest, **0** TypeScript errors, **0** warnings / **0** errors, and **52/52** live assertions against a disposable database. Sections 2.2-2.6, 3.1-3.4, 4, 7.3, 7.4, 9, 10 and 11 were realigned to the as-built state in this cycle.) |
+| **Last aligned** | 2026-10-22 (AGENT 01 — the **source-control migration** (DEC-125) and the **test-project relocation** (DEC-126) are **closed**: the repository root is the monorepo root, the whole monorepo is under version control, the `**/[Pp]ackages/*` template rule no longer hides the package-configuration module, and both test projects now live under `src/backend/`. Verified by a **clean clone of the remote**: backend build **0 W / 0 E**, **823/823** unit, **133/133** integration, **327/327** Vitest, frontend build green. §1, §1.2, §2.1, §2.6, §7.3, §10 and §11 were realigned to the as-built state in this cycle.)<br>2026-10-22 (AGENT 01 - the **REQ-BKG-05 / REQ-BKG-01 Bookings & Events Register & Reservation Workbench** cycle is **closed**. The Debater plan review returned `PROPOSE_BETTER_PLAN` with **eight blocking findings**; **all eight were applied** and the specification was reissued as **v1.1**. The delivery added a new frontend feature folder, two routes, a client endpoint group, six backend endpoints, one purely additive migration and two absent-by-default configuration keys (DEC-114); **DEC-035 is resolved** - one net-due source, one rounding - the out-of-town surcharge is charged and stored, the soft-deleted-payment exclusion is unified across every money surface, and BR-05 overpayment prohibition is enforced. **Seven review rounds and a live end-to-end validation** found **two defects the suites could not see**, both fixed and pinned; the second is now guarded by a **DTO projection guard** that is proved by execution. AGENT 01 own verification: **823/823** unit, **133/133** integration, **327/327** Vitest, **0** TypeScript errors, **0** warnings / **0** errors, and **52/52** live assertions against a disposable database. Sections 2.2-2.6, 3.1-3.4, 4, 7.3, 7.4, 9, 10 and 11 were realigned to the as-built state in this cycle.) |
 
 > **Read this document before acting.** If the code and this document disagree, **the code is the current truth and this document is stale**. AGENT 01 realigns the document as part of closing the work cycle. A sub-agent that finds a discrepancy must report it to AGENT 01 and must **not** silently treat either side as correct.
 
@@ -89,7 +89,7 @@ Update this document in the same cycle, **before** the feature is closed, whenev
 
 ## 1. High-Level Repository Layout
 
-The repository houses the modern stack under `src/`, keeps the test projects in a dedicated top-level `tests/` folder, and keeps all governance documentation in first-class folders at the root.
+The repository houses the modern stack under `src/`, keeps the two test projects **inside the backend** at `src/backend/` (they are part of the backend implementation — DEC-126), and keeps all governance documentation in first-class folders at the root.
 
 ```
 D:\source\repos\SalsCaterSuite\
@@ -109,25 +109,49 @@ D:\source\repos\SalsCaterSuite\
 │   │   ├── SalsCaterSuite.Domain\
 │   │   ├── SalsCaterSuite.Application\
 │   │   ├── SalsCaterSuite.Infrastructure\
-│   │   └── SalsCaterSuite.WebApi\
+│   │   ├── SalsCaterSuite.WebApi\
+│   │   ├── SalsCaterSuite.UnitTests\       <-- the unit-test project (belongs to the backend)
+│   │   └── SalsCaterSuite.IntegrationTests\ <-- the integration-test project (belongs to the backend)
 │   │
 │   └── frontend\
 │       └── salscatersuite-ui\        <-- React 19 + Vite 8 + TypeScript SPA
 │
-├── tests\                            <-- Test projects (siblings of src/, referenced by the .slnx)
-│   ├── SalsCaterSuite.UnitTests\
-│   └── SalsCaterSuite.IntegrationTests\
-│
 ├── AGENTS.md                         <-- The agent hierarchy & governance rules (all three agents)
-├── opencode.json                     <-- MCP configuration (Context7)
+├── opencode.json.example             <-- Versioned MCP configuration template (Context7, no secret)
 ├── package.json                      <-- Root task runner (no dependencies)
 ├── README.md                         <-- Run & configuration guide
-└── .gitignore
+├── .gitattributes                    <-- Repository-wide line-ending and binary rules
+├── .gitignore                        <-- Repository-root ignore rules (see §1.2)
+└── .git\                             <-- THE Git repository root (see §1.2)
 ```
+
+> `opencode.json` also exists at the root, but it is **not versioned** — it carries the live Context7 MCP bearer token. `opencode.json.example` is the versioned, secret-free template (§1.2).
 
 ### 1.1 Legacy system
 
 The legacy ASP.NET MVC 5 application `SBOSysTacV2` is **preserved intact** and is **not** part of this repository. It is a separate repository (`D:\source\repos\SBOSysTacV2`). The legacy `AspNetUsers` credential format is honoured by `Infrastructure/Identity/LegacyPasswordHasher.cs` (DEC-028). The legacy **data import** has not started and requires an approved mapping (DEC-032).
+
+### 1.2 Version control layout
+
+**The Git repository root IS the repository root.** `.git\` sits at `D:\source\repos\SalsCaterSuite\.git` — the **same** folder that holds `src\`, `tests\`, `docs\`, `governance\` and the root files. There is **one** repository and **one** remote for the whole monorepo.
+
+| Property | Value |
+| :--- | :--- |
+| **Remote** | `https://github.com/AladdineAlcala/SalsCaterSuite.git` |
+| **Branch** | `master` |
+| **Repository root** | `D:\source\repos\SalsCaterSuite` (`.git\` at the root — **not** inside `src\backend\`) |
+| **Backend project files** | `src/backend/**` |
+| **Frontend project files** | `src/frontend/salscatersuite-ui/**` |
+| **Test project files** | `src/backend/SalsCaterSuite.UnitTests/**`, `src/backend/SalsCaterSuite.IntegrationTests/**` (the test projects are **part of the backend implementation** — DEC-126) |
+| **Governance artifacts** | `business/`, `architecture/`, `governance/`, `implementation/`, `docs/`, `.agents/`, `db/`, `scripts/` |
+| **Root ignore rules** | `.gitignore` (repository-wide) + `src/backend/.gitignore` (backend-scoped) + `src/frontend/salscatersuite-ui/.gitignore` (frontend-scoped) |
+
+**Rules that bind every agent:**
+
+1. **No nested repository.** A `.git` directory may exist **only** at the repository root. Never initialise a repository inside `src/backend/` or `src/frontend/salscatersuite-ui/` — a nested repository is invisible to the outer one and silently removes the subtree from the remote.
+2. **The remote must be able to build the product.** Every source file that the build needs must be tracked. Before closing a cycle, confirm with a **clean clone** that `npm run build` succeeds — a green local build proves nothing, because a missing file can only be a missing file in the clone.
+3. **Never trust a template ignore rule for a folder the product owns.** A pattern copied from a generic template can match a *source* folder. `src/backend/.gitignore` carried `**/[Pp]ackages/*` (intended for a NuGet restore folder), which matched the source folder `SalsCaterSuite.Application/Features/Packages` and excluded the **entire** package-configuration module from the remote (DEC-125).
+4. **Secrets are never tracked.** `opencode.json` carries a live bearer token and is ignored; `opencode.json.example` is the versioned template.
 
 ---
 
@@ -166,7 +190,7 @@ graph TD
 | `SalsCaterSuite.Application` | `SalsCaterSuite.Application/SalsCaterSuite.Application.csproj` |
 | `SalsCaterSuite.Infrastructure` | `SalsCaterSuite.Infrastructure/SalsCaterSuite.Infrastructure.csproj` |
 | `SalsCaterSuite.WebApi` | `SalsCaterSuite.WebApi/SalsCaterSuite.WebApi.csproj` |
-| `SalsCaterSuite.UnitTests` | `../../tests/SalsCaterSuite.UnitTests/SalsCaterSuite.UnitTests.csproj` |
+| `SalsCaterSuite.UnitTests` | `SalsCaterSuite.UnitTests/SalsCaterSuite.UnitTests.csproj` |
 
 The integration-test project is **not** in the `.slnx`; it is run explicitly (§7).
 
@@ -459,10 +483,10 @@ SalsCaterSuite.WebApi/
 
 ### 2.6 Test projects
 
-Test projects live in the **top-level `tests/` folder**, not under `src/`.
+Test projects live **inside the backend**, under `src/backend/`, beside the four production projects and the solution file — they are part of the backend implementation, not a separate top-level concern (DEC-126).
 
 ```
-tests/
+src/backend/
 ├── SalsCaterSuite.UnitTests/
 │   ├── Api/                           (AuthControllerTests, DomainExceptionHandlerTests, EnumJsonSerializationTests)
 │   ├── Api/Logging/                   (REQ-OPS-01 — SensitiveDataRedactorTests, RequestLoggingOptionsTests,
@@ -495,7 +519,7 @@ tests/
 │   │   └── TestDbContextFactory.cs
 │   └── Infrastructure/               (DependencyInjection, Documents, Identity, Persistence,
 │   │                                  Repositories, Services, Exports)
-└── SalsCaterSuite.IntegrationTests/
+├── SalsCaterSuite.IntegrationTests/
     ├── Dashboard/                     (DashboardEndpointTests, DashboardSeedFixture, DashboardSoftDelete*)
     ├── Infrastructure/                (IntegrationDatabaseFixture, IntegrationDatabaseRegistry, IntegrationTestCollection, IntegrationTestWebApplicationFactory, TestApi, TestOperationalLoggingController — the REQ-OPS-01 test-only fault endpoint, registered through an ApplicationPart, **no production route**)
     ├── RequestLoggingEndpointTests.cs (REQ-OPS-01 — the operational log against the real API)
@@ -843,7 +867,7 @@ docs/
 | `npm run test:api` | Unit tests then integration tests |
 | `npm run test:web` | `vitest run` |
 
-> **Note:** `SalsCaterSuite.slnx` contains the four production projects **and** `SalsCaterSuite.UnitTests`, but **not** `SalsCaterSuite.IntegrationTests`. `npm run build:api` therefore does not compile the integration-test project; `npm run test:api` runs it explicitly as a second `dotnet test` invocation.
+> **Note:** `SalsCaterSuite.slnx` contains the four production projects **and** `SalsCaterSuite.UnitTests`, but **not** `SalsCaterSuite.IntegrationTests`. `npm run build:api` therefore does not compile the integration-test project; `npm run test:api` runs it explicitly as a second `dotnet test` invocation. Both test projects now live **inside** `src/backend/`, so every path in this section is relative to the backend folder and the solution file references them without a `../` prefix.
 
 ### 7.2 Endpoints and ports
 
@@ -861,8 +885,8 @@ The browser calls `/api/...` on its own origin; the Vite dev proxy forwards to t
 
 ```powershell
 dotnet build src/backend/SalsCaterSuite.slnx
-dotnet test  tests/SalsCaterSuite.UnitTests/SalsCaterSuite.UnitTests.csproj
-dotnet test  tests/SalsCaterSuite.IntegrationTests/SalsCaterSuite.IntegrationTests.csproj
+dotnet test  src/backend/SalsCaterSuite.UnitTests/SalsCaterSuite.UnitTests.csproj
+dotnet test  src/backend/SalsCaterSuite.IntegrationTests/SalsCaterSuite.IntegrationTests.csproj
 npm --prefix src/frontend/salscatersuite-ui run build
 npm --prefix src/frontend/salscatersuite-ui run test
 ```
@@ -871,7 +895,7 @@ npm --prefix src/frontend/salscatersuite-ui run test
 >
 > ```powershell
 > dotnet build src/backend/SalsCaterSuite.slnx -p:UseSharedCompilation=false -p:OutDir="$env:TEMP\csc-build\"
-> dotnet test  tests/SalsCaterSuite.UnitTests/SalsCaterSuite.UnitTests.csproj -p:OutDir="$env:TEMP\csc-build-ut\"
+> dotnet test  src/backend/SalsCaterSuite.UnitTests/SalsCaterSuite.UnitTests.csproj -p:OutDir="$env:TEMP\csc-build-ut\"
 > ```
 >
 > Every build and test figure recorded in this document was produced with the redirected output.
@@ -1001,6 +1025,9 @@ The authoritative per-feature status, test evidence and outstanding gaps live in
 | 2026-10-22 | AGENT 03 | **REQ-BKG-05 / REQ-BKG-01 Bookings & Events Register & Reservation Workbench — frontend delivered (TASK-BKG-01-FE).** New: the `src/features/bookings/` feature folder — `BookingsEventsPage.tsx` (Screen A: the register header and its three actions, the four KPI cards, the tier pills and the command bar, the dossier grid and its chronological rail, the totals strip and pagination dock, the three-card operational dock), `BookingWorkbenchPage.tsx` (Screen B: the three-column reservation workbench with its own header block, the client & logistics rail, the tier & course engine and the financial & seal rail), `bookingVocabulary.ts` (the BR-28 payment-state vocabulary, the filter labels and the client-side validation that mirrors the server's own wording), 22 feature-local components (`BookingDossierCard`, `BookingDossierGrid`, `BookingEmptyState`, `BookingFilterBar`, `BookingKpiCard`, `BookingKpiGrid`, `BookingOperationalDock`, `BookingOverdueChip`, `BookingPaymentStateChip`, `BookingRegisterHeader`, `BookingRegisterSkeleton`, `BookingStatusChip`, `BookingTierPills`, `BookingTotalsStrip`, `WorkbenchChecklist`, `WorkbenchClientRail`, `WorkbenchFields`, `WorkbenchHeader`, `WorkbenchLedgerRail`, `WorkbenchLogisticsBlock`, `WorkbenchScheduleMatrix`, `WorkbenchTierEngine`) and two hooks (`useBookingRegister`, `useBookingWorkbench`). The contract §14 mirror in `src/types/booking.types.ts` (which also carries the **contract §1** read-projection mirror, `BookingDetails` — the details endpoint's `BookingDto`, including the frozen `extendedAreaRatePerGuest`, which is `null` when no surcharge was applied; no screen consumes it yet, because the booking detail and edit screens are out of scope), the `bookings` endpoint group in `src/api/endpoints.ts`, the `/bookings` and `/bookings/new` routes, the promoted **Bookings & Events** navigation flag, the `bookingFixture.ts` test fixture and the three feature test files (45 tests). **Every figure is the server's** (DEC-002): the money, the percentages, the counts, the payment states, the countdown and the capacity load are read from the API and only formatted. The only client-side computation is the progress-track ratio between two published figures. **The reference's capability gaps are rendered, never fabricated:** the BEO state (DEC-104), the per-event dish selection (DEC-105, REQ-BKG-02), the chef batching yield (DEC-059, REQ-MNU-03) and the site amenities (DEC-108) render the shared `CapabilityGapNotice`; the "Batch BEOs" action is an **inactive** button; the "Live Calendar Sync" badge, the tier code, the per-event margin and the reference's `30` / `400` / `58.2` are **not** rendered. The workbench renders **inside** the one authenticated shell (DEC-110) and its ledger is the quote endpoint's output, with an explicit **recalculating** state while a quote is in flight (AC-BKG-15). The client-side validation mirrors the server's own messages, including the BR-34 dispatch ordering. **Verification:** `npm --prefix src/frontend/salscatersuite-ui run build` → **0 TypeScript errors**; `npm --prefix src/frontend/salscatersuite-ui run test` → **327/327** Vitest across 22 files (the baseline 281 plus the 45 new bookings tests and the one new route-table assertion), re-run five times consecutively and green. | 3.2, 3.3, 3.4, 9, 10, 11 |
 | 2026-10-22 | AGENT 01 | **REQ-BKG-05 / REQ-BKG-01 - the cycle's plan review, seven review rounds and the independent validation (AGENT 01).** The Debater returned `PROPOSE_BETTER_PLAN` with **eight blocking findings and seventeen clarifications**; **all eight were applied** before delivery and the specification was reissued as **v1.1** (DEC-099..DEC-113). The findings were: **F1** the payment-state vocabulary contradicted the rule it implemented and BR-05's overpayment prohibition was unimplemented (DEC-117, DEC-118); **F2** the money chain had **no rounding rule**, so the stored `AmountDue` and the computed net could differ by half a cent (DEC-115); **F3** the soft-deleted-payment exclusion missed **six** money surfaces (DEC-111); **F4** the surcharge was **inferred** from `Subtotal - PackageAmount` rather than stored (DEC-116); **F5** the payment-state names **collided** with the lifecycle vocabulary and contract sections 1 and 9.2 were stale (DEC-117, and the contract edits); **F6** the structural change needed its own decision-log entry (DEC-114); **F7** three "verified facts" were wrong, including that `ContractDocument` read the denormalized cache - it did not (DEC-113 narrowed); **F8** the register's compute strategy was unstated and RSK-054's bounded-population claim was false (RSK-056). **Seven review rounds followed the delivery.** The live end-to-end validation found **two defects the suites could not see** - the `overdue=false` filter returning the whole population, and `GET /api/bookings/{id}` publishing three fields **no projection filled** - both fixed and pinned, the second by a new **DTO projection guard** that is proved by execution. Further rulings: **BR-34** (the dispatch schedule is ordered against the programme - ratified after verifying the model forbids an overnight event), **DEC-120** (the six frontend interpretation rulings), **DEC-121** (the dispatch schedule is printed once, in the particulars), **DEC-122** (a per-guest rate is published only when it reconstructs the frozen amount exactly), **DEC-123** (the totals block keeps `Total Charges` and `Contract Amount`) and **DEC-124** (the contract and the kitchen BEO keep their own time formats). **AGENT 01's own edits:** the vitest per-test timeout raised to **15 s** (the flaky `MenuRecipeFormPage` test was racing a 5 s budget) and recorded in 3.1; the stale `Bookings & Events` entry removed from `NotImplementedPage` and its **false** claim that "the Operations Dashboard is the only implemented screen" corrected; the empty `src/assets/` folder **removed** so the 3.2 "not yet created" marker is literally true; the **build-lock caveat** recorded in 7.3; and the superseded "Bookings core" row in 9 corrected. The glossary now records that the business term is *Pax (Headcount)* while the printed contract's label is *Guaranteed Pax*. | 2.3, 2.6, 3.1, 3.2, 7.3, 9, 10, 11 |
 
+| 2026-10-22 | AGENT 01 | **Source-control migration: the repository root is promoted to the monorepo root (DEC-125).** The Git repository was initialised one level too deep (`src/backend/.git`), so the repository root was the backend project rather than the monorepo. The React frontend (191 files), both test projects (116 files), the entire governance corpus (36 files) and the root tooling existed **only on disk**; a clone of the remote reproduced the backend only, and every root `package.json` script that referenced `src/frontend/...` or `tests/...` failed on a fresh clone. **Executed:** `.git` moved to the monorepo root; the **seven** existing commits were rewritten (`git filter-repo --to-subdirectory-filter src/backend`) so every historical tree places the backend under `src/backend/` — no commit dropped, no authorship altered; the whole monorepo was brought under version control; the remote was updated with a lease-protected force push. **A second, pre-existing defect was found by the clean-clone verification and fixed in the same cycle:** the VisualStudio template rule `**/[Pp]ackages/*` in `src/backend/.gitignore` also matched the **source** folder `SalsCaterSuite.Application/Features/Packages` and had silently excluded the **entire** package-configuration module (**37 files**) from the remote since it was written — invisible in `git status`, and fatal to any clone (`CS0234`, 13 errors). The rule is replaced by a solution-root-anchored `/packages/*`. **Verified by a clean clone of the remote:** backend build **0 W / 0 E**, **823/823** unit, **133/133** integration (real LocalDB), **327/327** Vitest, frontend build green. `opencode.json` (the live Context7 bearer token) is ignored and `opencode.json.example` is the versioned template. A root `.gitattributes` was added. **New §1.2 (Version control layout)** states the four binding rules. | 1, 1.2, 10, 11 |
+| 2026-10-22 | AGENT 01 | **The two test projects move inside the backend, to `src/backend/` (DEC-126).** `tests/SalsCaterSuite.UnitTests` → `src/backend/SalsCaterSuite.UnitTests` and `tests/SalsCaterSuite.IntegrationTests` → `src/backend/SalsCaterSuite.IntegrationTests`, both with `git mv` so the history is preserved as renames. The test projects are part of the backend implementation — they compile the backend's projects, reference them by relative path, and the unit project is a member of `SalsCaterSuite.slnx` — and a separate top-level tree severed them from the solution they belong to. The `.slnx` project path loses its `../../` prefix; both `.csproj` `ProjectReference` paths become `..\<project>`; the unit project's `RepositoryRoot` assembly metadata moves from `..\..\` to `..\..\..\` so the **DTO projection guard** still resolves the repository root; the root `package.json` `test:api` script and the §7.3 commands are updated. The **top-level `tests/` folder no longer exists**. `AGENTS.md`, the `bi-architect` skill, `README.md`, `WORKFLOW_STATE.md`, `implementation/feature-status.md`, the observability and packages business specifications and the background-services workplan are realigned. **No test was renamed, edited, deleted or added** and no assertion changed — the relocation is a path change only. | 1, 1.2, 2.1, 2.6, 7.3, 10, 11 |
+
 ---
 
 ## 11. Verification Checklist
@@ -1014,6 +1041,10 @@ Before this document is treated as current, AGENT 01 confirms:
 - [ ] The commands in §7 run as written.
 - [ ] The `PLANNED` markers correspond to folders that genuinely do not exist.
 - [ ] The summary in §9 agrees with `implementation/feature-status.md`.
+- [ ] **The remote can build the product.** A clean clone of the remote compiles the backend and the frontend and runs both test suites — this is the check that catches a source file the working tree has but the repository does not (DEC-125).
+- [ ] **No source folder is hidden by an ignore rule.** `git status --ignored` reports no ignored directory that contains source files, and no ignore rule copied from a template matches a folder the product owns (DEC-125).
+- [ ] **There is exactly one `.git` directory, at the repository root** (DEC-125, §1.2).
+- [ ] **Every path in this document resolves.** The §7.3 commands and the §2.6 tree match the as-built folder positions after any relocation (DEC-126).
 
 **AGENT 01 verification — 2026-10-22 (the close-out of the **REQ-BKG-05 / REQ-BKG-01** cycle).** Every item of section 11 was checked by AGENT 01 against the as-built repository, not from recollection: the trees in 1, 2.2-2.6 and 3.2 against a **live file enumeration**; the package versions in 2.2-2.5 and 3.1 against every `PackageReference` and every `package.json` entry; the route table in 3.3 against `AppRoutes.tsx` (**18** routes) and the endpoint table in 3.4 against `endpoints.ts` (the **six** `bookings` entries); the migration list in 4 against the `Migrations` folder (**5**, the new one reviewed as **purely additive**); the `PLANNED` markers against the folders that genuinely do not exist — and the **empty `src/assets/` folder was removed** so that marker is literally true; and the summary in 9 against `implementation/feature-status.md`. Evidence, **executed by AGENT 01**: `dotnet build src/backend/SalsCaterSuite.slnx` → **0 warnings / 0 errors**; `dotnet test tests/SalsCaterSuite.UnitTests/...` → **823/823**; `dotnet test tests/SalsCaterSuite.IntegrationTests/...` → **133/133**; `npm --prefix src/frontend/salscatersuite-ui run build` → **0 TypeScript errors**; `npm --prefix src/frontend/salscatersuite-ui run test` → **327/327**. **Live end-to-end evidence:** the final build was started against a **disposable** LocalDB database (the developer's own database was never touched) and all **six** endpoints of contract 14 were driven with **52 independent assertions** — **52 passed, 0 failed** — covering the quote base, surcharge, gross and net; the **null** required deposit and **null** capacity; the five pre-dispatch checks; the register totals reconciling; a confirmed booking with a surcharge, a dispatch schedule and a deposit; the details and the ledger agreeing to the cent; the frozen surcharge and its per-guest rate; the **PartiallyPaid** payment state; the summary figures; the **overpayment guard** refusing the payment and writing nothing; and both documents served. The disposable database was dropped afterwards. Two defects that the green suites could **not** see were found by that live run and are fixed and pinned; the second is now guarded by a **DTO projection guard** that is proved by execution. The money chain was also traced **by hand** through every discount case to confirm that `Booking.AmountDue` equals the calculator's `NetAmountDue` to the cent.
 **Frontend verification — 2026-10-22 (AGENT 03, TASK-BKG-01-FE):** §3.2, §3.3, §3.4, §9 and §10 realigned against a **live file enumeration** of the as-built frontend after the **REQ-BKG-05 / REQ-BKG-01** delivery: the `src/features/bookings/` folder now lists its two pages, its vocabulary module, its two hooks, its 22 feature-local components and its three test files; `src/types/booking.types.ts` and `src/test/bookingFixture.ts` are added to §3.2; the route table carries `/bookings` → `BookingsEventsPage` and `/bookings/new` → `BookingWorkbenchPage`; the endpoint table carries the six `bookings` entries of contract §14; and the **Not yet created** line no longer lists `bookings` or `booking.types.ts`. Evidence, executed by AGENT 03: `npm --prefix src/frontend/salscatersuite-ui run build` → **0 TypeScript errors** and a successful Vite build; `npm --prefix src/frontend/salscatersuite-ui run test` → **327/327** Vitest across **22** test files (the 281-test baseline plus the 45 new bookings tests and the one new route-table assertion), re-run **five times consecutively** at this state and green, and re-run twice more after the follow-up that added the contract §1 read-projection mirror (`BookingDetails`, with the frozen `extendedAreaRatePerGuest`) to `src/types/booking.types.ts` — still **327/327**, still **0 TypeScript errors**. No existing test was edited or deleted: the only change to `src/routes/__tests__/AppRoutes.test.tsx` is that the **Bookings & Events** assertion now expects the real register, and a **new** test asserts that every unbuilt navigation entry still resolves to its labelled placeholder. §3.1, §3.5, §2 and §4 are unchanged by this delivery.

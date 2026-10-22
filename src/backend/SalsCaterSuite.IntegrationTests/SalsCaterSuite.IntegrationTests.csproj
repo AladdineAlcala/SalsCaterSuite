@@ -21,9 +21,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\backend\SalsCaterSuite.WebApi\SalsCaterSuite.WebApi.csproj" />
-    <ProjectReference Include="..\..\src\backend\SalsCaterSuite.Infrastructure\SalsCaterSuite.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\src\backend\SalsCaterSuite.Application\SalsCaterSuite.Application.csproj" />
+    <ProjectReference Include="..\SalsCaterSuite.WebApi\SalsCaterSuite.WebApi.csproj" />
+    <ProjectReference Include="..\SalsCaterSuite.Infrastructure\SalsCaterSuite.Infrastructure.csproj" />
+    <ProjectReference Include="..\SalsCaterSuite.Application\SalsCaterSuite.Application.csproj" />
   </ItemGroup>
 
 </Project>

@@ -300,8 +300,8 @@ The implementer's open questions were answered as follows, and the answers are n
 | Suite | Result |
 | :--- | :--- |
 | `dotnet build src/backend/SalsCaterSuite.slnx` | 0 warnings / 0 errors |
-| `dotnet test tests/SalsCaterSuite.UnitTests` | **429 / 429** passed |
-| `dotnet test tests/SalsCaterSuite.IntegrationTests` | **84 / 84** passed (real SQL Server LocalDB, disposable database) |
+| `dotnet test src/backend/SalsCaterSuite.UnitTests` | **429 / 429** passed |
+| `dotnet test src/backend/SalsCaterSuite.IntegrationTests` | **84 / 84** passed (real SQL Server LocalDB, disposable database) |
 | `npm --prefix src/frontend/salscatersuite-ui run build` | `tsc` clean, `vite build` clean |
 | `npm --prefix src/frontend/salscatersuite-ui run test` | **221 / 221** passed (17 files) |
 

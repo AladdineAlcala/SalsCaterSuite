@@ -71,7 +71,7 @@ This document proposes and sequences:
 | Real-time | `AddSignalR()` only; no hub, no `SignalRContext.tsx` | Notification dispatcher can push once a hub exists (BG-01) |
 | Logging | Serilog request logging, redaction engine, bounded capture | Reuse for job logs; add job-specific context |
 | Time | `IDateTime` / `DateTimeService` | All jobs must use it; schedule in Asia/Manila |
-| Tests | `tests/SalsCaterSuite.UnitTests`, `tests/SalsCaterSuite.IntegrationTests` | Job logic and outbox round-trips belong here |
+| Tests | `src/backend/SalsCaterSuite.UnitTests`, `src/backend/SalsCaterSuite.IntegrationTests` | Job logic and outbox round-trips belong here |
 
 ### 1.2 What does not exist
 
@@ -146,7 +146,7 @@ SalsCaterSuite.WebApi/
   Program.cs                 # AddHostedService / AddHangfire / health checks
   (optional) Controllers/    # status/download endpoints for async jobs
 
-tests/
+src/backend/
   SalsCaterSuite.UnitTests/         # job logic, fake time, idempotency
   SalsCaterSuite.IntegrationTests/  # outbox round-trip, retries, concurrency
 ```
@@ -816,7 +816,7 @@ src/backend/
     Program.cs                          // AddHostedService / AddHangfire / health checks
     Controllers/
       JobsController.cs                 // PLANNED: status/download/replay
-tests/
+src/backend/
   SalsCaterSuite.UnitTests/BackgroundJobs/
   SalsCaterSuite.IntegrationTests/BackgroundJobs/
 ```
