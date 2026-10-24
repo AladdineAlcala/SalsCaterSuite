@@ -44,6 +44,9 @@ public class PreviewBookingQuoteCommandTests
 
         var pricing = new BookingPricingService(_policy);
         var estimates = new BookingTierEstimateService(_packages, _rules, _menus);
+        var courseSets = new BookingMenuCourseSetBuilder(_rules, _menus);
+        var addons = new FakeAddonRepository(_store);
+        var lineItems = new BookingLineItemResolver(courseSets, addons);
 
         _command = new PreviewBookingQuoteCommand(
             new BookingQuoteValidator(),
@@ -54,6 +57,8 @@ public class PreviewBookingQuoteCommandTests
             _coverages,
             _bookings,
             pricing,
+            lineItems,
+            courseSets,
             estimates,
             _policy,
             new FakeDateTime(Today.ToDateTime(TimeOnly.MinValue)));
@@ -75,8 +80,11 @@ public class PreviewBookingQuoteCommandTests
         _store.Packages.Add(new Package
         {
             PackageId = id,
-            PackageType = "Premier Buffet",
-            Description = "Premier Buffet Tier",
+            // BR-40 (DEC-141): the out-of-town surcharge is limited to the Regular and
+            // Premier tier TYPES verbatim, so the fixture is typed "Regular" — its description
+            // is the development catalogue's own, which mentions "Premier" and must not count.
+            PackageType = "Regular",
+            Description = "2026 Premier Package B",
             AmountPax = rate,
             MinPax = minPax,
             IsActive = active
@@ -120,7 +128,13 @@ public class PreviewBookingQuoteCommandTests
         quote.ExtendedAreaAmount.Should().Be(50m * 120, "the surcharge is the municipality's rate times the pax");
         quote.ExtendedAreaRate.Should().Be(50m);
         quote.GrossAmount.Should().Be((820m + 50m) * 120);
-        quote.NetAmountDue.Should().Be(quote.GrossAmount);
+
+        // BR-38 (DEC-136): 120 heads falls in the 100-999 band, so the automatic discount
+        // takes 20.00 per head off the gross and is the only discount on the quote.
+        quote.DiscountSource.Should().Be(DiscountSource.HeadcountBand);
+        quote.DiscountBandLabel.Should().Be(HeadcountBandDiscount.Band100To999Label);
+        quote.DiscountAmount.Should().Be(2_400m);
+        quote.NetAmountDue.Should().Be(quote.GrossAmount - 2_400m);
     }
 
     [Fact]
@@ -289,7 +303,9 @@ public class PreviewBookingQuoteCommandTests
         var result = await _command.ExecuteAsync(ValidRequest());
 
         result.Data!.RequiredDepositPercentage.Should().Be(30m);
-        result.Data.RequiredDepositAmount.Should().Be(820m * 120 * 0.30m);
+        result.Data.RequiredDepositAmount.Should().Be(
+            (820m * 120 - 2_400m) * 0.30m,
+            "the required deposit is a share of the net, which already carries the band (BR-30, BR-38)");
     }
 
     [Fact]
@@ -316,7 +332,9 @@ public class PreviewBookingQuoteCommandTests
 
         var result = await _command.ExecuteAsync(request);
 
-        result.Data!.OutstandingBalance.Should().Be(820m * 120 - 50_000m);
+        result.Data!.OutstandingBalance.Should().Be(
+            820m * 120 - 2_400m - 50_000m,
+            "the outstanding balance is the net (band included) less the stated initial payment");
         result.Data.InitialPaymentAmount.Should().Be(50_000m);
     }
 

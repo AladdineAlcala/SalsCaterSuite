@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Save, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { CurrencyInput } from '@/components/ui/CurrencyInput'
 import type { AreaDto, AreaRequest } from '@/types/package.types'
 
 /** The editable attributes of a municipality (contract §13.10). */
@@ -266,15 +267,11 @@ export function PackageLocationForm({
           <label htmlFor="area-additional-rate" className={LABEL_CLASSES}>
             Out-of-town rate per pax
           </label>
-          <input
+          <CurrencyInput
             id="area-additional-rate"
             name="additionalRate"
-            type="number"
-            inputMode="decimal"
-            step="any"
-            min="0"
             value={values.additionalRate}
-            onChange={(event) => handleChange('additionalRate', event.target.value)}
+            onValueChange={(value) => handleChange('additionalRate', value)}
             aria-invalid={fieldErrors.additionalRate ? true : undefined}
             aria-describedby={
               fieldErrors.additionalRate ? 'area-additional-rate-error' : 'area-additional-rate-hint'
@@ -360,15 +357,11 @@ export function PackageLocationForm({
         <label htmlFor="area-logistics-cost" className={LABEL_CLASSES}>
           Logistics cost per event
         </label>
-        <input
+        <CurrencyInput
           id="area-logistics-cost"
           name="logisticsCost"
-          type="number"
-          inputMode="decimal"
-          step="any"
-          min="0"
           value={values.logisticsCost}
-          onChange={(event) => handleChange('logisticsCost', event.target.value)}
+          onValueChange={(value) => handleChange('logisticsCost', value)}
           aria-invalid={fieldErrors.logisticsCost ? true : undefined}
           aria-describedby={
             fieldErrors.logisticsCost ? 'area-logistics-cost-error' : 'area-logistics-cost-hint'

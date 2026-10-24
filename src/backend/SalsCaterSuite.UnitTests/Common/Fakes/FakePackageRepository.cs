@@ -24,7 +24,22 @@ public sealed class FakePackageRepository : IPackageRepository
         return Task.FromResult(_store.Packages.FirstOrDefault(p => p.PackageId == packageId));
     }
 
-    public Task<List<PackageDto>> GetProjectionListAsync(bool? activeOnly, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<string>> GetPackageCodesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        // Includes the soft-deleted tiers, mirroring the repository (a code is never reused).
+        IReadOnlyList<string> codes = _store.Packages
+            .Select(p => p.PackageCode)
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .ToList();
+
+        return Task.FromResult(codes);
+    }
+
+    public Task<List<PackageDto>> GetProjectionListAsync(
+        bool? activeOnly,
+        int? areaId = null,
+        CancellationToken cancellationToken = default)
     {
         // The catalogue's scoped population (DEC-074), mirroring the repository's query.
         IEnumerable<Package> packages = _store.Packages.Where(p => !p.IsDeleted);
@@ -32,6 +47,14 @@ public sealed class FakePackageRepository : IPackageRepository
         if (activeOnly == true)
         {
             packages = packages.Where(p => p.IsActive);
+        }
+
+        // DEC-157: only a tier whose LIVE coverage includes the municipality qualifies.
+        if (areaId.HasValue)
+        {
+            var area = areaId.Value;
+            packages = packages.Where(p => p.AreaCoverages.Any(coverage =>
+                coverage.AreaId == area && coverage.IsActive && !coverage.IsDeleted));
         }
 
         var result = packages
@@ -104,10 +127,12 @@ public sealed class FakePackageRepository : IPackageRepository
     private static PackageDto Map(Package package) => new()
     {
         PackageId = package.PackageId,
+        PackageCode = package.PackageCode ?? string.Empty,
         PackageType = package.PackageType ?? string.Empty,
         Description = package.Description ?? string.Empty,
         AmountPax = package.AmountPax,
         MinPax = package.MinPax,
+        ExtendedLocationAmount = package.ExtendedLocationAmount,
         IsActive = package.IsActive
     };
 }

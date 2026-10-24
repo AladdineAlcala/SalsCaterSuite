@@ -28,7 +28,21 @@ public class PackageRepository : IPackageRepository
             .FirstOrDefaultAsync(p => p.PackageId == packageId, cancellationToken);
     }
 
-    public async Task<List<PackageDto>> GetProjectionListAsync(bool? activeOnly, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<string>> GetPackageCodesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        // Deliberately includes the soft-deleted rows: a code is a business identifier and must
+        // never be reused, even after the tier it belonged to is archived.
+        return await _context.Packages
+            .AsNoTracking()
+            .Select(p => p.PackageCode)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<PackageDto>> GetProjectionListAsync(
+        bool? activeOnly,
+        int? areaId = null,
+        CancellationToken cancellationToken = default)
     {
         var query = _context.Packages.AsNoTracking();
 
@@ -41,15 +55,28 @@ public class PackageRepository : IPackageRepository
         if (activeOnly == true)
             query = query.Where(p => p.IsActive);
 
+        // DEC-157: the owner's "Packages will display based on the selected area" rule. Only a
+        // tier whose LIVE coverage includes the municipality qualifies, so a removed coverage
+        // (soft-deleted) never keeps a tier in the list.
+        if (areaId.HasValue)
+        {
+            query = query.Where(p => p.AreaCoverages.Any(coverage =>
+                coverage.AreaId == areaId.Value &&
+                coverage.IsActive &&
+                !coverage.IsDeleted));
+        }
+
         return await query
             .OrderBy(p => p.PackageType).ThenBy(p => p.Description)
             .Select(p => new PackageDto
             {
                 PackageId = p.PackageId,
+                PackageCode = p.PackageCode ?? string.Empty,
                 PackageType = p.PackageType ?? string.Empty,
                 Description = p.Description ?? string.Empty,
                 AmountPax = p.AmountPax,
                 MinPax = p.MinPax,
+                ExtendedLocationAmount = p.ExtendedLocationAmount,
                 IsActive = p.IsActive
             })
             .ToListAsync(cancellationToken);
@@ -65,10 +92,12 @@ public class PackageRepository : IPackageRepository
             .Select(p => new PackageDto
             {
                 PackageId = p.PackageId,
+                PackageCode = p.PackageCode ?? string.Empty,
                 PackageType = p.PackageType ?? string.Empty,
                 Description = p.Description ?? string.Empty,
                 AmountPax = p.AmountPax,
                 MinPax = p.MinPax,
+                ExtendedLocationAmount = p.ExtendedLocationAmount,
                 IsActive = p.IsActive
             })
             .FirstOrDefaultAsync(cancellationToken);

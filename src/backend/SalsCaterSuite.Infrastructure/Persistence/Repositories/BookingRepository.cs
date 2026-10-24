@@ -42,6 +42,28 @@ public class BookingRepository : IBookingRepository
             .FirstOrDefaultAsync(b => b.TransactionId == transactionId, cancellationToken);
     }
 
+    /// <summary>
+    /// The line-item dossier (contract §15.1, §15.2, §16.3, §16.4, §15.5). The dish selection
+    /// and the add-on lines are loaded <b>with their soft-deleted rows</b>, because the writes
+    /// <b>resurrect</b> a re-chosen dish or a re-added add-on (DEC-134) — no global query filter
+    /// is introduced (DEC-038, DEC-045). A soft-deleted <b>payment</b> stays excluded, so it is
+    /// never summed (BR-27).
+    /// </summary>
+    public async Task<Booking?> GetWithLineItemsAsync(int transactionId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Bookings
+            .AsSplitQuery()
+            .Include(b => b.Customer)
+            .Include(b => b.Package)
+            .Include(b => b.ExtendedArea)
+            .Include(b => b.Payments.Where(p => !p.IsDeleted))
+            .Include(b => b.Menus)
+            .Include(b => b.AddOns)
+                .ThenInclude(line => line.AddonDetail)
+                    .ThenInclude(addon => addon!.AddonCategory)
+            .FirstOrDefaultAsync(b => b.TransactionId == transactionId, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Booking>> GetByDateRangeAsync(DateOnly fromDate, DateOnly toDate, CancellationToken cancellationToken = default)
     {
         return await _context.Bookings
@@ -156,6 +178,8 @@ public class BookingRepository : IBookingRepository
             .Include(b => b.Package)
             .Include(b => b.ExtendedArea)
             .Include(b => b.Payments.Where(p => !p.IsDeleted))
+            .Include(b => b.Menus)
+            .Include(b => b.AddOns)
             .Where(b => !b.IsDeleted && b.Status != BookingStatus.Cancelled);
 
         if (!string.IsNullOrWhiteSpace(search))

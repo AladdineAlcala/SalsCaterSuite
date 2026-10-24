@@ -1204,3 +1204,486 @@ Feature: Governance (REQ-BKG-05, AC-BKG-48)
     Then every member is assigned by that projection
     And a member added to a read model without a projection fails the guard
 ```
+---
+
+## Booking Dish Selection & the Menu-Change Window (REQ-BKG-06, added 2026-10-22)
+
+### Scenario 75: A Booking Carries Its Own Dish Selection
+```gherkin
+Feature: Booking Dish Selection (REQ-BKG-06, BR-35, DEC-127)
+  Scenario: The chosen dishes are recorded on the booking
+    Given a confirmed booking on the "Premier" tier whose Beef course requires one dish
+    When I choose "Beef Calderita" for the Beef course and save the selection
+    Then the selection is recorded on the booking
+    And GET /api/bookings/{id}/menus returns it
+    And the other courses still report their required quota as unmet
+```
+---
+
+### Scenario 76: The Selection Is Validated By The Tier's Own Rules
+```gherkin
+Feature: Booking Dish Selection (REQ-BKG-06, BR-15, BR-35, DEC-130)
+  Scenario: A selection that breaks the quota is refused
+    Given a tier whose Beef course requires two dishes
+    When I save a selection of one dish for the Beef course
+    Then the response is 400 Bad Request
+    And the message names the Beef course and the quota
+    And nothing was written
+    When I save a selection of a dish that is not in the course's pool
+    Then the response is 400 Bad Request
+    And nothing was written
+```
+---
+
+### Scenario 77: A Selection Never Moves The Money
+```gherkin
+Feature: Booking Dish Selection (REQ-BKG-06, BR-37, BR-04, DEC-129)
+  Scenario: Changing the dishes leaves the contract value untouched
+    Given a confirmed booking with a deposit taken
+    When I replace its dish selection
+    Then every money field of the booking is unchanged
+    And the ledger's contract amount is unchanged
+    And the register still publishes the same net amount due
+```
+---
+
+### Scenario 78: The Menu-Change Window Is Configuration
+```gherkin
+Feature: Booking Dish Selection (REQ-BKG-06, BR-36, DEC-128)
+  Scenario: The window comes from the configuration and its deadline is always published
+    Given the window is configured as 7 days
+    Then the published lock date is 7 days before the event date
+    And the published days figure is 7
+    When the window is not configured
+    Then the published lock date is the event date
+    And the published days figure is null
+```
+---
+
+### Scenario 79: A Write After The Lock Is Refused
+```gherkin
+Feature: Booking Dish Selection (REQ-BKG-06, BR-36, DEC-128)
+  Scenario: The kitchen's production commitment is honoured
+    Given a booking whose event is inside the configured menu-change window
+    When I replace its dish selection
+    Then the response is 200 OK
+    And the selection is stored
+    When the booking's event passes its lock date
+    And I replace its dish selection
+    Then the response is 400 Bad Request
+    And the message names the lock date
+    And nothing was written
+```
+---
+
+### Scenario 80: The Standard Run Is The Default Menu
+```gherkin
+Feature: Booking Dish Selection (REQ-BKG-06, BR-35, BR-19, DEC-131)
+  Scenario: A booking with no selection is served the tier's standard run
+    Given a confirmed booking with no dish selection
+    Then the register publishes the tier's standard-run estimate for it
+    And the card's label says it is the tier's estimate
+    And saving an explicitly empty selection clears any selection the booking had
+    And an absent selections member is rejected with 400
+```
+---
+
+### Scenario 81: The Selection Is Replaced, Never Patched
+```gherkin
+Feature: Booking Dish Selection (REQ-BKG-06, BR-35, DEC-134)
+  Scenario: A replaced dish is soft-deleted and re-chosen resurrects it
+    Given a booking whose selection holds "Beef Calderita"
+    When I replace the selection with "Beef Ribeye"
+    Then the Beef Calderita row is soft-deleted and the Beef Ribeye row is active
+    When I choose "Beef Calderita" again
+    Then its row is resurrected and no second row exists for that dish
+```
+---
+
+### Scenario 82: The Menu Editor Is Reachable And Honest
+```gherkin
+Feature: Booking Dish Selection (REQ-BKG-06, DEC-133)
+  Scenario: The dossier card offers the menu selection and nothing it cannot deliver
+    Given the Bookings & Events Register
+    Then each dossier card carries a "Menu selection" action
+    And it opens the editor for that booking
+    And the reference's "Manage Event" action is not rendered
+    And a locked booking's editor is read-only and says when it locks
+```
+---
+---
+
+## Bookings & Events Operations - Add-Ons, Automatic Discounts and the Extended Location (REQ-BKG-07 / REQ-BKG-08, added 2026-10-22)
+
+### Scenario 83: The Headcount Bands Are Exactly As The Owner Stated
+```gherkin
+Feature: Automatic Headcount Discounts (REQ-BKG-08, BR-38, DEC-136, DEC-137)
+  Scenario: Each band earns its own per-head discount and the gap earns nothing
+    Given a booking of 89 heads
+    Then the discount is 890.00 and the discount source is HeadcountBand
+    Given a booking of 95 heads
+    Then the discount is zero and the discount source is None
+    Given a booking of 120 heads
+    Then the discount is 2400.00 and the discount source is HeadcountBand
+    Given a booking of 1000 heads
+    Then the discount is zero and the discount source is None
+```
+---
+
+### Scenario 84: One Discount Applies
+```gherkin
+Feature: Automatic Headcount Discounts (REQ-BKG-08, BR-38, DEC-138)
+  Scenario: An explicit code replaces the automatic band discount
+    Given a booking of 120 heads and a valid discount code
+    When the booking is priced
+    Then the discount is the code's amount and the discount source is Code
+    And the band discount is not applied on top
+```
+---
+
+### Scenario 85: The Out-Of-Town Amount Is Limited To Two Tier Types
+```gherkin
+Feature: Extended Location (REQ-BKG-06, BR-40, DEC-141)
+  Scenario: Only Regular and Premier tiers carry the out-of-town amount
+    Given a Regular tier and a municipality with a rate
+    When I quote the booking with the extended area applied
+    Then the surcharge is applied
+    Given a Wedding tier
+    When I quote the booking with the extended area applied
+    Then the response is 400 Bad Request
+    And the workbench does not offer the area filter for that tier type
+```
+---
+
+### Scenario 86: The Add-On Master And The Booking's Lines
+```gherkin
+Feature: Booking Add-Ons (REQ-BKG-07, BR-39, DEC-139, DEC-140)
+  Scenario: The lines freeze what was agreed
+    Given an active add-on in the master with a description, an amount and a unit
+    When I attach it to a booking with a confirmed amount
+    Then the line freezes the description, the amount and the unit
+    When the catalogue's price is changed afterwards
+    Then the stored line is unchanged
+    And the register still publishes the booking's original net amount due
+```
+---
+
+### Scenario 87: The Add-On Total Joins The Gross
+```gherkin
+Feature: Booking Add-Ons (REQ-BKG-07, BR-41, DEC-135, BR-25)
+  Scenario: The gross is base plus surcharge plus add-ons
+    Given a tier at 820.00 per guest for 120 guests
+    And a municipality rate of 50.00 per pax applied
+    And an add-on line of 1500.00
+    When the booking is priced
+    Then the gross is 104400.00 plus 1500.00
+    And the stored AmountDue equals the calculator's NetAmountDue to the cent
+```
+---
+
+### Scenario 88: The Add-Ons Follow The Same Menu-Change Window
+```gherkin
+Feature: Booking Add-Ons (REQ-BKG-07, BR-36, BR-39)
+  Scenario: A locked booking takes no add-on change
+    Given a booking whose event is inside the configured menu-change window
+    When I replace its add-ons
+    Then the response is 200 OK
+    When the booking's event passes its lock date
+    And I replace its add-ons
+    Then the response is 400 Bad Request
+    And the message names the lock date
+    And nothing was written
+```
+---
+---
+
+## The Menu-Selection Screen (REQ-BKG-06 / 07 / 08, added 2026-10-22)
+
+### Scenario 89: The Tax Is A VAT-Inclusive Disclosure And The Rate Is Configuration
+```gherkin
+Feature: The Contract Ledger (REQ-BKG-06, BR-42, DEC-143)
+  Scenario: The VAT is disclosed within the total, and only when it is configured
+    Given the VAT percentage is configured as 12
+    When a booking's net amount due is 120300.00
+    Then the published included VAT amount is 12889.29
+    And the net amount due is unchanged
+    When the VAT percentage is not configured
+    Then the published included VAT amount is null
+    And no VAT line is rendered
+```
+---
+
+### Scenario 90: The Batch Mass Is Derived From The Portion And The Headcount
+```gherkin
+Feature: The Commissary Batch Yield (REQ-BKG-06, DEC-145)
+  Scenario: The mass the kitchen produces is computable
+    Given a course rule that states a portion of 180 grams per guest
+    And a booking of 120 guests
+    Then the published batch mass is 21.6 kilograms
+    And it is labelled a planning figure
+    Given a course rule that states no portion
+    Then the published batch mass is null
+```
+---
+
+### Scenario 91: The Add-On's Pricing Basis Is An Explicit Catalogue Column
+```gherkin
+Feature: Booking Add-Ons (REQ-BKG-07, BR-39, DEC-158)
+  Scenario: A per-guest add-on multiplies by the headcount and a flat one does not
+    Given an active add-on priced 150.00 whose pricing basis is PerGuest
+    When it is attached to a booking of 120 guests
+    Then the frozen line total is 18000.00
+    Given an active add-on priced 1500.00 whose pricing basis is Flat
+    When it is attached to the same booking
+    Then the frozen line total is 1500.00
+    Given an active add-on whose pricing basis is not stated
+    When it is attached to the same booking
+    Then the frozen line total is its catalogue amount
+    And the unit of measure never decides the basis
+```
+---
+
+### Scenario 92: The Chef Prep Instruction Belongs To The Event
+```gherkin
+Feature: Booking Dish Selection (REQ-BKG-06, DEC-146)
+  Scenario: The instruction is stored per booking, per dish
+    Given a booking whose Beef course has the dish "Beef Caldereta" selected
+    When I enter the prep instruction "Walnuts on side for allergy table" and save
+    Then the instruction is stored on the booking's selection
+    And the catalogue's dish is unchanged
+    And another booking of the same dish carries no instruction
+```
+---
+
+### Scenario 93: The Kitchen Production Order Prints The Selection
+```gherkin
+Feature: The Kitchen Banquet Event Order (REQ-BKG-06, REQ-REP-02, DEC-148, DEC-159)
+  Scenario: The BEO is generated from the booking's selection
+    Given a booking whose selection holds three dishes
+    And one of them carries a prep instruction
+    And the booking carries two add-on lines
+    When I GET /api/bookings/{id}/beo
+    Then the response is 200 with a PDF
+    And the document lists the three chosen dishes
+    And the document carries the prep instruction
+    And the document lists the add-on lines
+    Given a booking with no selection
+    When I GET /api/bookings/{id}/beo
+    Then the document lists the tier's course rules
+    And it states that no dish selection has been recorded
+    And it lists no dish
+```
+---
+
+---
+
+## The Plan Review's Corrections (REQ-BKG-06 / 07 / 08, added 2026-10-22)
+
+### Scenario 94: The Add-On Total Reaches The Authoritative Calculator
+```gherkin
+Feature: Booking Add-Ons (REQ-BKG-07, DEC-151, DEC-099, BR-25)
+  Scenario: The stored snapshot and the calculator agree with an add-on on the booking
+    Given a tier at 820.00 per guest for 120 guests
+    And a confirmed add-on line of 1500.00
+    When the booking is priced
+    Then the booking's frozen AddonsTotal is 1500.00
+    And the stored AmountDue equals the calculator's NetAmountDue to the cent
+    And the register's published net amount due is the same figure
+    When the booking is read again
+    Then the published net amount due is unchanged
+```
+---
+
+### Scenario 95: An Add-On Write Re-Freezes The Money
+```gherkin
+Feature: Booking Add-Ons (REQ-BKG-07, BR-43, DEC-152)
+  Scenario: Adding an add-on moves the contract value and re-caps the discount
+    Given a confirmed booking of 120 heads with a 2400.00 band discount and a 36120.00 deposit
+    When I attach an add-on line of 1500.00
+    Then the booking's Subtotal and AmountDue are re-frozen
+    And the discount amount is still 2400.00
+    And the deposit amount is unchanged
+    When I remove an add-on so that the new net amount due falls below the amount collected
+    Then the response is 400 Bad Request
+    And nothing was written
+```
+---
+
+### Scenario 96: The Quote And The Create Cannot Diverge
+```gherkin
+Feature: The Booking Workbench (REQ-BKG-06 / 07, BR-31, DEC-153)
+  Scenario: A quote that carries a selection and add-ons agrees with the created booking
+    Given a quote request that carries a selection and one add-on
+    Then the quote's gross, discount and net amount due are published
+    When I create the booking with the same selection and add-on
+    Then the created booking's net amount due equals the quote's
+```
+---
+
+### Scenario 97: The Surcharge Tier Test Is Pinned
+```gherkin
+Feature: Extended Location (REQ-BKG-06, BR-40, DEC-156)
+  Scenario: The tier test is equality on the type column only
+    Given a tier whose PackageType is "Premier"
+    When I quote the booking with the extended area applied
+    Then the surcharge is applied
+    Given a tier whose PackageType is "Premier Buffet"
+    When I quote the booking with the extended area applied
+    Then the response is 400 Bad Request
+    And the message names the two eligible tier types
+    Given a tier whose description reads "2026 Premier Package B" but whose type is "Regular"
+    When I quote the booking with the extended area applied
+    Then the surcharge is applied
+```
+---
+
+### Scenario 98: The Area Filter Is Answered By The Server
+```gherkin
+Feature: The Booking Workbench (REQ-BKG-06, DEC-157)
+  Scenario: The tiers are filtered by the selected area
+    Given a municipality covered by some tiers and not by others
+    When I GET /api/packages with that area
+    Then only the tiers covering that area are returned
+```
+---
+
+### Scenario 99: The Client Hardcodes No Bound And No Rate
+```gherkin
+Feature: The Menu Editor (REQ-BKG-06, DEC-160)
+  Scenario: The band bounds and the VAT rate come from the server
+    Given a booking priced by the headcount band
+    Then the quote publishes the band's label and its rate per head
+    And the VAT rate is published when it is configured
+    And the feature folder contains no four-digit or percentage literal
+```
+---
+
+### Scenario 100: The Package Code Is Generated Once and Frozen
+```gherkin
+Feature: The Packages & Buffets Catalogue (DEC-162)
+  Scenario: A new tier receives its per-type code
+    Given no live Regular tier numbered 01 exists
+    When I create a Regular tier
+    Then the server assigns PKG-REG-01
+    And a second Regular tier receives PKG-REG-02
+    And editing the first tier's type or name leaves PKG-REG-01 unchanged
+```
+---
+
+### Scenario 101: The Extended Location Amount Is Regular/Premier Only
+```gherkin
+Feature: The Packages & Buffets Catalogue (DEC-163)
+  Scenario: A non-eligible type may not carry the amount
+    Given a package payload typed Wedding with a non-null extendedLocationAmount
+    When I POST it to /api/packages
+    Then the response is 400
+    And no tier is written
+    And a Regular tier with the same amount is accepted
+```
+---
+
+### Scenario 102: The Tier Amount Joins the Municipality Rate
+```gherkin
+Feature: The Reservation Workbench (DEC-164)
+  Scenario: The booking surcharge combines both per-guest rates
+    Given a Regular tier whose extendedLocationAmount is 25.00
+    And a municipality whose AdditionalRate is 50.00
+    When I quote a 100-head booking with applyExtendedAmount on
+    Then the quote's extendedAreaAmount is 7,500.00
+    And with no municipality selected it is 2,500.00
+    And with applyExtendedAmount off it is 0.00
+```
+---
+
+### Scenario 103: Every Money Input Is Formatted
+```gherkin
+Feature: The shared CurrencyInput (DEC-166)
+  Scenario: A currency field formats without a symbol
+    Given the value 1425 in a money field
+    When the field is not focused
+    Then it shows 1,425.00
+    And while it is edited it shows the raw value
+    And a count field such as the headcount remains a plain number
+```
+---
+
+### Scenario 104: The Department Foreign Keys
+```gherkin
+Feature: The Department master (DEC-165)
+  Scenario: An add-on and a dish may name a department
+    Given a Department row
+    When an AddonDetail or a Menu references it
+    Then the FK is enforced
+    And a missing department leaves the nullable column null
+    And the add-on master publishes deptId and deptName
+```
+---
+
+### Scenario 105: The Add-on Master Is Administered From Settings
+```gherkin
+Feature: Settings -> Addons (DEC-168)
+  Scenario: The master is listed and edited
+    Given the add-on master holds an active and an inactive add-on
+    When I open /settings/addons
+    Then both add-ons are listed with their category, department, basis and unit price
+    And I can open one in the form and save a changed description
+    And the list shows the saved value after the server confirms
+```
+---
+
+### Scenario 106: The Add-on Write Is Validated Before Persistence
+```gherkin
+Feature: Settings -> Addons (DEC-168)
+  Scenario: A rejected payload persists nothing
+    Given a blank description and a negative unit price
+    When I POST it to /api/addons
+    Then the response is 400 with the server's messages
+    And no add-on is written
+    And an unknown category or department is also a 400
+```
+---
+
+### Scenario 107: The Delete Is a Soft Delete
+```gherkin
+Feature: Settings -> Addons (DEC-168)
+  Scenario: A deleted add-on disappears but a booking keeps its frozen line
+    Given an add-on that a booking already carries
+    When I DELETE it from the master
+    Then the master and the booking picker no longer offer it
+    And the booking's frozen line is unchanged
+    And a second DELETE returns 404
+```
+---
+
+### Scenario 108: The Booking Picker Stays Active-Only
+```gherkin
+Feature: Settings -> Addons (DEC-168)
+  Scenario: An inactive add-on is excluded from the picker
+    Given an inactive add-on
+    Then GET /api/addons?headcount=100 excludes it
+    And GET /api/addons/manage includes it so it can be reactivated
+```
+---
+
+### Scenario 109: The Booking Menu Add-On Picker Is Lazy And Reconciles The Server Total
+```gherkin
+Feature: Booking Menu Selection add-on picker (REQ-BKG-07, DEC-170, AC-BKG-88)
+  Scenario: Choose add-ons in a category-filtered modal and save the server-recomputed total
+    Given I open a booking's Menu Selection page
+    Then the active add-on master and categories have not been requested
+    When I open "Choose add-ons"
+    Then the active master is requested with the booking's headcount
+    And the category choices are loaded
+    When I filter to a category
+    Then the active master request includes that category id
+    When I select an add-on
+    Then it appears in the selected-addons summary
+    And the full catalogue is not rendered outside the modal
+    And the change remains a draft until I save
+    When I save the selection
+    Then the existing add-on replacement endpoint re-freezes the booking's money
+    And the page reloads the booking details
+    And the contract ledger displays the server-returned total contract value
+    And the browser has not calculated an authoritative total
+```
+---

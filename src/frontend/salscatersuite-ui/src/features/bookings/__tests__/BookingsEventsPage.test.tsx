@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AxiosRequestConfig, AxiosResponse } from 'axios'
@@ -24,8 +24,14 @@ function renderRegister() {
   const queryClient = createTestQueryClient()
   const utils = render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
-        <BookingsEventsPage />
+      <MemoryRouter initialEntries={['/bookings']}>
+        <Routes>
+          <Route path="/bookings" element={<BookingsEventsPage />} />
+          <Route
+            path="/bookings/:transactionId/menu"
+            element={<p>Menu editor of the booking</p>}
+          />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   )
@@ -206,6 +212,43 @@ describe('BookingsEventsPage', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('The register failed.')).toBeInTheDocument()
     expect(screen.getByText('Retry')).toBeInTheDocument()
+  })
+
+  it('renders the selection chip, the add-on lines and the menu-selection action of each dossier', async () => {
+    mockGet()
+
+    renderRegister()
+
+    const cards = await screen.findAllByTestId('booking-dossier-card')
+
+    // M2 — the three selection states are carried by words, never colour alone.
+    expect(within(cards[0]).getByText('Menu: locked')).toBeInTheDocument()
+    expect(within(cards[1]).getByText('Menu: not chosen')).toBeInTheDocument()
+    expect(within(cards[2]).getByText('Menu: chosen')).toBeInTheDocument()
+
+    // The add-on count and its frozen total are the server's.
+    expect(cards[0]).toHaveTextContent('0 lines · ₱0.00')
+    expect(cards[1]).toHaveTextContent('1 line · ₱1,500.00')
+
+    // The reference's "Manage Event" action is not part of this delivery.
+    expect(screen.queryByText('Manage Event')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Menu selection')).toHaveLength(3)
+  })
+
+  it('opens the menu editor of the dossier whose action was used', async () => {
+    mockGet()
+
+    renderRegister()
+
+    const cards = await screen.findAllByTestId('booking-dossier-card')
+
+    await userEvent.click(
+      within(cards[1]).getByRole('button', {
+        name: 'Menu selection for BK-20261121-00102',
+      }),
+    )
+
+    expect(await screen.findByText('Menu editor of the booking')).toBeInTheDocument()
   })
 
   it('keeps the Batch BEOs action inactive and renders the BEO capability gap', async () => {

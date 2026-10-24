@@ -109,7 +109,7 @@ ORM: Entity Framework Core 10
 | `menuid` | `MenuId` | `NVARCHAR(50)` | NO | Primary Key — an **alphanumeric dish code** the user types (e.g. `DS-104`). It is **not** an identity column and it is **upper-cased by the create command**. |
 | `courseId` | `CourseId` | `INT` | YES | Foreign Key referencing `CourseCategory.courseId`. `ON DELETE SET NULL` — a dish with no course is grouped under "Uncategorised" for reporting (KPI-16). |
 | `menu_name` | `MenuName` | `NVARCHAR(150)` | NO | Name of the dish. |
-| `deptId` | `DeptId` | `INT` | YES | **Legacy and orphaned** — there is no `Department` entity, no foreign key constraint, and nothing in the codebase reads or writes it. Not exposed by any endpoint. |
+| `deptId` | `DeptId` | `INT` | YES | The owning department. **Wired to `Department.deptId`** (FK, Restrict) on 2026-10-24; before that it was an orphaned legacy column. `NULL` = not stated. |
 | `note` | `Note` | `NVARCHAR(500)` | YES | Free-text notes. The only free-text field available for recipe notes, allergens or dietary flags — there is **no** structured allergen data (DEC-059). |
 | `image` | `Image` | `NVARCHAR(250)` | YES | Plating photo URL. The column exists but was unreachable until the Customer/Menu Master delivery made it writable (RSK-030). |
 | `price` | `Price` | `DECIMAL(18,2)` | YES | Selling price per serving/order. |
@@ -153,10 +153,12 @@ ORM: Entity Framework Core 10
 | Column Name | Entity Property | Data Type | Nullable | Description / Business Meaning |
 | :--- | :--- | :--- | :--- | :--- |
 | `p_id` | `PackageId` | `INT IDENTITY(1,1)` | NO | Primary Key. |
+| `p_code` | `PackageCode` | `NVARCHAR(30)` | NO | **NEW (2026-10-24).** The human-readable business code, `PKG-{TYPE}-{NN}` (`PKG-REG-01`). Generated once at create and **frozen**; unique among the live tiers (`IX_Package_p_code`, filtered `is_deleted = 0`). |
 | `p_type` | `PackageType` | `NVARCHAR(50)` | YES | Package category (`regular`, `wedding`, `vip`, etc.). |
 | `p_descripton` | `Description` | `NVARCHAR(150)` | YES | Package title and inclusion summary. |
 | `amount_pax` | `AmountPax` | `DECIMAL(18,2)`| YES | Price per pax. |
 | `minPax` | `MinPax` | `INT` | YES | Minimum guest count required for package. |
+| `p_extendedLocationAmount` | `ExtendedLocationAmount` | `DECIMAL(18,2)` | YES | **NEW (2026-10-24).** The tier's own **per-guest** extended-location amount. Only `Regular`/`Premier` may carry one; `NULL` = not stated. It is added to the municipality's rate when a booking applies the extended amount. |
 | `isActive` | `IsActive` | `BIT` | NO | Availability status flag. |
 | `date_Created` | `CreatedDate` | `DATETIME2` | YES | Audit: system creation timestamp (DEC-038). |
 | `createdByUser` | `CreatedByUser` | `NVARCHAR(100)` | YES | Audit: username that created the row (DEC-038). |
@@ -275,3 +277,106 @@ The municipality catalogue. Three optional columns were added by the REQ-PKG-02 
 | `createdByUser` | `CreatedByUser` | `NVARCHAR(100)` | YES | Audit: username that created the row (DEC-038). |
 | `updatedDate` | `UpdatedDate` | `DATETIME2` | YES | Audit: system last-update timestamp (DEC-038). |
 | `is_deleted` | `IsDeleted` | `BIT` | NO | Audit: soft-delete flag, database default `0`. |
+---
+
+## The Bookings & Events Operation Tables (REQ-BKG-06 / 07 / 08, added 2026-10-22)
+
+### Table: `AddonCategory` (`addonCategoryId` PK) - NEW (DEC-142)
+
+The add-on master's **category** level. The owner's operational note names it `AddonCategory(CatId, category)`. **No row is seeded** (BR-13) - the master ships **empty**, so the add-on picker is empty and the feature is inert until the catalogue is populated (RSK-066, M12).
+
+| Column Name | Entity Property | Data Type | Nullable | Description / Business Meaning |
+| :--- | :--- | :--- | :--- | :--- |
+| `addonCategoryId` | `AddonCategoryId` | `INT IDENTITY(1,1)` | NO | Primary Key. |
+| `addonCategoryName` | `AddonCategoryName` | `NVARCHAR(150)` | NO | The category's name - the note's `category`. |
+| `createdDate` | `CreatedDate` | `DATETIME2` | YES | Audit: system creation timestamp (DEC-038). |
+| `createdByUser` | `CreatedByUser` | `NVARCHAR(100)` | YES | Audit: username that created the row (DEC-038). |
+| `updatedDate` | `UpdatedDate` | `DATETIME2` | YES | Audit: system last-update timestamp (DEC-038). |
+| `is_deleted` | `IsDeleted` | `BIT` | NO | Audit: soft-delete flag, database default `0`. |
+
+---
+
+### Table: `Department` (`deptId` PK) - NEW (2026-10-24)
+
+The kitchen / service department master. **No row is seeded** (BR-13). It is the parent of `AddonDetail.deptId` and of the legacy `Menu.deptId` column, which was orphaned before this table existed.
+
+| Column Name | Entity Property | Data Type | Nullable | Description / Business Meaning |
+| :--- | :--- | :--- | :--- | :--- |
+| `deptId` | `DeptId` | `INT IDENTITY(1,1)` | NO | Primary Key. |
+| `deptName` | `DeptName` | `NVARCHAR(150)` | NO | The department's display name. |
+| `createdDate` | `CreatedDate` | `DATETIME2` | YES | Audit: system creation timestamp (DEC-038). |
+| `createdByUser` | `CreatedByUser` | `NVARCHAR(100)` | YES | Audit: username that created the row (DEC-038). |
+| `updatedDate` | `UpdatedDate` | `DATETIME2` | YES | Audit: system last-update timestamp (DEC-038). |
+| `is_deleted` | `IsDeleted` | `BIT` | NO | Audit: soft-delete flag, database default `0`. |
+
+---
+
+### Table: `AddonDetail` (`addonId` PK) - EXTENDED (DEC-142, DEC-158, 2026-10-24)
+
+The add-on itself. The owner's note gives it as `Addons Details(Id, AddonCategoryId, Addon Description, Amount, Unit of measure(UOM))`. **Two** columns were added by this cycle's migration; every other column is unchanged.
+
+| Column Name | Entity Property | Data Type | Nullable | Description / Business Meaning |
+| :--- | :--- | :--- | :--- | :--- |
+| `addonId` | `AddonId` | `INT IDENTITY(1,1)` | NO | Primary Key. |
+| `addonCategoryId` | `AddonCategoryId` | `INT` | YES | **NEW.** Foreign Key referencing `AddonCategory.addonCategoryId`. **Restrict** delete. `NULL` = **not stated** - an add-on may pre-date the category master; it is never a category named "General". |
+| `deptId` | `DeptId` | `INT` | YES | **NEW (2026-10-24).** Foreign Key referencing `Department.deptId`. **Restrict** delete. `NULL` = **not stated** - the legacy add-on rows pre-date the department master. |
+| `pricingBasis` | `PricingBasis` | `INT` | YES | **NEW.** `0` = `Flat`, `1` = `PerGuest`. `NULL` = **not stated**, and the server treats it as `Flat` - the safe direction, because it never multiplies a price that was not meant to be multiplied (DEC-158). |
+| `description` | `Description` | `NVARCHAR(150)` | NO | The catalogue description - the note's `Addon Description`. |
+| `unitPrice` | `UnitPrice` | `DECIMAL(18,2)` | NO | The **unit** amount - per guest when the basis is `PerGuest`, the whole line when it is `Flat`. |
+| `unit` | `Unit` | `NVARCHAR(50)` | YES | The unit of measure - the note's `UOM`. **Descriptive only**: it never decides the pricing basis (DEC-158). `NULL` = not stated. |
+| `createdDate` | `CreatedDate` | `DATETIME2` | YES | Audit: system creation timestamp (DEC-038). |
+| `createdByUser` | `CreatedByUser` | `NVARCHAR(100)` | YES | Audit: username that created the row (DEC-038). |
+| `updatedDate` | `UpdatedDate` | `DATETIME2` | YES | Audit: system last-update timestamp (DEC-038). |
+| `is_deleted` | `IsDeleted` | `BIT` | NO | Audit: soft-delete flag, database default `0`. |
+
+---
+
+### Table: `BookingMenu` (`bookingMenuId` PK) - NEW (DEC-127)
+
+The dishes chosen for **one booking**, one row per chosen dish. **No row is seeded** (BR-13).
+
+| Column Name | Entity Property | Data Type | Nullable | Description / Business Meaning |
+| :--- | :--- | :--- | :--- | :--- |
+| `bookingMenuId` | `BookingMenuId` | `INT IDENTITY(1,1)` | NO | Primary Key. |
+| `trn_Id` | `TransactionId` | `INT` | NO | Foreign Key referencing `Booking.trn_Id`. **Cascade** delete - the selection dies with its booking. |
+| `menuId` | `MenuId` | `NVARCHAR(50)` | NO | Foreign Key referencing `Menu.menuid` (the catalogue's key is a **string**). **Restrict** delete (M4). |
+| `courseId` | `CourseId` | `INT` | NO | Foreign Key referencing `CourseCategory.courseId`. **Restrict** delete. **Frozen** at selection time, so the selection stays self-describing if the catalogue later re-assigns a dish (RSK-063). |
+| `prepInstruction` | `PrepInstruction` | `NVARCHAR(500)` | YES | The chef's **per-event** prep instruction for this dish. It is **per booking**, so it lives on the selection row and not on the catalogue (DEC-146). `NULL` = not stated. |
+| `createdDate` | `CreatedDate` | `DATETIME2` | YES | Audit: system creation timestamp (DEC-038). |
+| `createdByUser` | `CreatedByUser` | `NVARCHAR(100)` | YES | Audit: username that created the row (DEC-038). |
+| `updatedDate` | `UpdatedDate` | `DATETIME2` | YES | Audit: system last-update timestamp (DEC-038). |
+| `is_deleted` | `IsDeleted` | `BIT` | NO | Audit: soft-delete flag, database default `0`. A dish no longer chosen is **soft-deleted**, and re-choosing it **resurrects** its row rather than inserting a second one (DEC-085). |
+
+Indexes: a **filtered unique index** on (`trn_Id`, `menuId`) with the predicate `is_deleted = 0` (the DEC-088 precedent), and an index on (`trn_Id`).
+
+---
+
+### Table: `BookingAddOn` (`bookingAddOnId` PK) - NEW (DEC-139)
+
+The add-on lines carried by **one booking**, one row per line. **No row is seeded** (BR-13).
+
+| Column Name | Entity Property | Data Type | Nullable | Description / Business Meaning |
+| :--- | :--- | :--- | :--- | :--- |
+| `bookingAddOnId` | `BookingAddOnId` | `INT IDENTITY(1,1)` | NO | Primary Key. |
+| `trn_Id` | `TransactionId` | `INT` | NO | Foreign Key referencing `Booking.trn_Id`. **Cascade** delete. |
+| `addonId` | `AddonId` | `INT` | NO | Foreign Key referencing `AddonDetail.addonId`. **Restrict** delete (M4). |
+| `description` | `Description` | `NVARCHAR(150)` | NO | The **frozen** description (BR-04). |
+| `amount` | `Amount` | `DECIMAL(18,2)` | NO | The **frozen line total** - the line's commercial truth and the amount that enters the gross (DEC-135, DEC-158). |
+| `unit` | `Unit` | `NVARCHAR(50)` | YES | The **frozen** unit of measure - **descriptive only**. `NULL` = not stated. |
+| `pricingBasis` | `PricingBasis` | `INT` | NO | The **frozen** pricing basis: `0` = `Flat`, `1` = `PerGuest` (DEC-158). |
+| `createdDate` | `CreatedDate` | `DATETIME2` | YES | Audit: system creation timestamp (DEC-038). |
+| `createdByUser` | `CreatedByUser` | `NVARCHAR(100)` | YES | Audit: username that created the row (DEC-038). |
+| `updatedDate` | `UpdatedDate` | `DATETIME2` | YES | Audit: system last-update timestamp (DEC-038). |
+| `is_deleted` | `IsDeleted` | `BIT` | NO | Audit: soft-delete flag, database default `0`. A line no longer carried is **soft-deleted** (DEC-085). |
+
+Indexes: a **filtered unique index** on (`trn_Id`, `addonId`) with the predicate `is_deleted = 0`, and an index on (`trn_Id`).
+
+---
+
+### Table: `Booking` (`trn_Id` PK) - EXTENDED (DEC-151)
+
+One column was added by this cycle's migration; every other column is unchanged.
+
+| Column Name | Entity Property | Data Type | Nullable | Description / Business Meaning |
+| :--- | :--- | :--- | :--- | :--- |
+| `addonsTotal` | `AddonsTotal` | `DECIMAL(18,2)` | NO | **NEW.** The **frozen** sum of the booking's add-on **line totals**. It is BR-01's third gross term, and the value the authoritative calculator **reads** - so `Booking.AmountDue` and the calculator's `NetAmountDue` stay equal to the cent (DEC-099, DEC-151). Default `0`. |

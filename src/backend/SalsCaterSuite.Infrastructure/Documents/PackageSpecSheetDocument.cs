@@ -76,6 +76,11 @@ public class PackageSpecSheetDocument : IDocument
                     table.Cell().Padding(4).Text("Type").SemiBold();
                     table.Cell().Padding(4).Text(ruleset.PackageType);
 
+                    table.Cell().Padding(4).Text("Package code").SemiBold();
+                    table.Cell().Padding(4).Text(ruleset.PackageCode);
+                    table.Cell().Padding(4).Text("Extended location / guest").SemiBold();
+                    table.Cell().Padding(4).Text(Money(ruleset.ExtendedLocationAmount));
+
                     table.Cell().Padding(4).Text("Rate per guest").SemiBold();
                     table.Cell().Padding(4).Text(Money(ruleset.AmountPax));
                     table.Cell().Padding(4).Text("Minimum pax").SemiBold();

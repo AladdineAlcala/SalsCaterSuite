@@ -26,19 +26,21 @@ public class ReceivablesTests
         var client = await _fixture.CreateAdministratorClientAsync();
         var customerId = await client.CreateCustomerAsync("Receivables", "Scenario14");
 
-        // A — net amount due ₱50,000.00, ₱20,000.00 collected  → ₱30,000.00 receivable
+        // A — net ₱48,000.00 (100 × 500.00 less the 2,000.00 band), ₱20,000.00 collected → ₱28,000.00
         var bookingA = await client.CreateBookingAsync(customerId, 100, 500m);
-        // B — net amount due ₱30,000.00, fully settled          → contributes ₱0.00
+        // B — net ₱28,000.00 (100 × 300.00 less the band), fully settled → contributes ₱0.00
         var bookingB = await client.CreateBookingAsync(customerId, 100, 300m);
-        // C — net amount due ₱40,000.00, nothing collected      → ₱40,000.00 receivable
+        // C — net ₱38,000.00 (100 × 400.00 less the band), nothing collected → ₱38,000.00 receivable
         var bookingC = await client.CreateBookingAsync(customerId, 100, 400m);
 
         (await client.RecordPaymentAsync(bookingA, 20_000m)).StatusCode.Should().Be(HttpStatusCode.OK);
-        (await client.RecordPaymentAsync(bookingB, 30_000m)).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await client.RecordPaymentAsync(bookingB, TestApi.NetAmountDueFor(100, 300m))).StatusCode
+            .Should().Be(HttpStatusCode.OK);
 
-        // D — cancelled event with ₱10,000.00 collected → must be excluded entirely
+        // D — cancelled event with its net collected → must be excluded entirely
         var bookingD = await client.CreateBookingAsync(customerId, 100, 100m);
-        (await client.RecordPaymentAsync(bookingD, 10_000m)).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await client.RecordPaymentAsync(bookingD, TestApi.NetAmountDueFor(100, 100m))).StatusCode
+            .Should().Be(HttpStatusCode.OK);
         (await client.CancelBookingAsync(bookingD, refundAmount: 0m)).StatusCode.Should().Be(HttpStatusCode.OK);
 
         var listResponse = await client.GetAsync("/api/customers");
@@ -49,7 +51,7 @@ public class ReceivablesTests
 
         var customerElement = await client.GetCustomerByIdFromListAsync(customerId);
         customerElement.GetProperty("totalReceivables").GetDecimal().Should().Be(
-            70_000m, "₱30,000.00 (A) + ₱0.00 (B) + ₱40,000.00 (C); the cancelled booking (D) is excluded (DEC-025)");
+            66_000m, "₱28,000.00 (A) + ₱0.00 (B) + ₱38,000.00 (C); the cancelled booking (D) is excluded (DEC-025)");
 
         // The total must equal the sum of the contributing bookings' ledger balance due.
         var ledgerBalances = new List<decimal>();

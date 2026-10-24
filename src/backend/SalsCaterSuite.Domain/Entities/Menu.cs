@@ -16,5 +16,11 @@ public class Menu : BaseEntity
     public DateTime? DateUpdated { get; set; }
 
     public CourseCategory? CourseCategory { get; set; }
+
+    /// <summary>
+    /// The department that owns the dish. The <c>deptId</c> column pre-dates the department
+    /// master and was orphaned until the 2026-10-24 request wired it to <see cref="Department"/>.
+    /// </summary>
+    public Department? Department { get; set; }
 }
 

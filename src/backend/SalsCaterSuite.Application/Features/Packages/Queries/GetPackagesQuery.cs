@@ -14,9 +14,12 @@ public class GetPackagesQuery
         _packages = packages;
     }
 
-    public async Task<Result<List<PackageDto>>> ExecuteAsync(bool? activeOnly, CancellationToken cancellationToken = default)
+    public async Task<Result<List<PackageDto>>> ExecuteAsync(
+        bool? activeOnly,
+        int? areaId = null,
+        CancellationToken cancellationToken = default)
     {
-        var packages = await _packages.GetProjectionListAsync(activeOnly, cancellationToken);
+        var packages = await _packages.GetProjectionListAsync(activeOnly, areaId, cancellationToken);
 
         return Result<List<PackageDto>>.Success(packages);
     }

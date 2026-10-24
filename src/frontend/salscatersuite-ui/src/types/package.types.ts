@@ -24,8 +24,10 @@
  * other values — so the client renders the stored value verbatim (DEC-070).
  */
 export interface PackageDto {
-  /** The identity key. There is **no** package code column. */
+  /** The internal identity key. */
   packageId: number
+  /** The human-readable business code, `PKG-{TYPE}-{NN}` (owner request 2026-10-24). */
+  packageCode: string
   /** The tier type — free text, rendered verbatim. */
   packageType: string
   /** The tier's display name. */
@@ -34,6 +36,11 @@ export interface PackageDto {
   amountPax: number | null
   /** The minimum headcount. `null` = not set. */
   minPax: number | null
+  /**
+   * The tier's own per-guest extended-location amount. Available only for Regular/Premier;
+   * `null` = not stated.
+   */
+  extendedLocationAmount: number | null
   /** Whether the tier is selectable. */
   isActive: boolean
 }
@@ -73,6 +80,8 @@ export interface PackageUpsertRequest {
   description: string
   amountPax: number | null
   minPax: number | null
+  /** Only valid for Regular/Premier; `null` for every other type. */
+  extendedLocationAmount: number | null
 }
 
 /** The `201` body of `POST /api/packages`. */
@@ -148,7 +157,10 @@ export interface PackageCourseRule {
 export interface PackageCourseRuleset {
   packageId: number
   packageName: string
+  packageCode: string
   packageType: string
+  /** The tier's own per-guest extended-location amount. `null` = not stated. */
+  extendedLocationAmount: number | null
   /** The per-guest rate. `null` = not priced. */
   amountPax: number | null
   /** The headcount floor. `null` = not set. */
@@ -268,6 +280,9 @@ export interface PackageAreaCoverageRow {
 export interface PackageAreaCoverageMatrix {
   packageId: number
   packageName: string
+  packageCode: string
+  /** The tier's own per-guest extended-location amount. `null` = not stated. */
+  extendedLocationAmount: number | null
   amountPax: number | null
   minPax: number | null
   minimumContractValue: number | null
@@ -299,6 +314,8 @@ export interface PackageLocationPreview {
   areaName: string | null
   /** The municipality's per-pax surcharge. `null` when the municipality stated none. */
   additionalRate: number | null
+  /** The tier's own per-guest extended-location amount. `null` = not stated. */
+  packageExtendedLocationRate: number | null
   baseTotal: number | null
   /** `effectiveAdditionalRate * pax`. `null` when no area is selected. */
   extendedTotal: number | null

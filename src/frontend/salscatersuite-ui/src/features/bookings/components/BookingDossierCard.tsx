@@ -1,4 +1,5 @@
-import { FileText, MapPin, Users } from 'lucide-react'
+import { FileText, MapPin, Users, UtensilsCrossed } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
 import { CapabilityGapNotice } from '@/components/feedback/CapabilityGapNotice'
 import { ProgressTrack } from '@/components/ui/ProgressTrack'
 import { EM_DASH, formatCount, formatCurrency, formatPercentage } from '@/utils/currencyFormatter'
@@ -8,6 +9,7 @@ import type { BookingRegisterItem } from '@/types/booking.types'
 import { PAX_UNIT, PLANNING_ESTIMATE_NOTE, formatClockTime } from '../bookingVocabulary'
 import { BookingOverdueChip } from './BookingOverdueChip'
 import { BookingPaymentStateChip } from './BookingPaymentStateChip'
+import { BookingSelectionStateChip } from './BookingSelectionStateChip'
 import { BookingStatusChip } from './BookingStatusChip'
 
 export interface BookingDossierCardProps {
@@ -16,6 +18,8 @@ export interface BookingDossierCardProps {
   isTimeline?: boolean
   /** Downloads the printable contract of this booking. */
   onDownloadContract: (transactionId: number) => void
+  /** Opens the menu editor of this booking. */
+  onOpenMenu: (transactionId: number) => void
 }
 
 /**
@@ -29,7 +33,12 @@ export interface BookingDossierCardProps {
  *
  * The reference's per-card **Dish Costing** and **Manage Event** actions are
  * **not** rendered: the booking edit screen is a separate requirement and is
- * not part of this delivery (spec §1.4).
+ * not part of this delivery (spec §1.4). The **Menu selection** action is: it
+ * opens the menu editor for this booking (AC-BKG-63).
+ *
+ * The card carries the **selection state** chip and the **add-on count**, so
+ * the operator can see from the register which events still need their dishes
+ * chosen and which carry extras.
  *
  * The reference's footer BEO chip ("BEO Ready", "BEO Dispatched", "Cost Audit
  * Req") is replaced by an explicit **capability-gap notice**: there is no BEO
@@ -43,6 +52,7 @@ export function BookingDossierCard({
   item,
   isTimeline = false,
   onDownloadContract,
+  onOpenMenu,
 }: BookingDossierCardProps) {
   /*
    * The progress track is a **display bound** between two figures the server
@@ -73,6 +83,7 @@ export function BookingDossierCard({
               </span>
               <BookingStatusChip status={item.status} />
               <BookingPaymentStateChip paymentState={item.paymentState} />
+              <BookingSelectionStateChip selectionState={item.selectionState} />
               <BookingOverdueChip isOverdue={item.isOverdue} />
             </div>
             <span className="font-caption text-caption text-espresso-600 break-words">
@@ -174,6 +185,26 @@ export function BookingDossierCard({
             {formatPercentage(item.baseGrossProfitPercentage)}
           </span>
         </div>
+
+        <div className="flex items-center justify-between gap-2 text-caption flex-wrap">
+          <span className="text-espresso-600">Add-ons</span>
+          <span className="font-mono font-bold text-espresso-900">
+            {formatCount(item.addonCount)} {item.addonCount === 1 ? 'line' : 'lines'} ·{' '}
+            {formatCurrency(item.addonsTotal)}
+          </span>
+        </div>
+
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={UtensilsCrossed}
+          onClick={() => onOpenMenu(item.transactionId)}
+          aria-label={`Menu selection for ${item.bookingNumber}`}
+          className="w-full"
+        >
+          Menu selection
+        </Button>
+
         {isTimeline ? (
           <span className="font-caption text-caption text-espresso-400">
             {eventMoment} • {formatClockTime(item.eventStartTime)} –{' '}

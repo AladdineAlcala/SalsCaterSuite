@@ -25,6 +25,18 @@ export const KNOWN_PACKAGE_TYPES: readonly string[] = [
 ]
 
 /**
+ * The two tier types that may carry the extended-location amount (owner request
+ * 2026-10-24, mirroring `PackageSurchargeEligibility`).
+ *
+ * The comparison is the server's: trimmed, case-insensitive, **equality** on the
+ * stored type column. A type such as "Premier Buffet" is not eligible.
+ */
+export function isExtendedLocationEligible(packageType: string): boolean {
+  const trimmed = packageType.trim().toLowerCase()
+  return trimmed === 'regular' || trimmed === 'premier'
+}
+
+/**
  * The text that accompanies the active-state chip.
  *
  * The state is always rendered with its label so it is legible without colour
@@ -105,7 +117,8 @@ export function filterPackageTiers(
     if (term.length > 0) {
       const name = tier.description.toLowerCase()
       const type = tier.packageType.toLowerCase()
-      if (!name.includes(term) && !type.includes(term)) return false
+      const code = (tier.packageCode ?? '').toLowerCase()
+      if (!name.includes(term) && !type.includes(term) && !code.includes(term)) return false
     }
     return true
   })

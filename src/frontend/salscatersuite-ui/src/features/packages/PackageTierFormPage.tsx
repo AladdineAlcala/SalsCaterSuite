@@ -7,10 +7,12 @@ import { CapabilityGapNotice } from '@/components/feedback/CapabilityGapNotice'
 import { SpinnerLoader } from '@/components/feedback/SpinnerLoader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { CurrencyInput } from '@/components/ui/CurrencyInput'
 import type { PackageDto, PackageUpsertRequest } from '@/types/package.types'
+import { parseCurrencyInput } from '@/utils/currencyInput'
 import { usePackageDetail } from './hooks/usePackageCatalogue'
 import { useCreatePackage, useUpdatePackage } from './hooks/usePackageMutations'
-import { KNOWN_PACKAGE_TYPES } from './packageTypes'
+import { isExtendedLocationEligible, KNOWN_PACKAGE_TYPES } from './packageTypes'
 
 /** The editable attributes of a buffet tier (spec §5.3). */
 export interface PackageFormValues {
@@ -22,6 +24,8 @@ export interface PackageFormValues {
   amountPax: string
   /** `Package.MinPax` — the minimum headcount, typed as a plain number. */
   minPax: string
+  /** `Package.ExtendedLocationAmount` — the tier's per-guest extended charge. */
+  extendedLocationAmount: string
 }
 
 export const EMPTY_PACKAGE_FORM_VALUES: PackageFormValues = {
@@ -29,6 +33,7 @@ export const EMPTY_PACKAGE_FORM_VALUES: PackageFormValues = {
   description: '',
   amountPax: '',
   minPax: '',
+  extendedLocationAmount: '',
 }
 
 /** The per-field client validation messages. */
@@ -37,6 +42,7 @@ export interface PackageFormErrors {
   description?: string
   amountPax?: string
   minPax?: string
+  extendedLocationAmount?: string
 }
 
 /** Seeds the form from the tier the API published. */
@@ -46,6 +52,8 @@ export function packageFormValuesFromTier(tier: PackageDto): PackageFormValues {
     description: tier.description,
     amountPax: tier.amountPax === null ? '' : String(tier.amountPax),
     minPax: tier.minPax === null ? '' : String(tier.minPax),
+    extendedLocationAmount:
+      tier.extendedLocationAmount == null ? '' : String(tier.extendedLocationAmount),
   }
 }
 
@@ -56,7 +64,7 @@ export function packageFormValuesFromTier(tier: PackageDto): PackageFormValues {
  * from another figure.
  */
 export function parsePackageNumber(value: string): number | null {
-  const trimmed = value.trim()
+  const trimmed = value.trim().replace(/,/g, '')
   if (trimmed.length === 0) return null
   const parsed = Number(trimmed)
   return Number.isFinite(parsed) ? parsed : null
@@ -97,6 +105,20 @@ export function validatePackageForm(values: PackageFormValues): PackageFormError
     }
   }
 
+  if (values.extendedLocationAmount.trim().length > 0) {
+    if (!isExtendedLocationEligible(values.packageType)) {
+      errors.extendedLocationAmount =
+        'The extended location amount applies only to the Regular and Premier tier types.'
+    } else {
+      const extendedLocationAmount = parseCurrencyInput(values.extendedLocationAmount)
+      if (extendedLocationAmount === null) {
+        errors.extendedLocationAmount = 'Extended location amount must be a number.'
+      } else if (extendedLocationAmount < 0) {
+        errors.extendedLocationAmount = 'Extended location amount must be zero or greater.'
+      }
+    }
+  }
+
   return errors
 }
 
@@ -109,15 +131,25 @@ export function validatePackageForm(values: PackageFormValues): PackageFormError
 export function toPackageRequest(values: PackageFormValues): PackageUpsertRequest | null {
   const amountPax = parsePackageNumber(values.amountPax)
   const minPax = parsePackageNumber(values.minPax)
+  const extendedLocationAmount = parseCurrencyInput(values.extendedLocationAmount)
 
   if (values.amountPax.trim().length > 0 && amountPax === null) return null
   if (values.minPax.trim().length > 0 && minPax === null) return null
+  if (
+    values.extendedLocationAmount.trim().length > 0 &&
+    extendedLocationAmount === null
+  ) {
+    return null
+  }
 
   return {
     packageType: values.packageType.trim(),
     description: values.description.trim(),
     amountPax,
     minPax,
+    extendedLocationAmount: isExtendedLocationEligible(values.packageType)
+      ? extendedLocationAmount
+      : null,
   }
 }
 
@@ -173,11 +205,18 @@ export function PackageTierFormPage() {
 
   const handleChange = useCallback(
     (field: keyof PackageFormValues, value: string) => {
-      setValues((current) => ({ ...current, [field]: value }))
+      const clearsExtendedAmount =
+        field === 'packageType' && !isExtendedLocationEligible(value)
+
+      setValues((current) => ({
+        ...current,
+        [field]: value,
+        ...(clearsExtendedAmount ? { extendedLocationAmount: '' } : {}),
+      }))
       setFieldErrors((current) => {
-        if (current[field] === undefined) return current
         const next = { ...current }
         delete next[field]
+        if (clearsExtendedAmount) delete next.extendedLocationAmount
         return next
       })
     },
@@ -225,6 +264,10 @@ export function PackageTierFormPage() {
             : undefined,
         minPax:
           values.minPax.trim().length > 0 ? 'Minimum pax must be a whole number.' : undefined,
+        extendedLocationAmount:
+          values.extendedLocationAmount.trim().length > 0
+            ? 'Extended location amount must be a number.'
+            : undefined,
       })
       setServerErrors([])
       return
@@ -279,8 +322,8 @@ export function PackageTierFormPage() {
             {isEdit ? 'Edit Package Tier' : 'New Package Tier'}
           </h1>
           <p className="font-body-md text-body-md text-espresso-600 max-w-3xl">
-            The buffet tier record: its type, its display name, its per-guest rate and its
-            minimum headcount.
+            The buffet tier record: its type, its display name, its per-guest rate, its
+            minimum headcount and — for Regular and Premier — its extended location amount.
           </p>
         </div>
 
@@ -339,6 +382,21 @@ export function PackageTierFormPage() {
             </div>
 
             <div className="flex flex-col gap-3.5">
+              {isEdit && tier ? (
+                <div className="flex flex-col gap-1">
+                  <span className="font-caption text-caption text-espresso-600 font-semibold uppercase tracking-wider">
+                    Package code
+                  </span>
+                  <span className="font-data-md text-data-md text-espresso-900 font-bold">
+                    {tier.packageCode}
+                  </span>
+                  <p className="font-caption text-caption text-espresso-600">
+                    Generated when the tier was created and frozen — a later type or name change
+                    never renumbers it.
+                  </p>
+                </div>
+              ) : null}
+
               {/* Tier type */}
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-1">
@@ -442,15 +500,11 @@ export function PackageTierFormPage() {
                 >
                   Rate per guest
                 </label>
-                <input
+                <CurrencyInput
                   id="package-amount-pax"
                   name="amountPax"
-                  type="number"
-                  inputMode="decimal"
-                  step="any"
-                  min="0"
                   value={values.amountPax}
-                  onChange={(event) => handleChange('amountPax', event.target.value)}
+                  onValueChange={(value) => handleChange('amountPax', value)}
                   aria-invalid={fieldErrors.amountPax ? true : undefined}
                   aria-describedby={
                     fieldErrors.amountPax
@@ -463,8 +517,8 @@ export function PackageTierFormPage() {
                   id="package-amount-pax-hint"
                   className="font-caption text-caption text-espresso-600"
                 >
-                  Leave empty when the tier is not priced yet. A plain number, never a
-                  currency string.
+                  Leave empty when the tier is not priced yet. Two decimals; the field
+                  formats the amount as you type.
                 </p>
                 {fieldErrors.amountPax ? (
                   <p
@@ -515,6 +569,47 @@ export function PackageTierFormPage() {
                   </p>
                 ) : null}
               </div>
+
+              {/* Extended location amount — Regular/Premier only (owner request 2026-10-24) */}
+              {isExtendedLocationEligible(values.packageType) ? (
+                <div className="flex flex-col gap-1">
+                  <label
+                    htmlFor="package-extended-location-amount"
+                    className="font-caption text-caption text-espresso-600 font-semibold uppercase tracking-wider"
+                  >
+                    Extended location amount (per guest)
+                  </label>
+                  <CurrencyInput
+                    id="package-extended-location-amount"
+                    name="extendedLocationAmount"
+                    value={values.extendedLocationAmount}
+                    onValueChange={(value) => handleChange('extendedLocationAmount', value)}
+                    aria-invalid={fieldErrors.extendedLocationAmount ? true : undefined}
+                    aria-describedby={
+                      fieldErrors.extendedLocationAmount
+                        ? 'package-extended-location-hint package-extended-location-error'
+                        : 'package-extended-location-hint'
+                    }
+                    className={INPUT_CLASSES}
+                  />
+                  <p
+                    id="package-extended-location-hint"
+                    className="font-caption text-caption text-espresso-600"
+                  >
+                    The tier&apos;s own per-guest out-of-town charge, added to the municipality&apos;s
+                    rate. Leave empty when the tier carries none.
+                  </p>
+                  {fieldErrors.extendedLocationAmount ? (
+                    <p
+                      id="package-extended-location-error"
+                      role="alert"
+                      className="font-caption text-caption text-error"
+                    >
+                      {fieldErrors.extendedLocationAmount}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </Card>
         </div>
@@ -573,8 +668,9 @@ export function PackageTierFormPage() {
         className="flex flex-col sm:flex-row sm:items-center justify-between gap-space-md"
       >
         <p className="font-body-sm text-body-sm text-espresso-600">
-          The rate and the headcount are the tier&apos;s commercial terms. Every other
-          commercial figure the reference shows has no approved source and is not stored.
+          The rate, the headcount and the extended location amount are the tier&apos;s
+          commercial terms. Every other commercial figure the reference shows has no approved
+          source and is not stored.
         </p>
         <div className="flex items-center gap-2 shrink-0">
           <Button variant="secondary" onClick={handleCancel}>

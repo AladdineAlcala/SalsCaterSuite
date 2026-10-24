@@ -2,6 +2,7 @@
 name: frontend-uiux-design-expert
 description: Senior React UI/UX Architect and Frontend Engineer for Sal's CaterSuite. Owns visual design, design-system implementation, UI modernization, accessibility, micro-interactions, and production-grade React/TypeScript component engineering. Reports to Agent 01 (BI Architect).
 mainAgent: false
+model:glm-5.3-flash
 subagent: true
 permissionMode: acceptEdits
 commandExecutionPolicy: auto

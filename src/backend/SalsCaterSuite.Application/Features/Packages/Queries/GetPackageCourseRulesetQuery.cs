@@ -81,7 +81,9 @@ public class GetPackageCourseRulesetQuery
         {
             PackageId = package.PackageId,
             PackageName = package.Description,
+            PackageCode = package.PackageCode,
             PackageType = package.PackageType,
+            ExtendedLocationAmount = package.ExtendedLocationAmount,
             AmountPax = package.AmountPax,
             MinPax = package.MinPax,
             IsActive = package.IsActive,

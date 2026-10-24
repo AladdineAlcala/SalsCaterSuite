@@ -13,6 +13,9 @@ public sealed class FakeBookingRepository : IBookingRepository
 {
     private readonly FakeSalsCaterSuiteDataStore _store;
 
+    private int _nextBookingMenuId = 1;
+    private int _nextBookingAddOnId = 1;
+
     public FakeBookingRepository(FakeSalsCaterSuiteDataStore store)
     {
         _store = store;
@@ -53,6 +56,29 @@ public sealed class FakeBookingRepository : IBookingRepository
         }
 
         booking.Payments = _store.Payments.Where(p => p.TransactionId == transactionId).ToList();
+
+        return Task.FromResult<Booking?>(booking);
+    }
+
+    /// <summary>
+    /// The line-item dossier (contract §15.1, §16.3). Mirrors the EF implementation's includes:
+    /// the Client, the tier, the municipality, the live Payments and the <b>whole</b> selection
+    /// and add-on collections — soft-deleted rows included, because a write resurrects them
+    /// (DEC-134).
+    /// </summary>
+    public Task<Booking?> GetWithLineItemsAsync(int transactionId, CancellationToken cancellationToken = default)
+    {
+        var booking = _store.Bookings.FirstOrDefault(b => b.TransactionId == transactionId);
+        if (booking is null)
+        {
+            return Task.FromResult<Booking?>(null);
+        }
+
+        HydrateCustomerAndPackage(booking);
+        booking.Payments = _store.Payments
+            .Where(p => p.TransactionId == transactionId && !p.IsDeleted)
+            .ToList();
+        HydrateLineItems(booking);
 
         return Task.FromResult<Booking?>(booking);
     }
@@ -236,6 +262,26 @@ public sealed class FakeBookingRepository : IBookingRepository
                 payment.TransactionId = booking.TransactionId;
                 _store.Payments.Add(payment);
             }
+
+            // The selection and add-on rows are IDENTITY-assigned child rows, inserted with the
+            // booking in the same commit (DEC-134, DEC-151).
+            foreach (var menu in booking.Menus)
+            {
+                menu.TransactionId = booking.TransactionId;
+                if (menu.BookingMenuId == 0)
+                {
+                    menu.BookingMenuId = ++_nextBookingMenuId;
+                }
+            }
+
+            foreach (var addon in booking.AddOns)
+            {
+                addon.TransactionId = booking.TransactionId;
+                if (addon.BookingAddOnId == 0)
+                {
+                    addon.BookingAddOnId = ++_nextBookingAddOnId;
+                }
+            }
         }
 
         return Task.FromResult(1);
@@ -261,7 +307,7 @@ public sealed class FakeBookingRepository : IBookingRepository
 
     /// <summary>
     /// Mirrors the EF <c>Include(b =&gt; b.Customer).Include(b =&gt; b.Payments)</c> of the
-    /// dashboard repository methods.
+    /// dashboard repository methods, plus the register's line-item includes.
     /// </summary>
     private void Hydrate(IReadOnlyList<Booking> bookings)
     {
@@ -269,6 +315,41 @@ public sealed class FakeBookingRepository : IBookingRepository
         {
             HydrateCustomerAndPackage(booking);
             booking.Payments = _store.Payments.Where(p => p.TransactionId == booking.TransactionId).ToList();
+            HydrateLineItems(booking);
+        }
+    }
+
+    /// <summary>
+    /// Mirrors EF Core's relationship fix-up for the selection and add-on rows: every child
+    /// points back at the booking that owns it. The fake's bookings hold their own rows (the
+    /// aggregate root owns the collection), so nothing has to be loaded — only the back
+    /// references are fixed up, exactly as the change tracker would. The add-on lines also carry
+    /// their catalogue row, which the <c>GET /api/bookings/{id}/addons</c> projection reads
+    /// (contract §16.3).
+    /// </summary>
+    private void HydrateLineItems(Booking booking)
+    {
+        foreach (var menu in booking.Menus)
+        {
+            menu.Booking = booking;
+            menu.TransactionId = booking.TransactionId;
+        }
+
+        foreach (var addon in booking.AddOns)
+        {
+            addon.Booking = booking;
+            addon.TransactionId = booking.TransactionId;
+            addon.AddonDetail ??= _store.AddonDetails
+                .FirstOrDefault(detail => detail.AddonId == addon.AddonId);
+
+            // The real repository includes AddonDetail.AddonCategory (contract 16.3), so the
+            // presenter can publish the category name; the fake must hydrate it too.
+            if (addon.AddonDetail is { } detailRow)
+            {
+                detailRow.AddonCategory ??= _store.AddonCategories
+                    .FirstOrDefault(category =>
+                        category.AddonCategoryId == detailRow.AddonCategoryId);
+            }
         }
     }
 

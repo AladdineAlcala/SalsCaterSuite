@@ -44,8 +44,13 @@ public class GetBookingDetailsQueryTests
         _details = new GetBookingDetailsQuery(_bookings, new BookingAmountDueCalculator());
 
         _register = new GetBookingRegisterQuery(
-            new BookingTierEstimateService(_packages, _rules, _menus),
-            new BookingRegisterPopulationService(_bookings, new BookingAmountDueCalculator()),
+            new BookingPlanningEstimateService(
+                new BookingTierEstimateService(_packages, _rules, _menus),
+                _menus),
+            new BookingRegisterPopulationService(
+                _bookings,
+                new BookingAmountDueCalculator(),
+                new FakeBookingPolicyProvider()),
             new FakeDateTime(Today.ToDateTime(TimeOnly.MinValue)),
             new BookingRegisterFilterValidator());
     }

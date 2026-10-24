@@ -17,8 +17,21 @@ public interface IPackageRepository
 {
     Task<Package?> GetByIdAsync(int packageId, CancellationToken cancellationToken = default);
 
-    /// <summary>Package list projection, optionally restricted to active packages.</summary>
-    Task<List<PackageDto>> GetProjectionListAsync(bool? activeOnly, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Every package code the catalogue holds, including the soft-deleted rows, so the code
+    /// generator never reuses a number (the owner's 2026-10-24 request).
+    /// </summary>
+    Task<IReadOnlyList<string>> GetPackageCodesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Package list projection, optionally restricted to active packages and, when
+    /// <paramref name="areaId"/> is present, to the tiers whose <b>active</b> coverage includes
+    /// that municipality (contract §12.1, DEC-157).
+    /// </summary>
+    Task<List<PackageDto>> GetProjectionListAsync(
+        bool? activeOnly,
+        int? areaId = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>Single-package projection.</summary>
     Task<PackageDto?> GetProjectionByIdAsync(int packageId, CancellationToken cancellationToken = default);

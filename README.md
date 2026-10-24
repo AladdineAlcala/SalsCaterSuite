@@ -113,6 +113,8 @@ is already there:
 | API proxy target | `VITE_API_PROXY_TARGET` | Defaults to `http://localhost:5149`. |
 | Required booking deposit | `Bookings:Deposit:RequiredPercentage` | **ABSENT BY DEFAULT.** Absent means *not stated* — the workbench asks the operator for the deposit. Set it to a percentage to have the API quote the required deposit. Never hardcoded (DEC-101). |
 | Commissary capacity | `Bookings:Capacity:MaximumPax` | **ABSENT BY DEFAULT.** Absent means *not stated* — the capacity gauge shows no ceiling. Set it to the kitchen's maximum daily pax to have the API publish the utilisation. Never hardcoded (DEC-102). |
+| Menu-change window | Bookings:MenuSelection:LockDaysBeforeEvent | **ABSENT BY DEFAULT.** How many days before the event the dish selection locks. Absent, the lock date is the event date. The lock date is always published (DEC-128). |
+| VAT disclosure rate | Bookings:Tax:VatPercentage | **ABSENT BY DEFAULT.** The VAT rate for the **inclusive** disclosure line on the contract ledger. Absent, no VAT line is rendered. The tax policy is still UNRESOLVED (DEC-008) and the rate is never hardcoded (DEC-143). |
 
 ---
 

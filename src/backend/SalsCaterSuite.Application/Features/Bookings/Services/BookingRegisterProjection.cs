@@ -20,7 +20,9 @@ public sealed record BookingRegisterRow(
     decimal Outstanding,
     string PaymentState,
     bool IsOverdue,
-    int? DaysUntilEvent);
+    int? DaysUntilEvent,
+    DateOnly MenuSelectionLockDate,
+    bool IsMenuSelectionLocked);
 
 /// <summary>
 /// The one projection and the one filter vocabulary of the Bookings &amp; Events Register
@@ -35,15 +37,19 @@ public static class BookingRegisterProjection
 {
     /// <summary>
     /// Derives one register row. The caller supplies the calculator's breakdown so the net
-    /// amount due comes from the one shared path (BR-25).
+    /// amount due comes from the one shared path (BR-25), and the configured menu-change lead
+    /// time so the window is read exactly as the selection surface reads it (DEC-128).
     /// </summary>
     public static BookingRegisterRow Project(
         Booking booking,
         BookingCalculationBreakdown breakdown,
-        DateOnly today)
+        DateOnly today,
+        int? menuSelectionLockDays)
     {
         var collected = breakdown.TotalPayments;
         var outstanding = breakdown.RemainingBalance;
+
+        var window = BookingMenuWindow.Resolve(booking.EventDate, menuSelectionLockDays, today);
 
         return new BookingRegisterRow(
             Booking: booking,
@@ -52,7 +58,9 @@ public static class BookingRegisterProjection
             Outstanding: outstanding,
             PaymentState: BookingPaymentStateClassifier.Classify(collected, breakdown.NetAmountDue),
             IsOverdue: BookingPaymentStateClassifier.IsOverdue(outstanding, booking.EventDate, today),
-            DaysUntilEvent: BookingPaymentStateClassifier.DaysUntilEvent(booking.EventDate, today));
+            DaysUntilEvent: BookingPaymentStateClassifier.DaysUntilEvent(booking.EventDate, today),
+            MenuSelectionLockDate: window.LockDate,
+            IsMenuSelectionLocked: window.IsLocked);
     }
 
     // ─────────────────────────── the five facet filters (BR-32) ───────────────────────────

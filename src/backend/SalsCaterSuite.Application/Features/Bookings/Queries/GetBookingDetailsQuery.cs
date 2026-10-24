@@ -82,6 +82,7 @@ public class GetBookingDetailsQuery
             DiscountCode = booking.DiscountCode,
             DiscountAmount = breakdown.DiscountAmount,
             TaxAmount = booking.TaxAmount,
+            AddonsTotal = breakdown.AddonsAmount,
             AmountDue = breakdown.NetAmountDue,
             DepositAmount = booking.DepositAmount,
             AmountPaid = totalPayments,

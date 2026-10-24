@@ -40,6 +40,12 @@ public class PackageLocationPreviewDto
     /// <summary>The municipality's per-pax surcharge. <c>null</c> when the municipality has stated no rate.</summary>
     public decimal? AdditionalRate { get; set; }
 
+    /// <summary>
+    /// The tier's own per-guest extended-location amount (the owner's 2026-10-24 request).
+    /// <c>null</c> = not stated.
+    /// </summary>
+    public decimal? PackageExtendedLocationRate { get; set; }
+
     /// <summary><c>AmountPax × Pax</c>.</summary>
     public decimal? BaseTotal { get; set; }
 

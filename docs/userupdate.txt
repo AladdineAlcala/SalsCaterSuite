@@ -1,0 +1,2 @@
+Update the UI of Add-Ons & Upgrades from the Booking Menu Selection screen.
+instead of loading all addons from Menu Selection screen replace it with a modal when selecting addons and display all the addons into container table filterable by its category and select the addons needed by clicking .Only load the addons where selected and recompute the total contract value

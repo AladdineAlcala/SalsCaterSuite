@@ -63,11 +63,18 @@ public class PackagesController : ControllerBase
         _attachCoverage = attachCoverage;
     }
 
-    /// <summary>GET /api/packages — List all catering packages</summary>
+    /// <summary>
+    /// GET /api/packages — List all catering packages. <c>activeOnly</c> restricts the list to
+    /// active tiers and <c>areaId</c> to the tiers whose live coverage includes the municipality
+    /// (contract §12.1, DEC-157).
+    /// </summary>
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] bool? activeOnly, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetAll(
+        [FromQuery] bool? activeOnly,
+        [FromQuery] int? areaId,
+        CancellationToken cancellationToken)
     {
-        var result = await _getPackages.ExecuteAsync(activeOnly, cancellationToken);
+        var result = await _getPackages.ExecuteAsync(activeOnly, areaId, cancellationToken);
         return Ok(result.Data);
     }
 

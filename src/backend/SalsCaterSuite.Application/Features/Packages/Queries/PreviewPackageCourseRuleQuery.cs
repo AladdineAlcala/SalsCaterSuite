@@ -106,8 +106,7 @@ public class PreviewPackageCourseRuleQuery
         var isCeilingBreached = PackageCostingCalculator.IsCeilingBreached(
             selectedFoodCostPerPax, costCeilingPerPax);
 
-        var compliance = BuildCompliance(package, selections, courseNameById);
-        var isQuotaCompliant = compliance.All(entry => entry.IsCompliant);
+        var compliance = BuildCompliance(package, selections, courseNameById);        var isQuotaCompliant = compliance.All(entry => entry.IsCompliant);
 
         // The resolved headcount: the requested one, otherwise the tier's floor, otherwise null.
         var pax = request.Pax ?? package.MinPax;
@@ -159,56 +158,17 @@ public class PreviewPackageCourseRuleQuery
     /// <summary>
     /// The compliance list: one entry per rule, plus one per <b>unruled</b> course the selection
     /// names. A rule is satisfied when the selected count is <b>exactly</b> its quota (BR-15).
+    /// <para>
+    /// It delegates to the <b>one</b> shared evaluator, so the simulator and the booking's own
+    /// selection surface can never disagree about whether a selection complies.
+    /// </para>
     /// </summary>
     private static List<PackageCourseComplianceDto> BuildCompliance(
         PackageCourseRulesetDto package,
         IReadOnlyCollection<PackageCourseSelectionResultDto> selections,
-        IReadOnlyDictionary<int, string> courseNameById)
-    {
-        var compliance = new List<PackageCourseComplianceDto>();
-
-        var selectedCounts = selections
-            .GroupBy(selection => selection.CourseId)
-            .ToDictionary(group => group.Key, group => group.Count());
-
-        foreach (var rule in package.Rules)
-        {
-            var selectedCount = selectedCounts.TryGetValue(rule.CourseId, out var count) ? count : 0;
-
-            compliance.Add(new PackageCourseComplianceDto
-            {
-                CourseId = rule.CourseId,
-                CourseName = rule.CourseName,
-                RequiredQuota = rule.RequiredQuota,
-                SelectedCount = selectedCount,
-                IsCompliant = selectedCount == rule.RequiredQuota,
-                HasRule = true
-            });
-        }
-
-        var ruledCourseIds = package.Rules.Select(rule => rule.CourseId).ToHashSet();
-
-        foreach (var group in selections.GroupBy(selection => selection.CourseId))
-        {
-            if (ruledCourseIds.Contains(group.Key))
-            {
-                continue;
-            }
-
-            // The selection names a course the tier holds no rule for (BR-15).
-            compliance.Add(new PackageCourseComplianceDto
-            {
-                CourseId = group.Key,
-                CourseName = courseNameById.TryGetValue(group.Key, out var courseName)
-                    ? courseName
-                    : string.Empty,
-                RequiredQuota = 0,
-                SelectedCount = group.Count(),
-                IsCompliant = false,
-                HasRule = false
-            });
-        }
-
-        return compliance;
-    }
+        IReadOnlyDictionary<int, string> courseNameById) =>
+        PackageSelectionCompliance.Evaluate(
+            package.Rules.Select(rule => (rule.CourseId, rule.CourseName, rule.RequiredQuota)),
+            courseNameById,
+            selections.Select(selection => (selection.CourseId, selection.MenuId)));
 }

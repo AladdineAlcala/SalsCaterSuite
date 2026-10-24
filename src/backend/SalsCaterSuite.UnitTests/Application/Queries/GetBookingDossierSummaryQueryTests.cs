@@ -28,7 +28,10 @@ public class GetBookingDossierSummaryQueryTests
     {
         _bookings = new FakeBookingRepository(_store);
 
-        var population = new BookingRegisterPopulationService(_bookings, new BookingAmountDueCalculator());
+        var population = new BookingRegisterPopulationService(
+            _bookings,
+            new BookingAmountDueCalculator(),
+            _policy);
 
         _query = new GetBookingRegisterSummaryQuery(
             population,

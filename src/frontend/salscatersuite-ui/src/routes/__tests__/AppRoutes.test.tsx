@@ -11,6 +11,11 @@ import {
 import { customerDirectoryFixture } from '@/test/customerFixture'
 import { dashboardFixture } from '@/test/dashboardFixture'
 import { menuMasterFixture } from '@/test/menuFixture'
+import {
+  addonAdminFixture,
+  addonCategoryLookupFixture,
+  departmentLookupFixture,
+} from '@/test/addonFixture'
 import { createTestToken, renderWithProviders, seedSession } from '@/test/testHelpers'
 
 function mockDashboard() {
@@ -29,7 +34,13 @@ function mockApiRoutes() {
             ? bookingRegisterSummaryFixture
             : url.includes('/bookings')
               ? bookingRegisterPageFixture
-              : dashboardFixture,
+              : url.includes('/addons/manage')
+                ? addonAdminFixture
+                : url.includes('/addons/categories')
+                  ? addonCategoryLookupFixture
+                  : url.includes('/departments')
+                    ? departmentLookupFixture
+                    : dashboardFixture,
       status: 200,
       statusText: 'OK',
       headers: {},
@@ -145,7 +156,6 @@ describe('AppRoutes', () => {
       'Accounts Receivable & SOA',
       'Banquet Calendar',
       'Reports & BEO',
-      'Settings',
     ]) {
       await userEvent.click(within(navigation).getByRole('link', { name: label }))
 
@@ -188,6 +198,27 @@ describe('AppRoutes', () => {
       await screen.findByRole('heading', { name: 'Menu & Food Costing Master' }),
     ).toBeInTheDocument()
     expect(screen.getAllByText('DS-104').length).toBeGreaterThan(0)
+  })
+
+  it('opens the Add-on Master from Settings', async () => {
+    seedSession()
+    mockApiRoutes()
+
+    renderWithProviders(<AppRoutes />, { route: '/' })
+
+    await screen.findByRole('heading', { name: "Sal's CaterSuite Operations Dashboard" })
+
+    const navigation = screen.getByRole('navigation', { name: 'Primary' })
+    await userEvent.click(within(navigation).getByRole('link', { name: 'Settings' }))
+
+    expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('link', { name: /Add-ons/ }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'Add-on Master' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Carving station')).toBeInTheDocument()
   })
 
   it('clears the token on sign out and returns to the login page', async () => {    seedSession()

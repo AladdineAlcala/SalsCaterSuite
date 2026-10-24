@@ -207,6 +207,14 @@ export interface BookingRegisterItem {
   discountAmount: number
   /** The tier's **planning estimate**. `null` when the tier has no costed pool. */
   baseGrossProfitPercentage: number | null
+  /** The **derived** source of the discount (DEC-154). */
+  discountSource: BookingDiscountSource
+  /** Exactly one selection state (BR-28, M2). */
+  selectionState: BookingSelectionState
+  /** The number of live add-on lines the booking carries. */
+  addonCount: number
+  /** The **frozen** add-on line total that joins the gross (DEC-151). */
+  addonsTotal: number
 }
 
 /**
@@ -336,7 +344,233 @@ export interface BookingRegisterSummary {
   paymentStates: BookingPaymentStateAggregate[]
   capacity: BookingCapacitySummary
   receivables: BookingReceivablesSummary
+  /** KPI-41 — the open and the locked menu-change windows. */
+  menuWindows: BookingMenuWindowSummary
+  /** KPI-42 — the reach of the automatic headcount-band discount. */
+  bandDiscount: BookingBandDiscountSummary
+  /** The configured VAT rate. `null` when the key is absent (DEC-143). */
+  vatPercentage: number | null
   generatedAt: string
+}
+
+/** KPI-41 — the count of bookings whose menu selection is still editable. */
+export interface BookingMenuWindowSummary {
+  openSelectionCount: number
+  lockedSelectionCount: number
+}
+
+/** KPI-42 — the bookings the automatic headcount band priced, and their value. */
+export interface BookingBandDiscountSummary {
+  discountedBookingCount: number
+  discountedNetAmountDue: number
+}
+
+/* ------------------------------------------------------------------------- *
+ * 15.1 — the dish selection, the qualified pools and the lock state.
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Exactly one selection state (BR-28, M2).
+ *
+ * `Locked` when the menu-change window has passed, otherwise `Selected` when
+ * the booking carries at least one live selection row, otherwise `None`.
+ */
+export type BookingSelectionState = 'None' | 'Selected' | 'Locked'
+
+/** The **derived** source of the discount (DEC-154). */
+export type BookingDiscountSource = 'None' | 'HeadcountBand' | 'Code'
+
+/**
+ * One dish the operator chose (contract §15.2).
+ *
+ * `prepInstruction` is the chef's **per-event** instruction, stored on the
+ * selection row and frozen with it (DEC-146). The write is a full replace, so
+ * an omitted instruction clears it (DEC-155).
+ */
+export interface BookingMenuSelectionRequestItem {
+  courseId: number
+  menuId: string
+  prepInstruction?: string | null
+}
+
+/** The body of `PUT /api/bookings/{id}/menus` (contract §15.2). */
+export interface BookingMenuSelectionRequest {
+  selections: BookingMenuSelectionRequestItem[]
+}
+
+/** One chosen dish of a stored selection (contract §15.1). */
+export interface BookingMenuSelectedDish {
+  courseId: number
+  courseName: string
+  menuId: string
+  menuName: string
+  /** The dish's catalogue ingredient note. `null` = not stated. */
+  note: string | null
+  /** The dish's manually entered food cost. `null` when it is not costed. */
+  foodCost: number | null
+  /** The chef's per-event instruction. `null` = not stated. */
+  prepInstruction: string | null
+}
+
+/** One dish of a course's qualified pool (contract §15.1). */
+export interface BookingMenuPoolDish {
+  menuId: string
+  menuName: string
+  /** The dish's catalogue ingredient note. `null` = not stated. */
+  note: string | null
+  /** The dish's manually entered food cost. `null` when it is not costed. */
+  foodCost: number | null
+  /** The dish's selling price. `null` when it carries none. */
+  price: number | null
+}
+
+/** One course rule together with its qualified pool (contract §15.1). */
+export interface BookingMenuCourse {
+  courseId: number
+  courseName: string
+  /** The number of dishes the client must take from this course. */
+  requiredQuota: number
+  /** The standard portion per guest in grams. `null` = not specified. */
+  portionGrams: number | null
+  /** The rule's derived batch mass. `null` when no portion is stated. */
+  batchMassKg: number | null
+  ruleDescription: string
+  /** The operator's inclusion label. `null` = no tag. */
+  inclusionTag: string | null
+  /** The live dishes of the course. */
+  pool: BookingMenuPoolDish[]
+  /** The dishes the booking currently carries for this course. */
+  chosenMenuIds: string[]
+}
+
+/** `GET /api/bookings/{id}/menus` (contract §15.1). */
+export interface BookingMenuSelectionDto {
+  transactionId: number
+  bookingNumber: string
+  /** `yyyy-MM-dd`. */
+  eventDate: string
+  packageId: number | null
+  packageName: string
+  /** **Always a concrete date** — never `null` (DEC-128). */
+  menuSelectionLockDate: string
+  /** `null` when the configuration key is absent. */
+  menuSelectionLockDays: number | null
+  isLocked: boolean
+  selections: BookingMenuSelectedDish[]
+  courses: BookingMenuCourse[]
+  isCompliant: boolean
+  /** `null` when it complies; otherwise it names the course and the quota. */
+  complianceMessage: string | null
+  /** The sum of the chosen dishes' food costs. `null` when unknown. */
+  selectedFoodCostPerPax: number | null
+  standardRunFoodCostPerPax: number | null
+  selectedGrossProfitPercentage: number | null
+  standardRunGrossProfitPercentage: number | null
+  /** The VAT-inclusive memo. `null` when no rate is configured. */
+  includedVatAmount: number | null
+  /** The configured VAT rate. `null` when the key is absent. */
+  vatPercentage: number | null
+  selectionState: BookingSelectionState
+  addonCount: number
+  /** The frozen add-on line total that joins the gross. */
+  addonsTotal: number
+  /** The derived source of the frozen discount (DEC-154). */
+  discountSource: BookingDiscountSource
+  /** The server's description of the band that applied. `null` when none (DEC-160). */
+  discountBandLabel: string | null
+  /** The band's rate per head. `null` when no band applied. */
+  discountBandRatePerHead: number | null
+}
+
+/* ------------------------------------------------------------------------- *
+ * 16.1 — the add-on master and the booking's add-on lines.
+ * ------------------------------------------------------------------------- */
+
+/**
+ * The pricing basis of an add-on (DEC-158).
+ *
+ * `null` means **not stated**, and the server treats it as `Flat` — the safe
+ * direction, because it never multiplies a price that was not meant to be
+ * multiplied.
+ */
+export type AddonPricingBasis = 'Flat' | 'PerGuest'
+
+/** One active add-on of the master (contract §16.1). */
+export interface AddonMasterItemDto {
+  addonId: number
+  description: string
+  /** The catalogue unit amount — per guest when the basis is `PerGuest`. */
+  amount: number
+  /** The descriptive unit of measure. `null` = not stated. */
+  unit: string | null
+  pricingBasis: AddonPricingBasis | null
+  /**
+   * The line total this add-on would carry on a booking of the requested
+   * headcount. Published so the client never multiplies it itself.
+   */
+  lineAmountForBooking: number
+  /** The owning department (owner request 2026-10-24). `null` = not stated. */
+  deptId: number | null
+  deptName: string | null
+  addonCategoryId: number | null
+  addonCategoryName: string | null
+  isActive: boolean
+}
+
+/** One add-on category of the master (contract §16.2). */
+export interface AddonCategoryDto {
+  addonCategoryId: number
+  addonCategoryName: string
+}
+
+/** One frozen add-on line of a booking (contract §16.3). */
+export interface BookingAddonLine {
+  addonId: number
+  /** The **frozen** description. */
+  description: string
+  /** The **frozen line total** — what joins the gross (DEC-158). */
+  amount: number
+  /** The frozen descriptive unit. `null` = not stated. */
+  unit: string | null
+  pricingBasis: AddonPricingBasis
+  addonCategoryId: number | null
+  addonCategoryName: string | null
+  /** The catalogue's current amount. `null` when the row is gone. */
+  catalogueAmount: number | null
+  /** The catalogue's current description. `null` when the row is gone. */
+  catalogueDescription: string | null
+}
+
+/** `GET /api/bookings/{id}/addons` (contract §16.3). */
+export interface BookingAddonSetDto {
+  transactionId: number
+  bookingNumber: string
+  /** `yyyy-MM-dd`. */
+  eventDate: string
+  /** **Always a concrete date** — never `null` (DEC-128). */
+  menuSelectionLockDate: string
+  /** `null` when the configuration key is absent. */
+  menuSelectionLockDays: number | null
+  isLocked: boolean
+  /** The frozen line total that joins the gross. */
+  addonsTotal: number
+  addons: BookingAddonLine[]
+}
+
+/**
+ * One add-on line of the replace request (contract §16.4).
+ *
+ * `amount` is the **line total** the operator confirms. When it is absent the
+ * server derives the default from the catalogue amount and the basis.
+ */
+export interface BookingAddonRequestItem {
+  addonId: number
+  amount?: number | null
+}
+
+/** The body of `PUT /api/bookings/{id}/addons` (contract §16.4). */
+export interface BookingAddonSetRequest {
+  addons: BookingAddonRequestItem[]
 }
 
 /* ------------------------------------------------------------------------- *
@@ -365,6 +599,15 @@ export interface BookingQuoteRequest {
   discountCode: string | null
   depositAmount: number | null
   initialPaymentAmount: number | null
+  /**
+   * The dish selection the quote should price (contract §14.3).
+   *
+   * It carries exactly the create request's shape, so the quote and the
+   * created booking cannot diverge (BR-31, DEC-153).
+   */
+  selections?: BookingMenuSelectionRequestItem[]
+  /** The add-on lines the quote should price (contract §14.3). */
+  addons?: BookingAddonRequestItem[]
 }
 
 /**
@@ -391,6 +634,8 @@ export interface BookingQuoteCheck {
 /** `POST /api/bookings/quote` (contract §14.3). */
 export interface BookingQuote {
   packageName: string | null
+  /** The tier's human-readable code (owner request 2026-10-24). */
+  packageCode: string | null
   packageType: string | null
   /** The headcount floor. `null` when the tier sets none. */
   minPax: number | null
@@ -402,6 +647,8 @@ export interface BookingQuote {
   extendedAreaName: string | null
   /** The municipality's per-pax rate. `null` = not stated. */
   extendedAreaRate: number | null
+  /** The tier's own per-guest extended-location amount. `null` = not stated. */
+  packageExtendedLocationRate: number | null
   extendedAreaAmount: number | null
   discountCode: string | null
   discountType: string | null
@@ -426,6 +673,63 @@ export interface BookingQuote {
   baseGrossProfitPercentage: number | null
   coverage: BookingQuoteCoverage
   checks: BookingQuoteCheck[]
+  /** The **derived** source of the discount (DEC-154). */
+  discountSource: BookingDiscountSource
+  /** The server's description of the band that applied. `null` when none did. */
+  discountBandLabel: string | null
+  /** The band's rate per head. `null` when no band applied. */
+  discountBandRatePerHead: number | null
+  /** The frozen line total of the add-ons carried by the request. */
+  addonsTotal: number
+  /** The VAT-inclusive memo. `null` when no rate is configured. */
+  includedVatAmount: number | null
+  /** The configured VAT rate. `null` when the key is absent. */
+  vatPercentage: number | null
+  /** The tier's own course rules, in the tier's order. */
+  courses: BookingQuoteCourseRule[]
+  /** The selection the request asks for, as the read endpoint describes it. */
+  selection: BookingQuoteSelection
+}
+
+/** One course rule of the quote (contract §14.3). */
+export interface BookingQuoteCourseRule {
+  courseId: number
+  courseName: string
+  requiredQuota: number
+  /** `null` when the rule states no portion. */
+  portionGrams: number | null
+  /** The rule's derived batch mass. `null` when no portion is stated. */
+  batchMassKg: number | null
+  ruleDescription: string
+  inclusionTag: string | null
+  /** The **count** of live dishes in the rule's qualified pool. */
+  qualifiedPool: number
+}
+
+/** One chosen dish of the quote's selection (contract §14.3). */
+export interface BookingQuoteSelectedDish {
+  menuId: string
+  menuName: string
+  note: string | null
+  prepInstruction: string | null
+  foodCost: number | null
+}
+
+/** One course of the quote's selection (contract §14.3). */
+export interface BookingQuoteSelectionCourse {
+  courseId: number
+  courseName: string
+  selectedMenus: BookingQuoteSelectedDish[]
+}
+
+/** The selection the quote priced (contract §14.3). */
+export interface BookingQuoteSelection {
+  isLocked: boolean
+  /** **Always a concrete date** — never `null` (DEC-128). */
+  lockDate: string
+  courses: BookingQuoteSelectionCourse[]
+  selectedFoodCostPerPax: number | null
+  selectedGrossProfitPercentage: number | null
 }
 
 /* ------------------------------------------------------------------------- *
@@ -473,6 +777,21 @@ export interface CreateBookingRequest {
   confirm: boolean
   /** The initial payment — omitted entirely when there is none. */
   initialPayment?: BookingInitialPayment
+  /**
+   * The dishes chosen for the booking (contract §15.3).
+   *
+   * Stored in the **same commit** as the booking, so a booking and its dishes
+   * are never half-written. An **absent** member means no selection; an
+   * **explicitly empty** array is a `400` on create.
+   */
+  selections?: BookingMenuSelectionRequestItem[]
+  /**
+   * The add-on lines the booking carries (contract §15.3).
+   *
+   * An **absent** member means no add-ons; an **explicitly empty** array is a
+   * `400` on create.
+   */
+  addons?: BookingAddonRequestItem[]
 }
 
 /** The `201` body of `POST /api/bookings` (contract §14.4). */

@@ -2,7 +2,7 @@ import { Search } from 'lucide-react'
 import type { PackageSortOption, PackageStatusFilter } from '@/types/package.types'
 
 export interface PackageFilterBarProps {
-  /** The free-text search term, matched against the tier name and type. */
+  /** The free-text search term, matched against the tier name, its code and its type. */
   search: string
   onSearchChange: (value: string) => void
   /** The active-state filter, or an empty string for no filter. */
@@ -53,7 +53,7 @@ export function PackageFilterBar({
             type="search"
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="Search tier name or type…"
+            placeholder="Search tier name, code or type…"
             className="w-full h-10 pl-10 pr-4 rounded-lg bg-surface-container-lowest text-espresso-900 border border-artisan-border focus:border-culinary-600 focus:outline-none focus:ring-2 focus:ring-culinary-500/15 font-body-sm text-body-sm transition-all"
           />
         </div>

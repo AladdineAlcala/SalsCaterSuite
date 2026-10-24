@@ -33,4 +33,11 @@ public sealed class BookingCreateCapabilities
 
     /// <summary>The one pricing computation (BR-25, BR-31).</summary>
     public BookingPricingService Pricing { get; init; } = new(DefaultBookingPolicyProvider.Instance);
+
+    /// <summary>
+    /// The one resolver of the dish selection and the add-on lines (BR-15, BR-39, DEC-158).
+    /// When it is absent the create path cannot accept either member, and a request that carries
+    /// one is refused rather than silently ignored.
+    /// </summary>
+    public BookingLineItemResolver? LineItems { get; init; }
 }

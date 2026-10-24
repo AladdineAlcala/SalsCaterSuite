@@ -76,6 +76,13 @@ public class BookingDto
 
     public decimal DiscountAmount { get; set; }
     public decimal TaxAmount { get; set; }
+
+    /// <summary>
+    /// The <b>frozen</b> add-on line total (DEC-151) — BR-01's third term, which joins the gross
+    /// (DEC-135). Zero when the booking carries no add-ons.
+    /// </summary>
+    public decimal AddonsTotal { get; set; }
+
     public decimal AmountDue { get; set; }
     public decimal DepositAmount { get; set; }
     public decimal AmountPaid { get; set; }
@@ -146,6 +153,22 @@ public class CreateBookingRequestDto
     /// <b>confirmed</b> booking may carry one.
     /// </summary>
     public BookingInitialPaymentRequestDto? InitialPayment { get; set; }
+
+    // ─────────────── REQ-BKG-06/07 extensions (contract §15.3, §16.4) ───────────────
+
+    /// <summary>
+    /// The optional dish selection, validated by the <b>same</b> BR-15 rule as
+    /// <c>PUT /api/bookings/{id}/menus</c> and stored in the same commit (DEC-134). An
+    /// <b>absent</b> member means no selection; an explicitly <b>empty</b> array is a <c>400</c>
+    /// — there is nothing to clear on a booking that does not exist yet.
+    /// </summary>
+    public List<BookingMenuSelectionEntryDto>? Selections { get; set; }
+
+    /// <summary>
+    /// The optional add-on lines, validated by the <b>same</b> rules as
+    /// <c>PUT /api/bookings/{id}/addons</c> and stored in the same commit (DEC-151, DEC-158).
+    /// </summary>
+    public List<BookingAddonRequestDto>? Addons { get; set; }
 }
 
 /// <summary>

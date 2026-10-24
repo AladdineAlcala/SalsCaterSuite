@@ -101,7 +101,9 @@ public class BookingAmountDueCalculator
         return CalculateCore(
             basePackageAmount: booking.PackageAmount,
             extendedAreaAmount: booking.ExtendedAreaAmount,
-            addonsAmount: 0m,          // no Booking ↔ AddonDetail link exists (RSK-048)
+            // The frozen add-on line total (DEC-135, DEC-151) — a stored column, so the
+            // calculator reproduces the snapshot to the cent and never a zero placeholder.
+            addonsAmount: booking.AddonsTotal,
             otherChargesAmount: 0m,
             discountPercentage: booking.DiscountPercentage,
             discountFixedAmount: booking.DiscountAmount > 0 ? booking.DiscountAmount : null,

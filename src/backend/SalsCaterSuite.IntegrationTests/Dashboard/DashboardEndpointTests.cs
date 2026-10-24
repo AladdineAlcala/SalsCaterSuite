@@ -109,14 +109,15 @@ public class DashboardEndpointTests : IClassFixture<DashboardSeedFixture>
     {
         var dashboard = await GetDashboardAsync();
 
-        // 50,000 + 30,000 + 20,000 + 20,000 + 36,000
-        var expected = 156_000m;
+        // 48,000 + 28,000 + 20,000 + 19,200 + 36,000 — each net already carries the automatic
+        // headcount band of BR-38 (100, 100, 50, 80 and 60 heads).
+        var expected = 151_200m;
 
         dashboard.GetProperty("bookings").GetProperty("contractedValue").GetDecimal().Should().Be(expected);
         dashboard.GetProperty("revenue").GetProperty("netContractedRevenue").GetDecimal().Should().Be(expected);
         dashboard.GetProperty("revenue").GetProperty("bookingCount").GetInt32().Should().Be(5);
         dashboard.GetProperty("revenue").GetProperty("averageBookingValue").GetDecimal()
-            .Should().Be(31_200m, "156,000 ÷ 5");
+            .Should().Be(30_240m, "151,200 ÷ 5");
     }
 
     // ─────────────────────────── the collections KPI ───────────────────────────
@@ -135,7 +136,7 @@ public class DashboardEndpointTests : IClassFixture<DashboardSeedFixture>
         collections.GetProperty("changePercentage").GetDecimal()
             .Should().Be(200.00m, "(90,000 − 30,000) ÷ 30,000 × 100");
         collections.GetProperty("collectionRatioPercentage").GetDecimal()
-            .Should().Be(57.69m, "90,000 ÷ 156,000 × 100");
+            .Should().Be(59.52m, "90,000 ÷ 151,200 × 100");
     }
 
     // ─────────────────────────── the receivables KPI ───────────────────────────
@@ -150,7 +151,7 @@ public class DashboardEndpointTests : IClassFixture<DashboardSeedFixture>
         var expected = _fixture.ReceivableBookings.Sum(b => b.Balance);
         var expectedCount = _fixture.ReceivableBookings.Count(b => b.Balance > 0m);
 
-        expected.Should().Be(211_000m, "the seeded truth, computed from the seed table");
+        expected.Should().Be(204_200m, "the seeded truth, computed from the seed table");
         receivables.GetProperty("outstandingAmount").GetDecimal().Should().Be(expected);
         receivables.GetProperty("bookingCount").GetInt32().Should().Be(expectedCount);
     }

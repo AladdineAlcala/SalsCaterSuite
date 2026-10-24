@@ -1,6 +1,8 @@
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using SalsCaterSuite.Application.Common.Interfaces;
+using SalsCaterSuite.Application.Features.Addons.Commands;
+using SalsCaterSuite.Application.Features.Addons.Queries;
 using SalsCaterSuite.Application.Features.Bookings;
 using SalsCaterSuite.Application.Features.Bookings.Commands;
 using SalsCaterSuite.Application.Features.Bookings.Queries;
@@ -42,6 +44,7 @@ public static class DependencyInjection
         // registered by hand.
         services.AddScoped<BookingPricingService>();
         services.AddScoped<BookingTierEstimateService>();
+        services.AddScoped<BookingPlanningEstimateService>();
         services.AddScoped<BookingRegisterPopulationService>();
         services.AddScoped<GetBookingRegisterQuery>();
         services.AddScoped<GetBookingRegisterSummaryQuery>();
@@ -55,8 +58,34 @@ public static class DependencyInjection
             Discounts = provider.GetRequiredService<IDiscountRepository>(),
             Payments = provider.GetRequiredService<IPaymentRepository>(),
             Policy = provider.GetRequiredService<IBookingPolicyProvider>(),
-            Pricing = provider.GetRequiredService<BookingPricingService>()
+            Pricing = provider.GetRequiredService<BookingPricingService>(),
+            LineItems = provider.GetRequiredService<BookingLineItemResolver>()
         });
+
+        // The Booking Dish Selection & Add-Ons surface (REQ-BKG-06 / 07, contract §15 / §16).
+        // The one course-set builder and the one line-item resolver are shared by the read, the
+        // quote, the create and the two full-replace writes, so the shapes can never diverge
+        // (BR-31, DEC-153).
+        services.AddScoped<BookingMenuCourseSetBuilder>();
+        services.AddScoped<BookingLineItemResolver>();
+        services.AddScoped<BookingMenuSelectionPresenter>();
+        services.AddScoped<BookingAddonSetPresenter>();
+        services.AddScoped<GetBookingMenuSelectionQuery>();
+        services.AddScoped<ReplaceBookingMenuSelectionCommand>();
+        services.AddScoped<GetBookingAddonSetQuery>();
+        services.AddScoped<ReplaceBookingAddonsCommand>();
+        services.AddScoped<GetAddonMasterQuery>();
+        services.AddScoped<GetAddonCategoriesQuery>();
+
+        // The add-on master administration (the owner's 2026-10-24 Settings → Add-ons request).
+        // The master is no longer read-only: the create, update and soft-delete commands live
+        // beside the read queries and the booking picker keeps using the active-only read.
+        services.AddScoped<GetAddonManagementListQuery>();
+        services.AddScoped<GetAddonManagementDetailQuery>();
+        services.AddScoped<GetDepartmentsQuery>();
+        services.AddScoped<CreateAddonCommand>();
+        services.AddScoped<UpdateAddonCommand>();
+        services.AddScoped<DeleteAddonCommand>();
 
         // Calendar
         services.AddScoped<GetCalendarEventsQuery>();

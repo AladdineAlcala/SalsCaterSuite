@@ -110,5 +110,49 @@ public class CreateBookingValidator : AbstractValidator<CreateBookingRequestDto>
             .MaximumLength(250)
             .When(x => x.InitialPayment is not null && x.InitialPayment.Particular is not null)
             .WithMessage("The payment description must not exceed 250 characters.");
+
+        // ── REQ-BKG-06/07 (contract §15.3, §16.4) ───────────────────────────────
+
+        // An explicitly EMPTY array is a 400 on create: there is nothing to clear on a booking
+        // that does not exist yet, and "absent" already means "none" (contract §15.3).
+        RuleFor(x => x.Selections)
+            .Must(selections => selections is null || selections.Count > 0)
+            .WithMessage(
+                "An empty 'selections' array cannot be submitted on create; omit the member to " +
+                "book without a dish selection.");
+
+        RuleForEach(x => x.Selections)
+            .ChildRules(selection =>
+            {
+                selection.RuleFor(entry => entry.MenuId)
+                    .NotEmpty()
+                    .WithMessage("Every selected dish must name a menu.");
+
+                selection.RuleFor(entry => entry.PrepInstruction)
+                    .MaximumLength(500)
+                    .When(entry => entry.PrepInstruction is not null)
+                    .WithMessage("A prep instruction must not exceed 500 characters.");
+            })
+            .When(x => x.Selections is not null);
+
+        RuleFor(x => x.Addons)
+            .Must(addons => addons is null || addons.Count > 0)
+            .WithMessage(
+                "An empty 'addons' array cannot be submitted on create; omit the member to " +
+                "book without add-ons.");
+
+        RuleForEach(x => x.Addons)
+            .ChildRules(addon =>
+            {
+                addon.RuleFor(entry => entry.AddonId)
+                    .GreaterThan(0)
+                    .WithMessage("Every add-on line must name a catalogue add-on.");
+
+                addon.RuleFor(entry => entry.Amount)
+                    .GreaterThanOrEqualTo(0)
+                    .When(entry => entry.Amount.HasValue)
+                    .WithMessage("An add-on line total must be zero or greater.");
+            })
+            .When(x => x.Addons is not null);
     }
 }

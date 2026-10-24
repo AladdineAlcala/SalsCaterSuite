@@ -464,3 +464,43 @@ Every metric in Sal's CaterSuite must have an authoritative mathematical formula
 - **Null semantics:** the amounts are never `null`; they are `0` when nothing is outstanding.
 - **Note:** with **no filter applied**, this KPI is the dashboard's KPI-12 and KPI-13 over the same population and **reconciles to the cent** - the register and the dashboard describe one book of work (BR-27, DEC-111).
 - **Status:** PROPOSED - awaiting owner ratification.
+---
+
+### KPI-40: The Selection's Food Cost And Gross Profit (As-Of)
+- **Business Meaning:** What the dishes chosen for this event cost the kitchen per guest, and the margin that choice leaves - the **actual** planning figure for a booking that carries a selection, rather than the tier's standard run.
+- **Population:** the bookings that carry a **dish selection** (BR-35).
+- **Authoritative Formula:**
+  $$\text{SelectedFoodCostPerPax} = \sum_{d \in \text{Selection}} d.\text{FoodCost}, \qquad \text{SelectedGrossProfitPercentage} = \frac{\text{AmountPax} - \text{SelectedFoodCostPerPax}}{\text{AmountPax}} \times 100$$
+  where `AmountPax` is the booking's **frozen** `Booking.PricePerHead` - **never** the tier's current rate (M11, BR-04). A tier price change after the booking was created must not restate the margin of a stored event.
+- **Authoritative Source:** `GET /api/bookings/{id}/menus` (`selectedFoodCostPerPax`, `selectedGrossProfitPercentage`) (REQ-BKG-06, DEC-132).
+- **Date Basis:** none - an as-of snapshot of the current selection.
+- **Null semantics:** `null` when nothing is selected, **or** when any chosen dish is **not costed** (DEC-087 - the quota verdict still counts it), **or** when the tier carries no rate. `null` means **unknown**, never zero.
+- **Note:** this is a **planning estimate, not a commitment** - the dish food costs are **manually entered decimals** (DEC-062) and the recipe engine is unbuilt (REQ-MNU-03), so the figure is advisory, not auditable (RSK-034). It **never** enters a booking total (BR-37) and it **never** moves the price. Where a booking carries no selection, the register publishes the tier's **standard run** instead (KPI-32) and the card's label says which (DEC-132).
+- **Status:** PROPOSED - awaiting owner ratification.
+
+---
+
+### KPI-41: The Open And The Locked Menu Selections (As-Of)
+- **Business Meaning:** How many upcoming events still have an open menu-change window and how many have passed their production cut-off - the kitchen's production-commitment horizon.
+- **Population:** the register's filtered population (BR-32).
+- **Authoritative Formula:**
+  $$\text{OpenSelections} = |\{ b \in P : \text{LockDate}(b) > \text{today} \}|, \qquad \text{LockedSelections} = |\{ b \in P : \text{LockDate}(b) \le \text{today} \}|$$
+  where `LockDate(b) = b.EventDate - LockDays` and `LockDays` is the deployment-configured `Bookings:MenuSelection:LockDaysBeforeEvent` (BR-36, DEC-128). With the key **absent**, the lock date is the event date.
+- **Authoritative Source:** `GET /api/bookings/summary` (the locked and the open counts).
+- **Date Basis:** the **lock date**, measured against today.
+- **Null semantics:** the counts are never `null`; they are `0` for an empty population. The **days** figure is `null` when the configuration is absent - the *date* is never `null`.
+- **Note:** an **operational** count, not a money figure. It says how much of the book the kitchen may still change.
+- **Status:** PROPOSED - awaiting owner ratification.
+---
+
+### KPI-42: The Automatic Band Discount's Reach (Filtered Population)
+- **Business Meaning:** How much of the book is priced by the **headcount ladder** rather than by a negotiated code - the measure a pricing review asks for first.
+- **Population:** the register's **filtered** population (BR-32).
+- **Authoritative Formula:**
+  $$\text{BandDiscountedCount} = |\{ b \in P : \text{DiscountSource}(b) = \text{HeadcountBand} \}|, \qquad \text{BandDiscountedNetAmountDue} = \sum_{b \in P,\ \text{DiscountSource}(b) = \text{HeadcountBand}} \text{NetAmountDue}(b)$$
+  where `DiscountSource(b)` is **derived** by BR-44: a discount code means `Code`, otherwise a qualifying headcount band means `HeadcountBand`, otherwise `None`. The derivation is **exact** - the band is the only source of a fixed discount that carries no code (DEC-137, DEC-138).
+- **Authoritative Source:** `GET /api/bookings/summary` (the band-discounted count and the net amount due of those bookings) and `GET /api/bookings/{id}/quote` (`discountSource`, `discountBandLabel`, `discountBandRatePerHead`).
+- **Date Basis:** none - the register's own filter.
+- **Null semantics:** the count is never `null`; it is `0` for an empty population. The **net amount due** is `0` when no booking was discounted by the band.
+- **Note:** the figure counts the **bookings** the ladder priced and the **value** of that business - it is **not** the money the ladder gave away. The giveaway itself is the sum of the discount amounts, which the register publishes per booking through the discount source and amount. The **discount source** is published (`HeadcountBand` / `Code` / `None`) precisely so this question can be answered without a second money notion (BR-38, DEC-138).
+- **Status:** PROPOSED - awaiting owner ratification.

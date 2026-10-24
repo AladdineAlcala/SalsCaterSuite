@@ -39,8 +39,13 @@ public class GetBookingDossierQueryTests
         _menus = new FakeMenuRepository(_store);
         _rules = new FakePackageCourseRuleRepository(_store);
 
-        var population = new BookingRegisterPopulationService(_bookings, new BookingAmountDueCalculator());
-        var estimates = new BookingTierEstimateService(_packages, _rules, _menus);
+        var population = new BookingRegisterPopulationService(
+            _bookings,
+            new BookingAmountDueCalculator(),
+            new FakeBookingPolicyProvider());
+        var estimates = new BookingPlanningEstimateService(
+            new BookingTierEstimateService(_packages, _rules, _menus),
+            _menus);
 
         _query = new GetBookingRegisterQuery(
             estimates,

@@ -69,7 +69,7 @@ describe('PackageTierFormPage', () => {
       expect(screen.getByLabelText('Tier type')).toHaveValue('Wedding')
     })
     expect(screen.getByLabelText('Tier name')).toHaveValue('Wedding Grand Tier')
-    expect(screen.getByLabelText('Rate per guest')).toHaveValue(1450)
+    expect(screen.getByLabelText('Rate per guest')).toHaveValue('1,450.00')
     expect(screen.getByLabelText('Minimum pax')).toHaveValue(150)
     expect(screen.getByRole('button', { name: 'Save Changes' })).toBeInTheDocument()
   })
@@ -173,7 +173,7 @@ describe('PackageTierFormPage', () => {
     // The operator's input survived the rejected save (AC-P11).
     expect(screen.getByLabelText('Tier type')).toHaveValue('Wedding')
     expect(screen.getByLabelText('Tier name')).toHaveValue('Wedding Grand Tier')
-    expect(screen.getByLabelText('Rate per guest')).toHaveValue(1450)
+    expect(screen.getByLabelText('Rate per guest')).toHaveValue('1,450.00')
   })
 
   it('creates the tier and returns to the catalogue', async () => {
@@ -192,6 +192,7 @@ describe('PackageTierFormPage', () => {
         description: 'Wedding Grand Tier',
         amountPax: 1450,
         minPax: 150,
+        extendedLocationAmount: null,
       })
     })
 
@@ -218,6 +219,7 @@ describe('PackageTierFormPage', () => {
         description: 'Wedding Grand Tier',
         amountPax: 1450,
         minPax: 150,
+        extendedLocationAmount: null,
       })
     })
 
@@ -243,6 +245,7 @@ describe('PackageTierFormPage', () => {
         description: 'Special Diet Tailored',
         amountPax: null,
         minPax: null,
+        extendedLocationAmount: null,
       })
     })
   })
@@ -325,5 +328,78 @@ describe('PackageTierFormPage', () => {
     expect(screen.getByText('Stored per-tier food cost unavailable')).toBeInTheDocument()
     expect(screen.getByText('Event inclusions unavailable')).toBeInTheDocument()
     expect(screen.getAllByTestId('capability-gap-notice')).toHaveLength(2)
+  })
+
+  it('shows the extended location amount only for Regular and Premier', async () => {
+    renderTierForm('/packages/new')
+
+    expect(
+      screen.queryByLabelText('Extended location amount (per guest)'),
+    ).not.toBeInTheDocument()
+
+    const type = screen.getByLabelText('Tier type')
+    await userEvent.type(type, 'Regular')
+    expect(
+      screen.getByLabelText('Extended location amount (per guest)'),
+    ).toBeInTheDocument()
+
+    await userEvent.clear(type)
+    await userEvent.type(type, 'Wedding')
+    expect(
+      screen.queryByLabelText('Extended location amount (per guest)'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('sends the extended location amount for an eligible tier', async () => {
+    const postSpy = vi.spyOn(apiClient, 'post')
+    renderTierForm('/packages/new')
+
+    await userEvent.type(screen.getByLabelText('Tier type'), 'Regular')
+    await userEvent.type(screen.getByLabelText('Tier name'), 'Regular Feast')
+    await userEvent.type(screen.getByLabelText('Rate per guest'), '1000')
+    await userEvent.type(screen.getByLabelText('Minimum pax'), '50')
+    await userEvent.type(
+      screen.getByLabelText('Extended location amount (per guest)'),
+      '125',
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Save Package' }))
+
+    await waitFor(() => {
+      expect(postSpy).toHaveBeenCalledWith('/packages', {
+        packageType: 'Regular',
+        description: 'Regular Feast',
+        amountPax: 1000,
+        minPax: 50,
+        extendedLocationAmount: 125,
+      })
+    })
+  })
+
+  it('clears the extended amount when the type leaves Regular and Premier', async () => {
+    const postSpy = vi.spyOn(apiClient, 'post')
+    renderTierForm('/packages/new')
+
+    const type = screen.getByLabelText('Tier type')
+    await userEvent.type(type, 'Regular')
+    await userEvent.type(screen.getByLabelText('Tier name'), 'Regular Feast')
+    await userEvent.type(
+      screen.getByLabelText('Extended location amount (per guest)'),
+      '125',
+    )
+
+    await userEvent.clear(type)
+    await userEvent.type(type, 'Wedding')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save Package' }))
+
+    await waitFor(() => {
+      expect(postSpy).toHaveBeenCalledWith('/packages', {
+        packageType: 'Wedding',
+        description: 'Regular Feast',
+        amountPax: null,
+        minPax: null,
+        extendedLocationAmount: null,
+      })
+    })
   })
 })

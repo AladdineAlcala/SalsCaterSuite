@@ -165,9 +165,8 @@ describe('PackageCataloguePage', () => {
     const inspector = screen.getByTestId('package-tier-inspector')
     expect(within(inspector).getByText('VIP Degustation & Special Service')).toBeInTheDocument()
     expect(within(inspector).getByText('₱1,850.00')).toBeInTheDocument()
-    // The identity is the numeric key — there is no package code in the model.
-    expect(within(inspector).getByText('18')).toBeInTheDocument()
-    expect(within(inspector).queryByText(/PKG-[A-Z]{2,}/i)).not.toBeInTheDocument()
+    // The identity is the human-readable code generated when the tier was created.
+    expect(within(inspector).getByText('PKG-VIP-01')).toBeInTheDocument()
 
     await userEvent.click(
       screen.getByRole('button', { name: /PM Merienda Buffet, rate ₱500\.00 per guest/ }),
@@ -176,7 +175,7 @@ describe('PackageCataloguePage', () => {
     const updated = screen.getByTestId('package-tier-inspector')
     expect(within(updated).getByText('PM Merienda Buffet')).toBeInTheDocument()
     expect(within(updated).getByText('₱500.00')).toBeInTheDocument()
-    expect(within(updated).getByText('42')).toBeInTheDocument()
+    expect(within(updated).getByText('PKG-PM-01')).toBeInTheDocument()
   })
 
   it('shows the remaining capability gaps and fabricates no course, venue or margin content', async () => {

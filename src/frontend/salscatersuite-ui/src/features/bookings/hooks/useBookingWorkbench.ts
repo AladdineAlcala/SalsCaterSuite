@@ -62,6 +62,14 @@ function quoteKey(request: BookingQuoteRequest | null): string {
     request.discountCode ?? '',
     request.depositAmount ?? '',
     request.initialPaymentAmount ?? '',
+    (request.selections ?? [])
+      .map((selection) => `${selection.courseId}:${selection.menuId}:${selection.prepInstruction ?? ''}`)
+      .sort()
+      .join(','),
+    (request.addons ?? [])
+      .map((addon) => `${addon.addonId}:${addon.amount ?? ''}`)
+      .sort()
+      .join(','),
   ].join('|')
 }
 
@@ -153,12 +161,20 @@ export function useCreateBooking() {
  *
  * The workbench's tier picker reads the **existing** catalogue; it never
  * fabricates a tier (AC-BKG-28).
+ *
+ * `areaId` is the server-side area filter (DEC-157, AC-BKG-86): the API returns
+ * the active tiers whose coverage includes the municipality, so the browser
+ * never fans out one request per tier. The package-type filter is applied to
+ * the returned list, because the type is free text and the list is unpaged
+ * (DEC-070).
  */
-export function useBookingTierCatalogue() {
+export function useBookingTierCatalogue(areaId: number | null = null) {
   return useQuery({
-    queryKey: [BOOKING_TIER_CATALOGUE_QUERY_KEY],
+    queryKey: [BOOKING_TIER_CATALOGUE_QUERY_KEY, areaId],
     queryFn: async (): Promise<PackageDto[]> => {
-      const response = await apiClient.get<PackageDto[]>(API_ENDPOINTS.packages.root)
+      const response = await apiClient.get<PackageDto[]>(API_ENDPOINTS.packages.root, {
+        params: { areaId: areaId ?? undefined },
+      })
       return response.data
     },
     staleTime: 300_000,

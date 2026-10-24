@@ -73,8 +73,11 @@ public class CreateBookingWorkbenchCommandTests
         _store.Packages.Add(new Package
         {
             PackageId = id,
-            PackageType = "Premier Buffet",
-            Description = "Premier Buffet Tier",
+            // BR-40 (DEC-141): the surcharge is limited to the Regular and Premier tier TYPES
+            // verbatim, so the fixture is typed "Regular" — its description mentions "Premier"
+            // and must not count.
+            PackageType = "Regular",
+            Description = "2026 Premier Package B",
             AmountPax = rate,
             IsActive = active
         });
@@ -145,7 +148,7 @@ public class CreateBookingWorkbenchCommandTests
         var breakdown = new BookingAmountDueCalculator().Calculate(booking, 0m);
 
         booking.AmountDue.Should().Be(breakdown.NetAmountDue);
-        booking.AmountDue.Should().Be((820m + 50m) * 120);
+        booking.AmountDue.Should().Be((820m + 50m) * 120 - 2_400m, "the 120-head band takes 20.00 per head (BR-38)");
     }
 
     [Fact]
@@ -246,7 +249,7 @@ public class CreateBookingWorkbenchCommandTests
 
         var booking = _bookings.Bookings.Single();
         booking.DepositAmount.Should().Be(25_000m);
-        booking.AmountDue.Should().Be(820m * 120, "the deposit is advisory");
+        booking.AmountDue.Should().Be(820m * 120 - 2_400m, "the deposit is advisory and never changes the amount due");
     }
 
     [Fact]
@@ -308,7 +311,7 @@ public class CreateBookingWorkbenchCommandTests
         var request = ValidRequest();
         request.InitialPayment = new BookingInitialPaymentRequestDto
         {
-            AmountPaid = 820m * 120,
+            AmountPaid = 820m * 120 - 2_400m,   // exactly the net, band included
             PaymentMeans = PaymentMeans.Cash
         };
 

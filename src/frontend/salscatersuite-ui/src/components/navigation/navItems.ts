@@ -36,5 +36,5 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Banquet Calendar', to: '/calendar', icon: CalendarRange, implemented: false },
   { label: 'Customers', to: '/customers', icon: Users, implemented: true },
   { label: 'Reports & BEO', to: '/reports', icon: NotebookPen, implemented: false },
-  { label: 'Settings', to: '/settings', icon: Settings, implemented: false },
+  { label: 'Settings', to: '/settings', icon: Settings, implemented: true },
 ]

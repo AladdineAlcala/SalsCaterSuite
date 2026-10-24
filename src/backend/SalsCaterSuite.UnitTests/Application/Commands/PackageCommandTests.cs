@@ -44,6 +44,76 @@ public class PackageCommandTests
     }
 
     [Fact]
+    public async Task Create_ShouldGenerateTheFrozenPackageCode()
+    {
+        // Act
+        await _create.ExecuteAsync(new CreatePackageRequestDto("Wedding", "Wedding Grand", 1450m, 150));
+        await _create.ExecuteAsync(new CreatePackageRequestDto("Wedding", "Wedding Two", 1500m, 150));
+
+        // Assert — the per-type sequence starts at 01 and increments; nothing else is counted.
+        _store.Packages[0].PackageCode.Should().Be("PKG-WED-01");
+        _store.Packages[1].PackageCode.Should().Be("PKG-WED-02");
+    }
+
+    [Fact]
+    public async Task Update_ShouldNotRenumberTheFrozenCode()
+    {
+        // Arrange
+        _store.Packages.Add(new Package
+        {
+            PackageId = 3,
+            PackageCode = "PKG-REG-01",
+            PackageType = "Regular",
+            Description = "Old",
+            AmountPax = 100m,
+            MinPax = 10,
+        });
+
+        // Act — the type changes, but the code must not.
+        var result = await _update.ExecuteAsync(3, Request());
+
+        // Assert
+        result.Succeeded.Should().BeTrue();
+        _store.Packages.Single(p => p.PackageId == 3).PackageCode.Should().Be("PKG-REG-01");
+    }
+
+    [Fact]
+    public async Task Create_ShouldStoreTheExtendedLocationAmountForAnEligibleTier()
+    {
+        // Act
+        var result = await _create.ExecuteAsync(
+            new CreatePackageRequestDto("Regular", "Regular Feast", 950m, 80, 125m));
+
+        // Assert
+        result.Succeeded.Should().BeTrue();
+        _store.Packages[0].ExtendedLocationAmount.Should().Be(125m);
+    }
+
+    [Fact]
+    public async Task Update_ShouldClearTheExtendedLocationAmountWhenTheTypeLeavesRegularOrPremier()
+    {
+        // Arrange
+        _store.Packages.Add(new Package
+        {
+            PackageId = 3,
+            PackageCode = "PKG-REG-01",
+            PackageType = "Regular",
+            Description = "Old",
+            AmountPax = 100m,
+            MinPax = 10,
+            ExtendedLocationAmount = 125m,
+        });
+
+        // Act — the operator changes the type to Wedding and sends no amount.
+        var result = await _update.ExecuteAsync(
+            3, new CreatePackageRequestDto("Wedding", "Wedding Grand", 1450m, 150, null));
+
+        // Assert
+        result.Succeeded.Should().BeTrue();
+        _store.Packages.Single(p => p.PackageId == 3).ExtendedLocationAmount.Should().BeNull();
+    }
+
+    [Fact]
     public async Task Update_WhenPackageExists_ShouldApplyChangesAndSave()
     {
         // Arrange

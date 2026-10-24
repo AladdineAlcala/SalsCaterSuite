@@ -80,8 +80,32 @@ internal static class TestApi
         await client.PostAsJsonAsync("/api/bookings", payload);
 
     /// <summary>
-    /// Creates a booking whose frozen net amount due is exactly
-    /// <paramref name="noOfPerson"/> × <paramref name="pricePerHead"/>, and returns its transaction id.
+    /// The automatic headcount-band discount of BR-38 (DEC-136), computed here with the test's
+    /// own arithmetic so an expectation never round-trips through production code.
+    /// <para>
+    /// The bands are half-open and the 90-99 gap is real: 80-89 heads earn 10.00 per head and
+    /// 100-999 heads earn 20.00 per head. Nothing else earns anything.
+    /// </para>
+    /// </summary>
+    public static decimal BandDiscountFor(int noOfPerson) => noOfPerson switch
+    {
+        >= 80 and <= 89 => 10m * noOfPerson,
+        >= 100 and <= 999 => 20m * noOfPerson,
+        _ => 0m
+    };
+
+    /// <summary>
+    /// The frozen net amount due a booking is created with: the headcount times the rate per
+    /// guest, less the automatic band discount (BR-38). There is no surcharge and no discount
+    /// code on the bookings these helpers create.
+    /// </summary>
+    public static decimal NetAmountDueFor(int noOfPerson, decimal pricePerHead) =>
+        noOfPerson * pricePerHead - BandDiscountFor(noOfPerson);
+
+    /// <summary>
+    /// Creates a booking whose frozen net amount due is
+    /// <see cref="NetAmountDueFor"/> of <paramref name="noOfPerson"/> and
+    /// <paramref name="pricePerHead"/>, and returns its transaction id.
     /// </summary>
     public static async Task<int> CreateBookingAsync(
         this HttpClient client,

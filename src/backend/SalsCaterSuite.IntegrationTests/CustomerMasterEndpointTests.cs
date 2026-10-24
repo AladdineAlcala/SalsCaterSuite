@@ -50,9 +50,10 @@ public class CustomerMasterEndpointTests
         var item = directory.GetProperty("items").EnumerateArray().Single();
         item.GetProperty("customerId").GetInt32().Should().Be(customerId);
         item.GetProperty("customerType").GetString().Should().Be("Corporate");
-        item.GetProperty("totalContractedValue").GetDecimal().Should().Be(50_000m);
+        // 100 heads x 500.00 less the automatic 100-999 band of 20.00 per head (BR-38).
+        item.GetProperty("totalContractedValue").GetDecimal().Should().Be(TestApi.NetAmountDueFor(100, 500m));
         item.GetProperty("totalPaid").GetDecimal().Should().Be(25_000m);
-        item.GetProperty("outstandingBalance").GetDecimal().Should().Be(25_000m);
+        item.GetProperty("outstandingBalance").GetDecimal().Should().Be(TestApi.NetAmountDueFor(100, 500m) - 25_000m);
         item.GetProperty("ledgerState").GetString().Should().Be("Days31To60");
         item.GetProperty("ledgerStateLabel").GetString().Should().Be("Overdue 31–60 days");
 
@@ -63,11 +64,12 @@ public class CustomerMasterEndpointTests
 
         var summary = directory.GetProperty("summary");
         summary.GetProperty("totalClients").GetInt32().Should().Be(1);
-        summary.GetProperty("activeArAmount").GetDecimal().Should().Be(25_000m);
+        summary.GetProperty("activeArAmount").GetDecimal().Should().Be(TestApi.NetAmountDueFor(100, 500m) - 25_000m);
         summary.GetProperty("clientsWithBalance").GetInt32().Should().Be(1);
-        summary.GetProperty("totalContractedValue").GetDecimal().Should().Be(50_000m);
-        summary.GetProperty("averageValuePerClient").GetDecimal().Should().Be(50_000m);
-        summary.GetProperty("overdueAmount").GetDecimal().Should().Be(25_000m, "the booking is 45 days overdue");
+        summary.GetProperty("totalContractedValue").GetDecimal().Should().Be(TestApi.NetAmountDueFor(100, 500m));
+        summary.GetProperty("averageValuePerClient").GetDecimal().Should().Be(TestApi.NetAmountDueFor(100, 500m));
+        summary.GetProperty("overdueAmount").GetDecimal()
+            .Should().Be(TestApi.NetAmountDueFor(100, 500m) - 25_000m, "the booking is 45 days overdue");
         summary.GetProperty("overdueClientCount").GetInt32().Should().Be(1);
     }
 
@@ -240,16 +242,18 @@ public class CustomerMasterEndpointTests
 
         var statement = await client.GetJsonAsync($"/api/customers/{customerId}/statement");
 
-        statement.GetProperty("totalBilled").GetDecimal().Should().Be(50_000m);
+        statement.GetProperty("totalBilled").GetDecimal().Should().Be(TestApi.NetAmountDueFor(100, 500m));
         statement.GetProperty("totalPaid").GetDecimal().Should().Be(25_000m);
-        statement.GetProperty("outstandingBalance").GetDecimal().Should().Be(25_000m);
+        statement.GetProperty("outstandingBalance").GetDecimal()
+            .Should().Be(TestApi.NetAmountDueFor(100, 500m) - 25_000m);
         statement.GetProperty("totalRefunded").GetDecimal().Should().Be(0m);
         statement.GetProperty("ledgerState").GetString().Should().Be("Days31To60");
         statement.GetProperty("ledgerStateLabel").GetString().Should().Be("Overdue 31–60 days");
 
         var line = statement.GetProperty("transactions").EnumerateArray().Single();
-        line.GetProperty("amount").GetDecimal().Should().Be(50_000m, "the statement uses the ledger's net amount due");
-        line.GetProperty("balance").GetDecimal().Should().Be(25_000m);
+        line.GetProperty("amount").GetDecimal()
+            .Should().Be(TestApi.NetAmountDueFor(100, 500m), "the statement uses the ledger's net amount due");
+        line.GetProperty("balance").GetDecimal().Should().Be(TestApi.NetAmountDueFor(100, 500m) - 25_000m);
         line.GetProperty("status").GetString().Should().BeOneOf(
             "Pending", "Confirmed", "DepositPaid", "FullyPaid", "InProgress",
             "Completed", "Cancelled", "NoShow", "Rescheduled", "Expired");
@@ -306,9 +310,10 @@ public class CustomerMasterEndpointTests
         var customer = await client.GetJsonAsync($"/api/customers/{customerId}");
 
         customer.GetProperty("customerType").GetString().Should().Be("Corporate");
-        customer.GetProperty("totalContractedValue").GetDecimal().Should().Be(50_000m);
+        customer.GetProperty("totalContractedValue").GetDecimal().Should().Be(TestApi.NetAmountDueFor(100, 500m));
         customer.GetProperty("totalPaid").GetDecimal().Should().Be(25_000m);
-        customer.GetProperty("outstandingBalance").GetDecimal().Should().Be(25_000m);
+        customer.GetProperty("outstandingBalance").GetDecimal()
+            .Should().Be(TestApi.NetAmountDueFor(100, 500m) - 25_000m);
         customer.GetProperty("ledgerState").GetString().Should().Be("NotYetDue");
         customer.GetProperty("ledgerStateLabel").GetString().Should().Be("Open · not yet due");
 
@@ -316,7 +321,7 @@ public class CustomerMasterEndpointTests
         upcoming.GetProperty("transactionId").GetInt32().Should().Be(booking);
         upcoming.GetProperty("bookingNumber").GetString().Should().StartWith("BK-");
         upcoming.GetProperty("eventDate").GetString().Should().Be(eventDate.ToString("yyyy-MM-dd"));
-        upcoming.GetProperty("amountDue").GetDecimal().Should().Be(50_000m);
+        upcoming.GetProperty("amountDue").GetDecimal().Should().Be(TestApi.NetAmountDueFor(100, 500m));
     }
 
     // ─────────────────────────── helpers ───────────────────────────

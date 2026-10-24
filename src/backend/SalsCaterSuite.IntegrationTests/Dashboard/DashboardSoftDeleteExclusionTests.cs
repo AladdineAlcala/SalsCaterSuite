@@ -32,12 +32,12 @@ public class DashboardSoftDeleteExclusionTests : IClassFixture<DashboardSoftDele
 
         var bookings = dashboard.GetProperty("bookings");
         bookings.GetProperty("totalCount").GetInt32().Should().Be(2, "the soft-deleted booking is not in the population");
-        bookings.GetProperty("contractedValue").GetDecimal().Should().Be(100_000m, "50,000 + 50,000");
-        dashboard.GetProperty("revenue").GetProperty("netContractedRevenue").GetDecimal().Should().Be(100_000m);
+        bookings.GetProperty("contractedValue").GetDecimal().Should().Be(96_000m, "48,000 + 48,000");
+        dashboard.GetProperty("revenue").GetProperty("netContractedRevenue").GetDecimal().Should().Be(96_000m);
 
         var receivables = dashboard.GetProperty("receivables");
         receivables.GetProperty("outstandingAmount").GetDecimal()
-            .Should().Be(80_000m, "30,000 (live booking) + 50,000 (booking whose payment is soft-deleted)");
+            .Should().Be(76_000m, "28,000 (live booking) + 48,000 (booking whose payment is soft-deleted)");
         receivables.GetProperty("bookingCount").GetInt32().Should().Be(2);
     }
 

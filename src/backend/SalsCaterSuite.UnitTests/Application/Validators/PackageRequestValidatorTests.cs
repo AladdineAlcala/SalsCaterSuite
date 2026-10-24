@@ -158,6 +158,54 @@ public class PackageRequestValidatorTests
         (await _validator.ValidateAsync(request)).IsValid.Should().BeTrue();
     }
 
+    [Theory]
+    [InlineData("Regular")]
+    [InlineData("Premier")]
+    [InlineData("regular")]
+    [InlineData("  Premier  ")]
+    public async Task A_regular_or_premier_tier_may_carry_the_extended_location_amount(string packageType)
+    {
+        var request = Valid() with { PackageType = packageType, ExtendedLocationAmount = 125m };
+
+        (await _validator.ValidateAsync(request)).IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("Wedding")]
+    [InlineData("Vip")]
+    [InlineData("Pm")]
+    [InlineData("Sd")]
+    [InlineData("Premier Buffet")]
+    public async Task Any_other_type_may_not_carry_the_extended_location_amount(string packageType)
+    {
+        var request = Valid() with { PackageType = packageType, ExtendedLocationAmount = 125m };
+
+        var result = await _validator.ValidateAsync(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e =>
+            e.ErrorMessage == "The extended location amount applies only to the Regular and Premier tier types.");
+    }
+
+    [Fact]
+    public async Task An_absent_extended_location_amount_passes_for_any_type()
+    {
+        var request = Valid() with { PackageType = "Wedding", ExtendedLocationAmount = null };
+
+        (await _validator.ValidateAsync(request)).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task The_extended_location_amount_should_not_be_negative()
+    {
+        var request = Valid() with { PackageType = "Regular", ExtendedLocationAmount = -0.01m };
+
+        var result = await _validator.ValidateAsync(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage == "Extended location amount must be zero or greater.");
+    }
+
     [Fact]
     public async Task Every_broken_rule_should_be_reported_at_once()
     {

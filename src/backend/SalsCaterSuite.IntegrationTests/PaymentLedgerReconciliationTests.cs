@@ -23,7 +23,7 @@ public class PaymentLedgerReconciliationTests
         var client = await _fixture.CreateManagerClientAsync();
         var customerId = await client.CreateCustomerAsync("Payment", "Scenario7");
 
-        // 100 pax × ₱450.00 = ₱45,000.00 net amount due.
+        // 100 pax × ₱450.00 = ₱45,000.00 gross, less the automatic ₱2,000.00 band (BR-38).
         var transactionId = await client.CreateBookingAsync(customerId, 100, 450m);
 
         var paymentResponse = await client.RecordPaymentAsync(transactionId, 15_000m, "GCash");
@@ -35,12 +35,14 @@ public class PaymentLedgerReconciliationTests
 
         var details = await client.GetBookingDetailsAsync(transactionId);
         details.GetProperty("amountPaid").GetDecimal().Should().Be(15_000m);
-        details.GetProperty("balance").GetDecimal().Should().Be(30_000m);
+        details.GetProperty("balance").GetDecimal()
+            .Should().Be(TestApi.NetAmountDueFor(100, 450m) - 15_000m);
         details.GetProperty("status").GetString().Should().Be("DepositPaid");
 
         var ledger = await client.GetJsonAsync($"/api/bookings/{transactionId}/ledger");
         ledger.GetProperty("totalPaid").GetDecimal().Should().Be(15_000m);
-        ledger.GetProperty("balanceDue").GetDecimal().Should().Be(30_000m);
+        ledger.GetProperty("balanceDue").GetDecimal()
+            .Should().Be(TestApi.NetAmountDueFor(100, 450m) - 15_000m);
 
         details.GetProperty("amountPaid").GetDecimal()
             .Should().Be(ledger.GetProperty("totalPaid").GetDecimal(),
@@ -99,7 +101,7 @@ public class PaymentLedgerReconciliationTests
         var client = await _fixture.CreateCashierClientAsync();
         var customerId = await client.CreateCustomerAsync("Overpayment", "Scenario15");
 
-        // 100 pax × ₱200.00 = ₱20,000.00 net amount due; ₱25,000.00 would exceed it.
+        // 100 pax × ₱200.00 = ₱20,000.00 gross, less the ₱2,000.00 band (BR-38); ₱25,000.00 still exceeds it.
         var transactionId = await client.CreateBookingAsync(customerId, 100, 200m);
 
         var paymentResponse = await client.RecordPaymentAsync(transactionId, 25_000m);
@@ -110,7 +112,8 @@ public class PaymentLedgerReconciliationTests
         var ledger = await client.GetJsonAsync($"/api/bookings/{transactionId}/ledger");
 
         ledger.GetProperty("totalPaid").GetDecimal().Should().Be(0m, "nothing is written");
-        ledger.GetProperty("balanceDue").GetDecimal().Should().Be(20_000m, "a balance is never negative");
+        ledger.GetProperty("balanceDue").GetDecimal()
+            .Should().Be(TestApi.NetAmountDueFor(100, 200m), "a balance is never negative");
         ledger.GetProperty("isFullyPaid").GetBoolean().Should().BeFalse();
         ledger.GetProperty("payments").GetArrayLength().Should().Be(0, "no payment row is written");
     }

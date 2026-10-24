@@ -28,6 +28,8 @@ public class PreviewBookingQuoteCommand
     private readonly IPackageAreaCoverageRepository _coverages;
     private readonly IBookingRepository _bookings;
     private readonly BookingPricingService _pricing;
+    private readonly BookingLineItemResolver _lineItems;
+    private readonly BookingMenuCourseSetBuilder _courseSets;
     private readonly BookingTierEstimateService _tierEstimates;
     private readonly IBookingPolicyProvider _policy;
     private readonly IDateTime _clock;
@@ -41,6 +43,8 @@ public class PreviewBookingQuoteCommand
         IPackageAreaCoverageRepository coverages,
         IBookingRepository bookings,
         BookingPricingService pricing,
+        BookingLineItemResolver lineItems,
+        BookingMenuCourseSetBuilder courseSets,
         BookingTierEstimateService tierEstimates,
         IBookingPolicyProvider policy,
         IDateTime clock)
@@ -53,6 +57,8 @@ public class PreviewBookingQuoteCommand
         _coverages = coverages;
         _bookings = bookings;
         _pricing = pricing;
+        _lineItems = lineItems;
+        _courseSets = courseSets;
         _tierEstimates = tierEstimates;
         _policy = policy;
         _clock = clock;
@@ -101,6 +107,21 @@ public class PreviewBookingQuoteCommand
             }
         }
 
+        // ── BR-40: the surcharge is limited to the Regular and Premier tier types ─────
+        // The test is on the tier's own type column, never on its description (DEC-156). The
+        // tier's own per-guest amount is part of the same surcharge (the owner's 2026-10-24
+        // request), so either source makes the tier subject to the eligibility rule.
+        var carriesExtendedAmount = request.ExtendedAreaId.HasValue
+            || (package.ExtendedLocationAmount ?? 0m) > 0m;
+
+        if (request.ApplyExtendedAmount
+            && carriesExtendedAmount
+            && !PackageSurchargeEligibility.IsEligible(package.PackageType))
+        {
+            return Result<BookingQuoteDto>.Failure(
+                PackageSurchargeEligibility.RejectionMessage(package.PackageType));
+        }
+
         // ── The discount ─────────────────────────────────────────────────────────────
         Discount? discount = null;
         if (!string.IsNullOrWhiteSpace(request.DiscountCode))
@@ -122,6 +143,21 @@ public class PreviewBookingQuoteCommand
         }
 
         // ── The money ────────────────────────────────────────────────────────────────
+        // The dishes and the add-on lines are validated and frozen through the SAME resolver
+        // the create path uses, so the quote and the confirmed booking cannot diverge
+        // (BR-31, DEC-153).
+        var lineItems = await _lineItems.ResolveAsync(
+            package.PackageId,
+            request.NoOfPerson,
+            request.Selections,
+            request.Addons,
+            cancellationToken);
+
+        if (!lineItems.Succeeded)
+        {
+            return Result<BookingQuoteDto>.Failure(lineItems.Errors);
+        }
+
         var pricePerHead = package.AmountPax ?? 0m;
 
         var pricing = _pricing.Price(new BookingPricingInput
@@ -129,11 +165,24 @@ public class PreviewBookingQuoteCommand
             PricePerHead = pricePerHead,
             NumberOfHeads = request.NoOfPerson,
             ExtendedAreaRate = area?.AdditionalRate,
+            PackageExtendedLocationRate = package.ExtendedLocationAmount,
             ApplyExtendedAmount = request.ApplyExtendedAmount,
             Discount = discount,
             DiscountCode = string.IsNullOrWhiteSpace(request.DiscountCode) ? null : request.DiscountCode.Trim(),
+            AddonsTotal = lineItems.Data!.AddonsTotal,
             StatedDepositAmount = request.DepositAmount
         });
+
+        // ── The tier's rules and the proposed selection (contract §14.3) ─────────────
+        var courseSet = await _courseSets.BuildAsync(
+            package.PackageId, request.NoOfPerson, cancellationToken);
+
+        var window = BookingMenuWindow.Resolve(
+            request.EventDate, _policy.MenuSelectionLockDaysBeforeEvent, today);
+
+        var courses = BookingSelectionProjector.QuoteCourses(courseSet);
+        var selection = BookingSelectionProjector.QuoteSelection(
+            courseSet, lineItems.Data!.Selections, window, pricePerHead);
 
         var initialPaymentAmount = request.InitialPaymentAmount ?? 0m;
         var outstandingBalance = Math.Max(0m, pricing.NetAmountDue - initialPaymentAmount);
@@ -166,6 +215,7 @@ public class PreviewBookingQuoteCommand
         var quote = new BookingQuoteDto
         {
             PackageName = package.Description,
+            PackageCode = package.PackageCode,
             PackageType = package.PackageType,
             MinPax = package.MinPax,
             IsTierActive = tierIsActive,
@@ -175,15 +225,22 @@ public class PreviewBookingQuoteCommand
             ExtendedAreaId = area?.AreaId,
             ExtendedAreaName = area?.AreaDetails,
             ExtendedAreaRate = pricing.ExtendedAreaRate,
+            PackageExtendedLocationRate = pricing.PackageExtendedLocationRate,
             ExtendedAreaAmount = pricing.ExtendedAreaAmount,
 
             DiscountCode = pricing.DiscountCode,
             DiscountType = pricing.DiscountType,
             DiscountPercentage = pricing.DiscountPercentage,
             DiscountAmount = pricing.DiscountAmount,
+            DiscountSource = pricing.DiscountSource,
+            DiscountBandLabel = pricing.DiscountBandLabel,
+            DiscountBandRatePerHead = pricing.DiscountBandRatePerHead,
 
             GrossAmount = pricing.GrossAmount,
             NetAmountDue = pricing.NetAmountDue,
+            AddonsTotal = pricing.AddonsTotal,
+            IncludedVatAmount = pricing.IncludedVatAmount,
+            VatPercentage = pricing.VatPercentage,
 
             RequiredDepositPercentage = pricing.RequiredDepositPercentage,
             RequiredDepositAmount = pricing.RequiredDepositAmount,
@@ -204,7 +261,10 @@ public class PreviewBookingQuoteCommand
                 CoveredAreaCount = coverages.Count
             },
 
-            Checks = checks
+            Checks = checks,
+
+            Courses = courses,
+            Selection = selection
         };
 
         return Result<BookingQuoteDto>.Success(quote);

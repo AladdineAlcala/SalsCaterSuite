@@ -24,6 +24,19 @@ public interface IBookingRepository
     /// <summary>Loads a booking with its Payments (used by the cancellation path).</summary>
     Task<Booking?> GetWithPaymentsAsync(int transactionId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Loads a booking with its <b>line items</b> — the dish selection and the add-on lines,
+    /// <b>including soft-deleted rows</b> so a re-chosen dish or a re-added add-on can resurrect
+    /// its row (DEC-134) — plus the Client, the tier, the municipality and the live Payment
+    /// rows. It is the one dossier the selection read, the selection write, the add-on read, the
+    /// add-on write and the Kitchen BEO all read (contract §15.1, §15.2, §16.3, §16.4, §15.5).
+    /// <para>
+    /// The booking is <b>tracked</b>: the writes stage the child rows through the aggregate root
+    /// and commit with one <see cref="SaveChangesAsync"/> (DEC-037).
+    /// </para>
+    /// </summary>
+    Task<Booking?> GetWithLineItemsAsync(int transactionId, CancellationToken cancellationToken = default);
+
     /// <summary>Loads bookings whose event date falls within the inclusive range.</summary>
     Task<IReadOnlyList<Booking>> GetByDateRangeAsync(DateOnly fromDate, DateOnly toDate, CancellationToken cancellationToken = default);
 
@@ -68,10 +81,12 @@ public interface IBookingRepository
     /// dimension have no column and cannot be expressed in SQL (spec §3.3, RSK-056).
     /// </para>
     /// <para>
-    /// The Customer, the Package, the municipality and the Payment rows are loaded, because the
-    /// Application layer computes the net amount due, the collected amount, the payment state
-    /// and the overdue flag from them. The population is deliberately <b>unpaged</b>: the totals
-    /// strip and the facet counts must describe the whole filtered population, not the page.
+    /// The Customer, the Package, the municipality, the live dish selection, the live add-on
+    /// lines and the Payment rows are loaded, because the Application layer computes the net
+    /// amount due, the collected amount, the payment state, the overdue flag, the planning
+    /// estimate and the selection/add-on state from them (DEC-132, DEC-154, BR-28). The
+    /// population is deliberately <b>unpaged</b>: the totals strip and the facet counts must
+    /// describe the whole filtered population, not the page.
     /// </para>
     /// <para>
     /// The soft-deleted exclusions are applied by this query — no global query filter is

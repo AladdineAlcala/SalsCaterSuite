@@ -76,7 +76,7 @@ export function PackageInspector({
             <Badge tone="success" shape="pill">
               Tier Inspector
             </Badge>
-            <span className="font-data-sm text-data-sm text-espresso-400">{tier.packageId}</span>
+            <span className="font-data-sm text-data-sm text-espresso-400">{tier.packageCode}</span>
           </div>
           <h2 className="font-headline-lg text-headline-lg text-espresso-900 tracking-tight leading-tight break-words">
             {tier.description}
@@ -109,6 +109,16 @@ export function PackageInspector({
               {tier.minPax === null ? EM_DASH : `${minimum} ${PAX_UNIT}`}
             </dd>
           </div>
+          {tier.extendedLocationAmount != null ? (
+            <div className="flex flex-col gap-0.5 sm:col-span-2">
+              <dt className="font-caption text-caption text-espresso-400 uppercase font-semibold">
+                Extended location amount (per guest)
+              </dt>
+              <dd className="font-data-md text-data-md text-espresso-900 font-bold">
+                {formatCurrency(tier.extendedLocationAmount)}
+              </dd>
+            </div>
+          ) : null}
           <div className="flex flex-col gap-0.5 sm:col-span-2">
             <dt className="font-caption text-caption text-espresso-400 uppercase font-semibold">
               State

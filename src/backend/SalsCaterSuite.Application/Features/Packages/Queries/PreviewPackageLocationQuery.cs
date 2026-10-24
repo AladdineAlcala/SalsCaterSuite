@@ -100,16 +100,20 @@ public class PreviewPackageLocationQuery
         var pax = request.Pax;
         var baseTotal = PackageCostingCalculator.BaseTotal(package.AmountPax, pax);
 
-        // The extended total exists only when a municipality was selected (contract §13.7).
-        var extendedTotal = area is null
-            ? null
-            : PackageCostingCalculator.ExtendedTotal(area.AdditionalRate, pax);
+        // The extended amount exists when a municipality is selected or the tier itself carries
+        // an extended-location amount (the owner's 2026-10-24 request).
+        var hasExtendedAmount = area is not null || package.ExtendedLocationAmount.HasValue;
+
+        var extendedTotal = hasExtendedAmount
+            ? PackageCostingCalculator.ExtendedTotal(
+                area?.AdditionalRate, package.ExtendedLocationAmount, pax)
+            : null;
 
         var effectiveRatePerPax = PackageCostingCalculator.EffectiveRatePerPax(
-            package.AmountPax, area?.AdditionalRate);
+            package.AmountPax, area?.AdditionalRate, package.ExtendedLocationAmount);
 
         var totalContractValue = PackageCostingCalculator.TotalContractValue(
-            package.AmountPax, area?.AdditionalRate, pax);
+            package.AmountPax, area?.AdditionalRate, package.ExtendedLocationAmount, pax);
 
         var foodCostTotal = PackageCostingCalculator.FoodCostTotal(foodCostPerPax, pax);
         var logisticsCost = area?.LogisticsCost;
@@ -126,6 +130,7 @@ public class PreviewPackageLocationQuery
             AreaName = area?.AreaDetails,
             // The rate itself stays null when the municipality has stated none (DEC-086).
             AdditionalRate = area?.AdditionalRate,
+            PackageExtendedLocationRate = package.ExtendedLocationAmount,
             BaseTotal = baseTotal,
             ExtendedTotal = extendedTotal,
             EffectiveRatePerPax = effectiveRatePerPax,

@@ -9,10 +9,14 @@
  * This file lives under `src/test/` and is never imported by application code.
  */
 import type {
+  AddonMasterItemDto,
+  BookingAddonSetDto,
+  BookingDetails,
+  BookingMenuSelectionDto,
+  BookingQuote,
   BookingRegisterItem,
   BookingRegisterPage,
   BookingRegisterSummary,
-  BookingQuote,
 } from '@/types/booking.types'
 
 /**
@@ -56,6 +60,10 @@ const confirmedItemFixture: BookingRegisterItem = {
   discountCode: null,
   discountAmount: 0,
   baseGrossProfitPercentage: 58.2,
+  discountSource: 'None',
+  selectionState: 'Locked',
+  addonCount: 0,
+  addonsTotal: 0,
 }
 
 /**
@@ -96,6 +104,10 @@ const tentativeItemFixture: BookingRegisterItem = {
   discountCode: null,
   discountAmount: 0,
   baseGrossProfitPercentage: null,
+  discountSource: 'HeadcountBand',
+  selectionState: 'None',
+  addonCount: 1,
+  addonsTotal: 1500,
 }
 
 /**
@@ -140,6 +152,10 @@ const overdueItemFixture: BookingRegisterItem = {
   discountCode: null,
   discountAmount: 0,
   baseGrossProfitPercentage: null,
+  discountSource: 'Code',
+  selectionState: 'Selected',
+  addonCount: 0,
+  addonsTotal: 0,
 }
 
 /** The dossier cards of the register fixture. */
@@ -266,6 +282,15 @@ export const bookingRegisterSummaryFixture: BookingRegisterSummary = {
     overdueCount: 1,
     overdueAmount: 145000,
   },
+  menuWindows: {
+    openSelectionCount: 2,
+    lockedSelectionCount: 1,
+  },
+  bandDiscount: {
+    discountedBookingCount: 1,
+    discountedNetAmountDue: 198000,
+  },
+  vatPercentage: null,
   generatedAt: '2026-10-22T03:15:00.1234567Z',
 }
 
@@ -279,6 +304,7 @@ export const bookingRegisterSummaryFixture: BookingRegisterSummary = {
  */
 export const bookingQuoteFixture: BookingQuote = {
   packageName: 'Wedding Grand Tier',
+  packageCode: 'PKG-WED-07',
   packageType: 'Wedding',
   minPax: 150,
   isTierActive: true,
@@ -287,6 +313,7 @@ export const bookingQuoteFixture: BookingQuote = {
   extendedAreaId: 4,
   extendedAreaName: 'Antipolo City',
   extendedAreaRate: 120,
+  packageExtendedLocationRate: null,
   extendedAreaAmount: 36000,
   discountCode: 'EARLY-BIRD',
   discountType: 'Fixed',
@@ -349,6 +376,41 @@ export const bookingQuoteFixture: BookingQuote = {
       detail: 'No required deposit is configured, so nothing is owed.',
     },
   ],
+  discountSource: 'Code',
+  discountBandLabel: null,
+  discountBandRatePerHead: null,
+  addonsTotal: 0,
+  includedVatAmount: null,
+  vatPercentage: null,
+  courses: [
+    {
+      courseId: 4,
+      courseName: 'Beef',
+      requiredQuota: 2,
+      portionGrams: 120,
+      batchMassKg: 30,
+      ruleDescription: 'Enforce exactly 2 Beef selections',
+      inclusionTag: 'Included',
+      qualifiedPool: 5,
+    },
+    {
+      courseId: 5,
+      courseName: 'Salad',
+      requiredQuota: 1,
+      portionGrams: 80,
+      batchMassKg: 20,
+      ruleDescription: 'One seasonal salad is served',
+      inclusionTag: 'Included',
+      qualifiedPool: 3,
+    },
+  ],
+  selection: {
+    isLocked: false,
+    lockDate: '2026-11-13',
+    courses: [],
+    selectedFoodCostPerPax: null,
+    selectedGrossProfitPercentage: null,
+  },
 }
 
 /**
@@ -369,3 +431,321 @@ export const inactiveTierBookingQuoteFixture: BookingQuote = {
       : check,
   ),
 }
+
+/**
+ * A quote whose discount came from the **automatic headcount band**.
+ *
+ * The band's own label and its per-head rate are the server's — the client
+ * names the rule without reconstructing either figure (DEC-154, AC-BKG-70).
+ */
+export const bandDiscountBookingQuoteFixture: BookingQuote = {
+  ...bookingQuoteFixture,
+  discountCode: null,
+  discountAmount: 5000,
+  discountSource: 'HeadcountBand',
+  discountBandLabel: '100 to 999 heads',
+  discountBandRatePerHead: 20,
+}
+
+/**
+ * The booking's frozen price snapshot (contract §1).
+ *
+ * It carries a discount code, an out-of-town surcharge with its recovered
+ * per-guest rate, an agreed deposit and an outstanding balance.
+ */
+export const bookingDetailsFixture: BookingDetails = {
+  transactionId: 101,
+  bookingNumber: 'BK-20261120-00101',
+  transactionDate: '2026-10-22T03:15:00Z',
+  bookType: 'Inside',
+  typeOfService: 'Catering',
+  customerId: 14,
+  customerName: 'Fernandez, Atilio',
+  customerContact: '09175552381',
+  occasion: 'Fernandez-Santos Nuptials',
+  venue: 'The Grand Pavilion',
+  eventDate: '2026-11-20',
+  eventStartTime: '17:00:00',
+  eventEndTime: '22:00:00',
+  callTime: '14:00:00',
+  packoutTime: '23:30:00',
+  numberOfHeads: 250,
+  eventColor: null,
+  packageId: 12,
+  packageName: 'Wedding Grand Tier',
+  reference: null,
+  pricePerHead: 1140,
+  packageAmount: 285000,
+  extendedAreaAmount: 36000,
+  extendedAreaRatePerGuest: 144,
+  subtotal: 321000,
+  discountType: 'Fixed',
+  discountPercentage: 0,
+  discountCode: 'EARLY-BIRD',
+  discountAmount: 16000,
+  taxAmount: 0,
+  amountDue: 305000,
+  depositAmount: 50000,
+  amountPaid: 50000,
+  balance: 255000,
+  status: 'Confirmed',
+  reminderSent: false,
+}
+
+/**
+ * The stored menu selection (contract §15.1).
+ *
+ * The tier publishes two course rules — two Beef dishes and one Salad — and
+ * the booking already carries a compliant selection, so the editor opens on
+ * the chosen dishes. The VAT memo is `null`: no rate is configured, so the
+ * line is absent (DEC-143).
+ */
+export const bookingMenuSelectionFixture: BookingMenuSelectionDto = {
+  transactionId: 101,
+  bookingNumber: 'BK-20261120-00101',
+  eventDate: '2026-11-20',
+  packageId: 12,
+  packageName: 'Wedding Grand Tier',
+  menuSelectionLockDate: '2026-11-13',
+  menuSelectionLockDays: 7,
+  isLocked: false,
+  selections: [
+    {
+      courseId: 4,
+      courseName: 'Beef',
+      menuId: 'DS-203',
+      menuName: 'Beef Caldereta',
+      note: 'Tomato, bell pepper, potato',
+      foodCost: 240,
+      prepInstruction: 'Sauce on the side',
+    },
+    {
+      courseId: 4,
+      courseName: 'Beef',
+      menuId: 'DS-204',
+      menuName: 'Beef Steak',
+      note: 'Butter, garlic, thyme',
+      foodCost: 180,
+      prepInstruction: null,
+    },
+    {
+      courseId: 5,
+      courseName: 'Salad',
+      menuId: 'DS-301',
+      menuName: 'Caesar Salad',
+      note: 'Romaine, parmesan, croutons',
+      foodCost: 60,
+      prepInstruction: null,
+    },
+  ],
+  courses: [
+    {
+      courseId: 4,
+      courseName: 'Beef',
+      requiredQuota: 2,
+      portionGrams: 120,
+      batchMassKg: 30,
+      ruleDescription: 'Enforce exactly 2 Beef selections',
+      inclusionTag: 'Included',
+      pool: [
+        {
+          menuId: 'DS-201',
+          menuName: 'Beef Royale',
+          note: 'Tenderloin, mushroom, cream',
+          foodCost: 380,
+          price: 1450,
+        },
+        {
+          menuId: 'DS-202',
+          menuName: 'Beef Salpicon',
+          note: 'Shredded beef, peppers',
+          foodCost: 300,
+          price: 1450,
+        },
+        {
+          menuId: 'DS-203',
+          menuName: 'Beef Caldereta',
+          note: 'Tomato, bell pepper, potato',
+          foodCost: 240,
+          price: 1450,
+        },
+        {
+          menuId: 'DS-204',
+          menuName: 'Beef Steak',
+          note: 'Butter, garlic, thyme',
+          foodCost: 180,
+          price: 1450,
+        },
+        {
+          menuId: 'DS-205',
+          menuName: 'Beef Sisig',
+          note: 'No ingredient note is stated.',
+          foodCost: 0,
+          price: 1450,
+        },
+      ],
+      chosenMenuIds: ['DS-203', 'DS-204'],
+    },
+    {
+      courseId: 5,
+      courseName: 'Salad',
+      requiredQuota: 1,
+      portionGrams: 80,
+      batchMassKg: 20,
+      ruleDescription: 'One seasonal salad is served',
+      inclusionTag: null,
+      pool: [
+        {
+          menuId: 'DS-301',
+          menuName: 'Caesar Salad',
+          note: 'Romaine, parmesan, croutons',
+          foodCost: 60,
+          price: 1450,
+        },
+        {
+          menuId: 'DS-302',
+          menuName: 'Green Salad',
+          note: 'Garden greens, vinaigrette',
+          foodCost: 48.5,
+          price: 1450,
+        },
+        {
+          menuId: 'DS-303',
+          menuName: 'Pasta Salad',
+          note: 'Penne, olives, herbs',
+          foodCost: 0,
+          price: 1450,
+        },
+      ],
+      chosenMenuIds: ['DS-301'],
+    },
+  ],
+  isCompliant: true,
+  complianceMessage: null,
+  selectedFoodCostPerPax: 480,
+  standardRunFoodCostPerPax: 329.25,
+  selectedGrossProfitPercentage: 57.89,
+  standardRunGrossProfitPercentage: 77.29,
+  includedVatAmount: null,
+  vatPercentage: null,
+  selectionState: 'Selected',
+  addonCount: 1,
+  addonsTotal: 1500,
+  // A code replaces the band (DEC-138), so this booking's source is Code and no band applied.
+  discountSource: 'Code',
+  discountBandLabel: null,
+  discountBandRatePerHead: null,
+}
+
+/** A selection whose discount came from the automatic headcount band (DEC-154, DEC-160). */
+export const bandBookingMenuSelectionFixture: BookingMenuSelectionDto = {
+  ...bookingMenuSelectionFixture,
+  discountSource: 'HeadcountBand',
+  discountBandLabel: '100 to 999 heads',
+  discountBandRatePerHead: 20,
+}
+
+/** A selection whose menu-change window has closed — the editor is read-only. */
+export const lockedBookingMenuSelectionFixture: BookingMenuSelectionDto = {
+  ...bookingMenuSelectionFixture,
+  menuSelectionLockDate: '2026-10-19',
+  menuSelectionLockDays: null,
+  isLocked: true,
+  selectionState: 'Locked',
+}
+
+/** A tier that states **no** course rule, so its standard run is empty too. */
+export const emptyBookingMenuSelectionFixture: BookingMenuSelectionDto = {
+  ...bookingMenuSelectionFixture,
+  selections: [],
+  courses: [],
+  isCompliant: true,
+  selectedFoodCostPerPax: null,
+  selectedGrossProfitPercentage: null,
+  includedVatAmount: null,
+  selectionState: 'None',
+  addonCount: 0,
+  addonsTotal: 0,
+}
+
+/** A selection whose ledger carries the configured VAT-inclusive memo. */
+export const vatBookingMenuSelectionFixture: BookingMenuSelectionDto = {
+  ...bookingMenuSelectionFixture,
+  includedVatAmount: 12889.29,
+  vatPercentage: 12,
+}
+
+/**
+ * The booking's frozen add-on lines (contract §16.3).
+ *
+ * The line freezes its description, its line total and its pricing basis, so a
+ * later catalogue change never moves it (DEC-158, AC-BKG-74).
+ */
+export const bookingAddonSetFixture: BookingAddonSetDto = {
+  transactionId: 101,
+  bookingNumber: 'BK-20261120-00101',
+  eventDate: '2026-11-20',
+  menuSelectionLockDate: '2026-11-13',
+  menuSelectionLockDays: 7,
+  isLocked: false,
+  addonsTotal: 1500,
+  addons: [
+    {
+      addonId: 7,
+      description: 'Carving station',
+      amount: 1500,
+      unit: 'event',
+      pricingBasis: 'Flat',
+      addonCategoryId: 2,
+      addonCategoryName: 'Live stations',
+      catalogueAmount: 1500,
+      catalogueDescription: 'Carving station',
+    },
+  ],
+}
+
+/** The add-on master, grouped by category by the panel (contract §16.1). */
+export const addonMasterFixture: AddonMasterItemDto[] = [
+  {
+    addonId: 7,
+    description: 'Carving station',
+    amount: 1500,
+    unit: 'event',
+    pricingBasis: 'Flat',
+    lineAmountForBooking: 1500,
+    addonCategoryId: 2,
+    addonCategoryName: 'Live stations',
+    deptId: 1,
+    deptName: 'Kitchen',
+    isActive: true,
+  },
+  {
+    addonId: 8,
+    description: 'Dessert bar',
+    amount: 150,
+    unit: 'guest',
+    pricingBasis: 'PerGuest',
+    lineAmountForBooking: 37500,
+    addonCategoryId: 3,
+    addonCategoryName: 'Dessert',
+    deptId: 2,
+    deptName: 'Pastry',
+    isActive: true,
+  },
+  {
+    addonId: 9,
+    description: 'Cocktail welcome',
+    amount: 75,
+    unit: null,
+    pricingBasis: null,
+    lineAmountForBooking: 75,
+    addonCategoryId: null,
+    addonCategoryName: null,
+    deptId: null,
+    deptName: null,
+    isActive: true,
+  },
+]
+
+/** The add-on master as it ships in this cycle — empty (M12, RSK-066). */
+export const emptyAddonMasterFixture: AddonMasterItemDto[] = []

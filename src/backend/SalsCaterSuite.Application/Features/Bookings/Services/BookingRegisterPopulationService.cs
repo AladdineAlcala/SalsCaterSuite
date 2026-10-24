@@ -1,6 +1,7 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Services;
+using SalsCaterSuite.Domain.Entities;
 
 namespace SalsCaterSuite.Application.Features.Bookings.Services;
 
@@ -11,18 +12,26 @@ namespace SalsCaterSuite.Application.Features.Bookings.Services;
 /// row derivation live here and are called from both use cases — the page and the summary can
 /// therefore never describe two different books of work.
 /// </para>
+/// <para>
+/// The menu-change window is read from the <b>one</b> policy provider, so the register's
+/// <c>selectionState</c> and <c>menuWindows</c> can never disagree with the selection surface
+/// (DEC-128, KPI-41).
+/// </para>
 /// </summary>
 public class BookingRegisterPopulationService
 {
     private readonly IBookingRepository _bookings;
     private readonly BookingAmountDueCalculator _calculator;
+    private readonly IBookingPolicyProvider _policy;
 
     public BookingRegisterPopulationService(
         IBookingRepository bookings,
-        BookingAmountDueCalculator calculator)
+        BookingAmountDueCalculator calculator,
+        IBookingPolicyProvider policy)
     {
         _bookings = bookings;
         _calculator = calculator;
+        _policy = policy;
     }
 
     /// <summary>
@@ -37,14 +46,7 @@ public class BookingRegisterPopulationService
         var bookings = await _bookings.GetRegisterPopulationAsync(
             filter.Search, filter.FromDate, filter.ToDate, cancellationToken);
 
-        return bookings
-            .Select(booking =>
-            {
-                var collected = BookingPaymentPopulation.Collected(booking);
-                var breakdown = _calculator.Calculate(booking, collected);
-                return BookingRegisterProjection.Project(booking, breakdown, today);
-            })
-            .ToList();
+        return Project(bookings, today);
     }
 
     /// <summary>
@@ -61,12 +63,21 @@ public class BookingRegisterPopulationService
         var bookings = await _bookings.GetRegisterPopulationAsync(
             search, fromDate, toDate, cancellationToken);
 
+        return Project(bookings, today);
+    }
+
+    private List<BookingRegisterRow> Project(
+        IReadOnlyList<Booking> bookings,
+        DateOnly today)
+    {
+        var lockDays = _policy.MenuSelectionLockDaysBeforeEvent;
+
         return bookings
             .Select(booking =>
             {
                 var collected = BookingPaymentPopulation.Collected(booking);
                 var breakdown = _calculator.Calculate(booking, collected);
-                return BookingRegisterProjection.Project(booking, breakdown, today);
+                return BookingRegisterProjection.Project(booking, breakdown, today, lockDays);
             })
             .ToList();
     }

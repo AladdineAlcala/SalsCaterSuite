@@ -6,6 +6,7 @@ export interface BookingDossierGridProps {
   /** The presentation of the register's page. */
   view: 'grid' | 'timeline'
   onDownloadContract: (transactionId: number) => void
+  onOpenMenu: (transactionId: number) => void
 }
 
 /**
@@ -22,6 +23,7 @@ export function BookingDossierGrid({
   items,
   view,
   onDownloadContract,
+  onOpenMenu,
 }: BookingDossierGridProps) {
   const isTimeline = view === 'timeline'
 
@@ -41,6 +43,7 @@ export function BookingDossierGrid({
           item={item}
           isTimeline={isTimeline}
           onDownloadContract={onDownloadContract}
+          onOpenMenu={onOpenMenu}
         />
       ))}
     </div>

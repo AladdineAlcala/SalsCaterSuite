@@ -1,4 +1,5 @@
 using FluentValidation;
+using SalsCaterSuite.Application.Features.Bookings.Services;
 using SalsCaterSuite.Application.Features.Packages.DTOs;
 
 namespace SalsCaterSuite.Application.Features.Packages.Validators;
@@ -50,5 +51,19 @@ public class PackageRequestValidator : AbstractValidator<CreatePackageRequestDto
         RuleFor(x => x.MinPax)
             .GreaterThanOrEqualTo(1)
             .WithMessage("Minimum pax must be at least 1.");
+
+        // The extended-location amount is the tier's own per-guest charge, available only for
+        // the Regular and Premier types (the owner's 2026-10-24 request). A null amount is
+        // always valid ("not stated"); a supplied amount on any other type is a 400.
+        RuleFor(x => x.ExtendedLocationAmount)
+            .GreaterThanOrEqualTo(0m)
+            .When(x => x.ExtendedLocationAmount.HasValue)
+            .WithMessage("Extended location amount must be zero or greater.");
+
+        RuleFor(x => x.ExtendedLocationAmount)
+            .Must((request, amount) =>
+                amount is null || PackageSurchargeEligibility.IsEligible(request.PackageType))
+            .WithMessage(
+                "The extended location amount applies only to the Regular and Premier tier types.");
     }
 }

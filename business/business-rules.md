@@ -8,7 +8,7 @@ $$\text{Gross Amount} = \text{BasePackage} + \text{ExtendedAreaFee} + \text{Addo
 Where:
 - $\text{BasePackage} = \text{PackageAmount}$ (if fixed) or $(\text{PricePerPax} \times \text{NoOfPerson})$.
 - $\text{ExtendedAreaFee} = \text{ExtendedAreaRate}$ if $\text{ApplyExtendedAmount} = \text{true}$; otherwise $0.00$.
-- $\text{AddonsTotal} = \sum (\text{AddonQuantity} \times \text{AddonUnitPrice})$.
+- $\text{AddonsTotal} = \sum (\text{Addon's frozen line total})$ - the sum of the **line totals** the booking's add-on lines carry (DEC-158). A per-guest line's total is $\text{unit price} \times \text{heads}$, so the headcount is expressed **within** the line rather than as a separate stored quantity; a flat line's total is its own amount.
 - $\text{OtherCharges} = \text{Any approved operational surcharges}$.
 
 ### 1.2 Discount Calculation & Precedence (Rule BR-02)
@@ -309,7 +309,7 @@ $$\text{StandardRunFoodCostPerPax} = \sum_{r \in R} \overline{\text{FoodCost}}_r
   ```
   BasePackageAmount  = booking.PackageAmount                                 (frozen, BR-04)
   ExtendedAreaAmount = booking.ExtendedAreaAmount                            (frozen, BR-26, DEC-116)
-  AddonsAmount       = 0                                                      (no add-on link — see the exclusions)
+  AddonsAmount       = Booking.AddonsTotal                                   (the frozen sum of the add-on line totals - DEC-151)
   OtherChargesAmount = 0
   GrossAmount        = Round2(BasePackageAmount + ExtendedAreaAmount + AddonsAmount + OtherChargesAmount)
 
@@ -429,3 +429,157 @@ $$\text{StandardRunFoodCostPerPax} = \sum_{r \in R} \overline{\text{FoodCost}}_r
 - The rule is **not** a "same day" rule — the columns are a time of day, and the check is an ordering. A call time of `02:00` and a pack-out time of `23:00` around a `17:00`-``22:00` programme are both valid.
 - Both times are **optional**. A booking without them is a booking without a dispatch schedule, not an invalid one.
 - The rule is **ratified by AGENT 01** (2026-10-22) after the backend delivery, and it is pinned by a test on both the validator and the command path.
+---
+
+## 13. Booking Dish Selection & the Menu-Change Window (Rules BR-35 .. BR-37)
+
+> These rules govern the **per-booking dish selection** — REQ-BKG-06. They complete the open half
+> of REQ-BKG-02 ("dish selections"). Specification: `business/bookings-dish-selection-feature-spec.md` v1.0.
+
+### Rule BR-35: A Booking Carries Its Own Dish Selection
+
+- A booking may carry a **dish selection**: the dishes chosen for **that event**, drawn from the **tier's** approved qualified pools, one group per course.
+- The selection is **recorded on the booking** — it is not a document-only artefact. It is stored in the `BookingMenu` junction (`trn_Id`, `menuId`, `courseId`).
+- The selection is validated by the tier's **own** rules — **BR-15**:
+  - for **every** course rule of the tier, the number of chosen dishes in that course is **exactly** `RequiredQuota`;
+  - **no** chosen dish belongs to a course the tier has **no rule** for;
+  - every chosen dish is a **live** member of that course's **qualified pool**.
+- A selection that breaks any of these is a **`400`** that names the course and the quota (BR-11). The tier's ruleset is read **live** at the moment of the write.
+- The **tier's ruleset is the ceiling**: a client may choose *within* the approved pools and **never outside** them. The menu is personalised; the **standard** is not.
+- A selection is **replaced**, never patched: the dishes no longer chosen are **soft-deleted**, never destroyed, and re-choosing one **resurrects** its row rather than inserting a second one (the DEC-085 pattern).
+- The selection carries **no money** and **no frozen dish name, price or food cost** - the dish is a **catalogue reference** and the catalogue owns those.
+- A selection row may carry a **prep instruction**: free text of at most **500** characters, belonging to **that event** and **that dish** (DEC-146). It is stored **on the selection row**, never on the catalogue, and it is frozen with the selection. Because the selection is a **full replace**, an **omitted** instruction **clears** it (DEC-155) - the client always sends the instruction it is showing, so a chef's note is never wiped by a save that did not carry it.
+
+### Rule BR-36: The Menu-Change Window
+
+- A booking's selection may be changed **after** the booking is confirmed and **after** the deposit is taken, up to a **menu-change window** measured from the event date:
+
+  $$\text{LockDate} = \text{EventDate} - \text{LockDays}$$
+
+- `LockDays` is **deployment configuration** (`Bookings:MenuSelection:LockDaysBeforeEvent`), **absent by default**. Absent, the lock date is the **event date** — the selection is editable until the event begins.
+- The **lock date is always published** and is **never `null`**: the operator always sees the deadline. The **days** figure is `null` when the configuration is absent — the "not stated" state belongs to the *number of days*, never to the *date*.
+- A write **after** the lock is refused with a **`400`** that **names the lock date**, and **nothing** is written.
+- A **cancelled** booking's selection is frozen outright.
+- Before the lock, an **explicitly empty** selection **clears** the selection — the event reverts to the tier's standard run. An **absent or `null`** selection member is a **`400`**, never an empty set (the DEC-085 pattern).
+- The window is the guard. There is no separate kitchen role: any authenticated user may change a selection **within** the window.
+
+### Rule BR-37: A Selection Never Moves The Money
+
+- Writing a selection **must not touch** any money column: not `PricePerHead`, not `PackageAmount`, not `Subtotal`, not `DiscountAmount`, not `TaxAmount`, not `AmountDue`, not `DepositAmount`, not `AmountPaid`.
+- The tier's per-pax rate is frozen at creation (BR-04). The price is the price of the **tier**; the dishes are an **operational override inside the tier's approved pools**. The owner ruled this on 2026-10-22.
+- **The consequence, stated plainly.** A premium dish may be swapped for a cheaper one, and the **contract value does not move** while the **food cost does**. The **margin of that event** therefore moves with the selection and the price does not. The business carries that risk (RSK-062).
+- A booking with **no** selection is served the tier's **standard run** (BR-19). The selection is an **override, not a requirement**: a booking may be confirmed, deposited and servable before any dish is chosen.
+- The register's per-booking planning estimate is the **selection's** when the booking has one and the **tier's standard run** when it does not, and the card's label says which. Both are **planning estimates** — the dish food costs are manually entered decimals (DEC-062) and the recipe engine is unbuilt (REQ-MNU-03) — and **neither** enters a booking total.
+---
+
+## 14. The Bookings & Events Operation - Automatic Discounts, Add-Ons and the Extended Location (Rules BR-38 .. BR-41)
+
+> These rules come from the owner's operational note of 2026-10-22 (`Bookings and Events Operation.txt`)
+> and complete the Bookings & Events operation. Specification: `business/bookings-events-operations-feature-spec.md` v1.0.
+
+### Rule BR-38: The Headcount-Band Automatic Discounts
+
+- A booking earns an **automatic discount** by its **booked headcount** (`Booking.NumberOfHeads`, never a forecast):
+
+| Heads | The automatic discount |
+| :--- | :--- |
+| `< 80` | none |
+| `80 … 89` | **₱10.00 per head** - a fixed discount of `NumberOfHeads x 10` |
+| `90 … 99` | **none** - the negotiated band |
+| `100 … 999` | **₱20.00 per head** - a fixed discount of `NumberOfHeads x 20` |
+| `>= 1000` | **none** |
+
+- The bands are **half-open**, and the **90-99 gap is real** (DEC-136): a booking in it earns nothing automatically and is handled by an explicit discount code.
+- The discount is a **fixed amount** charged against the **gross** and **capped at the gross** (BR-02). It is computed by the **server**, **frozen** on the booking (BR-04), and published on the quote.
+- **One discount applies.** The automatic band discount is the booking's discount when the band qualifies and **no** explicit code was given; an **explicit discount code replaces it** (DEC-138). The two never stack.
+- The band discount is a **rule**, not a row in the `Discount` catalogue (DEC-137).
+
+### Rule BR-39: The Add-On Master And The Booking's Add-On Lines
+
+- An **add-on master** carries two levels: an **`AddonCategory`** (`CatId`, the category name) and the **add-on** itself (`Id`, `AddonCategoryId`, the description, the amount, the **unit of measure**, and the **pricing basis**).
+- The **pricing basis** is an **explicit** field - `Flat` or `PerGuest` - and it is **never inferred from the unit of measure** (DEC-158). The unit stays a **descriptive** unit. A basis that is **not stated** is treated as `Flat`, the safe direction, because it never multiplies a price that was not meant to be multiplied.
+- A booking may carry **add-on lines** beyond its tier. Each line **freezes** the **description**, the **line total**, the **unit** and the **pricing basis** (DEC-139); the catalogue's current price never moves a stored line (BR-04).
+- The line's **line total** is its commercial truth and is what enters the booking's gross (DEC-135, DEC-140, DEC-158). No quantity is stored separately, so the amount and a quantity can never disagree: for a `PerGuest` add-on the headcount **is** the quantity and it is expressed **within** the line.
+- The lines are **replaced**, never patched: the lines no longer carried are **soft-deleted**, and re-adding one **resurrects** its row (the DEC-085 pattern).
+- A booking's add-ons are subject to the same **menu-change window** as its dish selection (BR-36): after the lock date they are frozen.
+
+### Rule BR-40: The Extended-Location Amount Is Limited To Two Tier Types
+
+- The out-of-town amount applies **only** to the **`Regular`** and **`Premier`** tiers (DEC-141).
+- **The test is pinned** (DEC-156): the tier's `PackageType` is **trimmed** and compared **case-insensitively** for **equality** with `Regular` or `Premier` **verbatim**. Every other stored value - including a type such as "Premier Buffet" - is **not** a surcharge tier. The comparison is on the **type column only**, never on the description: the development catalogue's own tier is typed **`Regular`** while its *description* reads "2026 Premier Package B", so a description match would give the opposite answer.
+- The catalogue's type values should be normalised to the `PackageType` enum's vocabulary (DEC-070). Until they are, the behaviour is deterministic and the remedy is data hygiene, not a code change.
+- In the workbench, the **"filter by Package Area"** control appears **only** for those two types. For any other type the tiers are filtered by the **type** alone, and the area filter does not appear.
+- The rule is enforced **server-side** as well as in the interface: applying a surcharge to a tier of any other type is a **`400`** that **names the two eligible types**, so the operator is not left guessing. A rule that is only hidden is not a rule.
+- The area filter has **server support**: `GET /api/packages?areaId=` returns the active tiers whose coverage includes that area (DEC-157). The browser never fans out one request per tier.
+- The surcharge is still **the municipality's single rate** (BR-17, DEC-078) and is still **frozen** on the booking (BR-26, DEC-116).
+
+### Rule BR-41: An Add-On Is A Charge; A Dish Is A Substitution
+
+- **A dish selection never moves the money.** Swapping one dish for another inside the tier the client already bought is a **substitution**, and the tier's per-pax rate is frozen (BR-04). The owner's ruling of 2026-10-22 covers exactly this.
+- **An add-on is a charge.** It is a new item the client buys, and it **joins the gross** as BR-01's `AddonsTotal` term - the term that has existed in the formula, and in the calculator's argument set, since the beginning, and that has been `0m` only because nothing could create one (RSK-002). This cycle makes it reachable for the first time (DEC-135).
+- The **frozen** line amount is what is added, so the booking's total moves only when the operator **adds or removes an add-on** - never when the catalogue's price changes (BR-39, BR-04).
+- The band discount and the add-on total are therefore **both** measured against the gross, and the fixed discount is capped at it (BR-02, BR-38).
+### Rule BR-42: The Tax Is A VAT-Inclusive Disclosure, And Its Rate Is Configuration
+
+- The **tax policy is UNRESOLVED** (DEC-008) and this cycle does **not** resolve it by inventing a rate. The menu-selection design's ledger prints a **"Standard 12% EVAT Included"** line of **12,889.29** against a total of **120,300.00**, and the arithmetic is conclusive: 120,300 / 1.12 = 107,410.71, and 120,300 - 107,410.71 = **12,889.29** - the figure the design prints.
+- The price the client pays is therefore **VAT-inclusive**, and the VAT is a **memo line inside** the total, **never** an addition to it:
+
+  $$\text{IncludedVatAmount} = \text{NetAmountDue} - \frac{\text{NetAmountDue}}{1 + \frac{\text{VatPercentage}}{100}}$$
+
+- The **rate** is **deployment configuration** (`Bookings:Tax:VatPercentage`), **absent by default** - the same discipline as the required deposit percentage (BR-30, DEC-101) and the commissary capacity (DEC-102). With the key absent the figure is **`null`** and the ledger line is **absent**, never "0.00"; with the key set the line reads the **configured** rate and **12 is never hardcoded**.
+- The tax does **not** change `NetAmountDue`. The amount due is the gross less the discount, and the VAT is disclosed within it - which keeps BR-25's single net-due path and DEC-099's one-source guarantee intact.
+- A **null** VAT figure means the rate is **not stated**, never that the VAT is zero.
+
+### Rule BR-43: An Add-On Write Re-Freezes The Money
+
+- An add-on write **re-prices** the booking. Unlike a dish selection, it **moves** the contract value, and the whole money reaction is specified so that no implementer has to guess (DEC-152).
+- The add-on total is **recomputed** and the snapshot is **re-frozen**: `Subtotal`, `DiscountAmount` and `AmountDue` are written again by `RecalculateFinancials`. BR-04 already anticipates this - it freezes "at the moment of booking creation **or line-item addition**".
+- The **discount amount is not recomputed**. The headcount band depends on `NumberOfHeads`, which the write did not change, and an explicit code's amount is fixed; the **frozen** discount is only **re-capped** at the new gross (BR-02).
+- The **deposit is not changed** by the write. It is advisory (BR-30) and the operator may restate it separately.
+- A write that would leave the **collected amount above the new net amount due** is **refused** with a **`400`** and **nothing** is written. BR-05 forbids a payment above the net due, and a re-price that creates such a position must be settled by the operator first - a refund, a credit, or a restated deposit - not silently absorbed.
+- A **dish** selection still **never** moves the money (BR-37, DEC-129). The two rules are deliberately different, and the difference is the whole point of BR-41.
+
+### Rule BR-44: The Discount's Source Is Derived, And Published
+
+- A booking's discount has a **source**, and it is **derived**, never stored (DEC-154):
+  - a **discount code** was applied -> **`Code`**;
+  - otherwise the **headcount band** qualified -> **`HeadcountBand`**;
+  - otherwise -> **`None`**.
+- The derivation is **exact**, not a heuristic: the headcount band is the **only** source of a fixed discount that carries no code (DEC-137, DEC-138).
+- The source is **published** on the register item and in the register summary, so that KPI-42 is **server-computed** rather than inferred in the browser, and so that the operator can see **which** rule produced the number (DEC-160).
+- The band that applied publishes its **label** and its **rate per head**; the client composes its wording from them and never hardcodes a bound (DEC-160).
+
+---
+
+## 15. Department, Package Code and Extended Location (added by the 2026-10-24 owner request)
+
+### Rule BR-45: The Package Code Is Generated Once and Frozen
+
+- The human-readable business identifier is `PKG-{TYPE}-{NN}`, e.g. `PKG-REG-01` (DEC-162).
+- The type abbreviation is fixed for the six known types — `Regular` → `REG`, `Wedding` → `WED`, `Vip` → `VIP`, `Premier` → `PRE`, `Pm` → `PM`, `Sd` → `SD`. Any other free-text type (DEC-070 permits one) uses its first three alphanumeric characters, upper-cased and padded with `X`.
+- `NN` is a **per-type** sequence, padded to at least two digits (`01` … `99`, then `100`). The sequence is derived from every code the catalogue holds, including the soft-deleted rows, so a number is never reused.
+- The code is assigned **once, at create**, and is **frozen**: editing the type or the description never renumbers a tier. `PackageId` remains the internal key the three foreign keys reference.
+- The code is unique among the **live** tiers (`IX_Package_p_code`, filtered `is_deleted = 0`). The small race two concurrent creates can still lose is the same documented risk the receipt-number generator carries (RSK-013).
+
+### Rule BR-46: The Extended Location Amount Is a Regular/Premier Per-Guest Term
+
+- `Package.ExtendedLocationAmount` is the tier's **own per-guest** extended-location amount (DEC-163). `NULL` means **not stated**, never zero.
+- It is available **only** for the `Regular` and `Premier` tier types. The eligibility test is the same pinned test as BR-40: the stored type column, trimmed, compared **case-insensitively** for **equality**; `Premier Buffet` is not eligible.
+- A payload that supplies an amount on any other type is a **`400`**, and nothing is written. When an existing tier's type changes away from `Regular`/`Premier`, the stored amount is **cleared**.
+- The amount is never negative.
+
+### Rule BR-47: The Extended Location Amount Joins the Booking Surcharge
+
+- When the operator's `ApplyExtendedAmount` switch is **on**, a booking's frozen `ExtendedAreaAmount` is:
+  - `(Area.AdditionalRate + Package.ExtendedLocationAmount) × NumberOfHeads` when a municipality is selected;
+  - `Package.ExtendedLocationAmount × NumberOfHeads` when no municipality is selected;
+  - an absent component contributes **zero** (DEC-086), while its published rate stays `null`.
+- When the switch is **off**, both components contribute zero.
+- The combined amount is frozen into the booking and reproduced by the shared calculator; a later change to the tier or the municipality never moves a stored booking (BR-04, DEC-099).
+- The quote and the create path call the same `BookingPricingService`, so the quoted figure and the frozen figure cannot diverge (BR-31).
+
+### Rule BR-48: Currency Inputs Are Formatted, Not Symbolised
+
+- Every **money** input renders two decimals and thousands separators while unfocused (`1,425.00`) and the raw value while it is being edited. The **peso symbol is not shown inside an editable field**; readouts keep it (`₱1,425.00`).
+- The form state stays raw, so a comma never reaches a parser. Counts (headcount, quota, portions, percentages) remain plain numbers.
+- The client never derives a monetary figure from a formatted string; the server remains the authority for every total (DEC-002).

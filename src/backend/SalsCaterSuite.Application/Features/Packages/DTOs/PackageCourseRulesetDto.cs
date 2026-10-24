@@ -14,8 +14,14 @@ public class PackageCourseRulesetDto
     /// <summary><c>Package.Description</c>.</summary>
     public string PackageName { get; set; } = string.Empty;
 
+    /// <summary>The human-readable code (the owner's 2026-10-24 request).</summary>
+    public string PackageCode { get; set; } = string.Empty;
+
     /// <summary><c>Package.PackageType</c>, verbatim (DEC-070).</summary>
     public string PackageType { get; set; } = string.Empty;
+
+    /// <summary>The tier's per-guest extended-location amount. <c>null</c> = not stated.</summary>
+    public decimal? ExtendedLocationAmount { get; set; }
 
     /// <summary>The per-guest rate. <c>null</c> = not priced.</summary>
     public decimal? AmountPax { get; set; }

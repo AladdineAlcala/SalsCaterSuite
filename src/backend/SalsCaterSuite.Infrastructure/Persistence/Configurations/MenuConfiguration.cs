@@ -35,6 +35,12 @@ public class MenuConfiguration : IEntityTypeConfiguration<Menu>
             .WithMany(c => c.Menus)
             .HasForeignKey(e => e.CourseId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        // The legacy deptId column becomes a real foreign key (the owner's 2026-10-24 request).
+        builder.HasOne(e => e.Department)
+            .WithMany(d => d.Menus)
+            .HasForeignKey(e => e.DeptId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
 

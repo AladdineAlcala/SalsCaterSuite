@@ -194,6 +194,14 @@ export function BookingsEventsPage() {
     navigate('/bookings/new')
   }, [navigate])
 
+  const handleOpenMenu = useCallback(
+    (transactionId: number) => {
+      setActionErrors([])
+      navigate(`/bookings/${transactionId}/menu`)
+    },
+    [navigate],
+  )
+
   const handleRetry = useCallback(() => {
     setActionErrors([])
     void registerQuery.refetch()
@@ -322,6 +330,7 @@ export function BookingsEventsPage() {
               items={items}
               view={view}
               onDownloadContract={handleDownloadContract}
+              onOpenMenu={handleOpenMenu}
             />
           ) : null}
 

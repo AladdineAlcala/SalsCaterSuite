@@ -64,6 +64,8 @@ public class GetPackageAreaCoverageMatrixQuery
         {
             PackageId = package.PackageId,
             PackageName = package.PackageName,
+            PackageCode = package.PackageCode,
+            ExtendedLocationAmount = package.ExtendedLocationAmount,
             AmountPax = package.AmountPax,
             MinPax = package.MinPax,
             MinimumContractValue = package.MinimumContractValue,
@@ -118,7 +120,7 @@ public class GetPackageAreaCoverageMatrixQuery
         foreach (var row in activeRows)
         {
             var totalContractValue = PackageCostingCalculator.TotalContractValue(
-                package.AmountPax, row.AdditionalRate, minPax);
+                package.AmountPax, row.AdditionalRate, package.ExtendedLocationAmount, minPax);
             var foodCostTotal = PackageCostingCalculator.FoodCostTotal(
                 package.StandardRunFoodCostPerPax, minPax);
             var grossProfit = PackageCostingCalculator.GrossProfitWithLogistics(

@@ -25,18 +25,18 @@ namespace SalsCaterSuite.Application.Features.Bookings.Queries;
 /// </summary>
 public class GetBookingRegisterQuery
 {
-    private readonly BookingTierEstimateService _tierEstimates;
+    private readonly BookingPlanningEstimateService _estimates;
     private readonly BookingRegisterPopulationService _population;
     private readonly IDateTime _clock;
     private readonly IValidator<BookingRegisterFilterRequest> _validator;
 
     public GetBookingRegisterQuery(
-        BookingTierEstimateService tierEstimates,
+        BookingPlanningEstimateService estimates,
         BookingRegisterPopulationService population,
         IDateTime clock,
         IValidator<BookingRegisterFilterRequest> validator)
     {
-        _tierEstimates = tierEstimates;
+        _estimates = estimates;
         _population = population;
         _clock = clock;
         _validator = validator;
@@ -64,10 +64,8 @@ public class GetBookingRegisterQuery
             .Take(filter.PageSize)
             .ToList();
 
-        var estimates = await _tierEstimates.GetAsync(
-            page
-                .Where(row => row.Booking.PackageId.HasValue)
-                .Select(row => row.Booking.PackageId!.Value),
+        var estimates = await _estimates.GetBaseGrossProfitPercentagesAsync(
+            page.Select(row => row.Booking).ToList(),
             cancellationToken);
 
         var dto = new BookingRegisterPageDto
@@ -106,9 +104,9 @@ public class GetBookingRegisterQuery
         var rows = await _population.LoadAsync(filter, today, cancellationToken);
         var filtered = Sort(BookingRegisterProjection.ApplyFilters(rows, filter), filter.Sort);
 
-        // The export does not publish the tier's planning estimate, so the per-tier standard
-        // run is not computed for it (RSK-054).
-        var estimates = new Dictionary<int, BookingTierEstimate>();
+        // The export does not publish the per-booking planning estimate, so it is not computed
+        // for it (the dictionary is empty; the field stays null in the sheet, RSK-054).
+        var estimates = new Dictionary<int, decimal?>();
 
         return Result<BookingRegisterExportData>.Success(new BookingRegisterExportData
         {
@@ -130,14 +128,17 @@ public class GetBookingRegisterQuery
     /// <summary>Maps one row onto the dossier card.</summary>
     private static BookingRegisterItemDto Map(
         BookingRegisterRow row,
-        IReadOnlyDictionary<int, BookingTierEstimate> estimates)
+        IReadOnlyDictionary<int, decimal?> estimates)
     {
         var booking = row.Booking;
 
-        var baseGrossProfitPercentage = booking.PackageId.HasValue
-            && estimates.TryGetValue(booking.PackageId.Value, out var estimate)
-                ? estimate.BaseGrossProfitPercentage
+        var baseGrossProfitPercentage = estimates.TryGetValue(
+            booking.TransactionId, out var estimate)
+                ? estimate
                 : null;
+
+        var liveSelection = booking.Menus.Any(menu => !menu.IsDeleted);
+        var liveAddons = booking.AddOns.Where(line => !line.IsDeleted).ToList();
 
         return new BookingRegisterItemDto
         {
@@ -180,7 +181,14 @@ public class GetBookingRegisterQuery
             DiscountCode = booking.DiscountCode,
             DiscountAmount = booking.DiscountAmount,
 
-            BaseGrossProfitPercentage = baseGrossProfitPercentage
+            BaseGrossProfitPercentage = baseGrossProfitPercentage,
+
+            DiscountSource = DiscountSourceResolver.Resolve(
+                booking.DiscountCode, booking.NumberOfHeads, booking.DiscountAmount),
+            SelectionState = DiscountSourceResolver.ResolveSelectionState(
+                row.IsMenuSelectionLocked, liveSelection),
+            AddonCount = liveAddons.Count,
+            AddonsTotal = booking.AddonsTotal
         };
     }
 

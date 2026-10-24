@@ -225,8 +225,73 @@ public class PackageCatalogueEndpointTests
         tier.GetProperty("amountPax").GetDecimal().Should().Be(100m);
     }
 
-    // ─────────────────────────── helpers ───────────────────────────
+    [Fact]
+    public async Task The_create_endpoint_should_generate_the_package_code_and_store_the_extended_amount()
+    {
+        var client = await _fixture.CreateAdministratorClientAsync();
 
+        var response = await client.PostAsJsonAsync(
+            "/api/packages",
+            new PackagePayload("Premier", "Probe Premier extended", 1250m, 100, 150m));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created, await response.DescribeAsync());
+
+        var created = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var packageId = created.GetProperty("packageId").GetInt32();
+
+        var tier = await client.GetJsonAsync($"/api/packages/{packageId}");
+        tier.GetProperty("packageCode").GetString().Should().MatchRegex("^PKG-PRE-\\d{2,}$");
+        tier.GetProperty("extendedLocationAmount").GetDecimal().Should().Be(150m);
+    }
+
+    [Fact]
+    public async Task The_create_endpoint_should_reject_an_extended_amount_on_an_ineligible_type()
+    {
+        var client = await _fixture.CreateAdministratorClientAsync();
+        var probeType = $"{TierTypePrefix}EXT";
+
+        var response = await client.PostAsJsonAsync(
+            "/api/packages",
+            new PackagePayload(probeType, "Probe ineligible", 100m, 10, 50m));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await response.ReadErrorsAsync()).Should().Contain(
+            "The extended location amount applies only to the Regular and Premier tier types.");
+
+        var persisted = await _fixture.QueryAsync(context =>
+            context.Packages.CountAsync(p => p.PackageType == probeType));
+
+        persisted.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task The_update_endpoint_should_clear_the_extended_amount_when_the_type_leaves_regular_or_premier()
+    {
+        var client = await _fixture.CreateAdministratorClientAsync();
+
+        // A Regular tier that carries the amount.
+        var create = await client.PostAsJsonAsync(
+            "/api/packages",
+            new PackagePayload("Regular", "Probe Regular extended", 950m, 80, 125m));
+        create.StatusCode.Should().Be(HttpStatusCode.Created, await create.DescribeAsync());
+        var packageId = (await create.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("packageId").GetInt32();
+        var codeBefore = (await client.GetJsonAsync($"/api/packages/{packageId}"))
+            .GetProperty("packageCode").GetString();
+
+        // Change the type to Wedding and send no amount.
+        var update = await client.PutAsJsonAsync(
+            $"/api/packages/{packageId}",
+            new PackagePayload("Wedding", "Probe Regular extended", 950m, 80, null));
+        update.StatusCode.Should().Be(HttpStatusCode.NoContent, await update.DescribeAsync());
+
+        var tier = await client.GetJsonAsync($"/api/packages/{packageId}");
+        tier.GetProperty("extendedLocationAmount").ValueKind.Should().Be(JsonValueKind.Null);
+        // The code is frozen: the type change never renumbers it.
+        tier.GetProperty("packageCode").GetString().Should().Be(codeBefore);
+    }
+
+    // ─────────────────────────── helpers ───────────────────────────
     /// <summary>
     /// Creates the tier this test owns. Every test uses its own suffix, so the probes never
     /// collide.
@@ -253,4 +318,5 @@ internal sealed record PackagePayload(
     string PackageType,
     string Description,
     decimal? AmountPax,
-    int? MinPax);
+    int? MinPax,
+    decimal? ExtendedLocationAmount = null);

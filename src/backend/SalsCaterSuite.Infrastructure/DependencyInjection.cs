@@ -65,6 +65,15 @@ public static class DependencyInjection
         // ambiguous code are both a 400.
         services.AddScoped<IDiscountRepository, Persistence.Repositories.DiscountRepository>();
 
+        // The read-only add-on master (REQ-BKG-07, DEC-142). No write exists in this cycle
+        // (RSK-066); it shares the request-scoped context like every other repository.
+        services.AddScoped<IAddonRepository, Persistence.Repositories.AddonRepository>();
+
+        // The read-only department lookup (the owner's 2026-10-24 add-on administration). It
+        // shares the request-scoped context; the department master itself has no write surface
+        // in this cycle (BR-13).
+        services.AddScoped<IDepartmentRepository, Persistence.Repositories.DepartmentRepository>();
+
         // Identity credential lookup (DEC-037). The WebApi login endpoint resolves this
         // neutral Application contract; UserManager/SignInManager stay inside the
         // repositories layer.

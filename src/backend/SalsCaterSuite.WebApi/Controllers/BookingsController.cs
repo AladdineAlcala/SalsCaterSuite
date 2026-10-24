@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QuestPDF.Fluent;
 using SalsCaterSuite.Application.Common.Authorization;
+using SalsCaterSuite.Application.Features.Bookings;
 using SalsCaterSuite.Application.Features.Bookings.Commands;
 using SalsCaterSuite.Application.Features.Bookings.DTOs;
 using SalsCaterSuite.Application.Features.Bookings.Models;
@@ -26,6 +27,10 @@ public class BookingsController : ControllerBase
     private readonly GetBookingRegisterSummaryQuery _getSummary;
     private readonly PreviewBookingQuoteCommand _quoteBooking;
     private readonly BookingRegisterExport _registerExport;
+    private readonly GetBookingMenuSelectionQuery _getMenuSelection;
+    private readonly ReplaceBookingMenuSelectionCommand _replaceMenuSelection;
+    private readonly GetBookingAddonSetQuery _getAddonSet;
+    private readonly ReplaceBookingAddonsCommand _replaceAddons;
 
     public BookingsController(
         CreateBookingCommand createBooking,
@@ -35,7 +40,11 @@ public class BookingsController : ControllerBase
         GetBookingRegisterQuery getRegister,
         GetBookingRegisterSummaryQuery getSummary,
         PreviewBookingQuoteCommand quoteBooking,
-        BookingRegisterExport registerExport)
+        BookingRegisterExport registerExport,
+        GetBookingMenuSelectionQuery getMenuSelection,
+        ReplaceBookingMenuSelectionCommand replaceMenuSelection,
+        GetBookingAddonSetQuery getAddonSet,
+        ReplaceBookingAddonsCommand replaceAddons)
     {
         _createBooking = createBooking;
         _cancelBooking = cancelBooking;
@@ -45,6 +54,10 @@ public class BookingsController : ControllerBase
         _getSummary = getSummary;
         _quoteBooking = quoteBooking;
         _registerExport = registerExport;
+        _getMenuSelection = getMenuSelection;
+        _replaceMenuSelection = replaceMenuSelection;
+        _getAddonSet = getAddonSet;
+        _replaceAddons = replaceAddons;
     }
 
     /// <summary>GET /api/bookings/{id} — Get booking details</summary>
@@ -211,6 +224,127 @@ public class BookingsController : ControllerBase
         var bytes = document.GeneratePdf();
 
         return File(bytes, "application/pdf", $"Contract-{id}-{DateTime.Now:yyyyMMdd}.pdf");
+    }
+
+    /// <summary>
+    /// GET /api/bookings/{id}/menus — the booking's dish selection, the tier's ruleset with its
+    /// live qualified pools, and the menu-change window (contract §15.1, REQ-BKG-06).
+    /// </summary>
+    [HttpGet("{id:int}/menus")]
+    [ProducesResponseType(typeof(BookingMenuSelectionDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMenuSelection(int id, CancellationToken cancellationToken)
+    {
+        var result = await _getMenuSelection.ExecuteAsync(id, cancellationToken);
+
+        return result.Succeeded
+            ? Ok(result.Data)
+            : NotFound(new { errors = result.Errors });
+    }
+
+    /// <summary>
+    /// PUT /api/bookings/{id}/menus — replace the booking's dish selection (contract §15.2,
+    /// DEC-134). An explicitly empty array clears the selection, subject to the lock; a
+    /// <c>null</c> member is a <c>400</c>.
+    /// </summary>
+    [HttpPut("{id:int}/menus")]
+    [ProducesResponseType(typeof(BookingMenuSelectionDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ReplaceMenuSelection(
+        int id,
+        [FromBody] BookingMenuSelectionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _replaceMenuSelection.ExecuteAsync(id, request, cancellationToken);
+
+        if (result.Succeeded)
+        {
+            return Ok(result.Data);
+        }
+
+        return result is BookingNotFoundResult<BookingMenuSelectionDto>
+            ? NotFound(new { errors = result.Errors })
+            : BadRequest(new { errors = result.Errors });
+    }
+
+    /// <summary>
+    /// GET /api/bookings/{id}/addons — the booking's frozen add-on lines and the menu-change
+    /// window (contract §16.3, REQ-BKG-07).
+    /// </summary>
+    [HttpGet("{id:int}/addons")]
+    [ProducesResponseType(typeof(BookingAddonSetDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetAddonSet(int id, CancellationToken cancellationToken)
+    {
+        var result = await _getAddonSet.ExecuteAsync(id, cancellationToken);
+
+        return result.Succeeded
+            ? Ok(result.Data)
+            : NotFound(new { errors = result.Errors });
+    }
+
+    /// <summary>
+    /// PUT /api/bookings/{id}/addons — replace the booking's add-on lines and <b>re-freeze</b>
+    /// the money (contract §16.4, DEC-152).
+    /// </summary>
+    [HttpPut("{id:int}/addons")]
+    [ProducesResponseType(typeof(BookingAddonSetDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ReplaceAddons(
+        int id,
+        [FromBody] BookingAddonsRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _replaceAddons.ExecuteAsync(id, request, cancellationToken);
+
+        if (result.Succeeded)
+        {
+            return Ok(result.Data);
+        }
+
+        return result is BookingNotFoundResult<BookingAddonSetDto>
+            ? NotFound(new { errors = result.Errors })
+            : BadRequest(new { errors = result.Errors });
+    }
+
+    /// <summary>
+    /// GET /api/bookings/{id}/beo — the Kitchen Banquet Event Order (contract §15.5, DEC-148,
+    /// DEC-159). It renders the booking's <b>selection</b>, its per-event prep instructions and
+    /// its add-on lines; with no selection it prints the tier's course rules and states that the
+    /// event runs the standard run.
+    /// </summary>
+    [HttpGet("{id:int}/beo")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetBeo(int id, CancellationToken cancellationToken)
+    {
+        var details = await _getDetails.ExecuteAsync(id, cancellationToken);
+
+        if (!details.Succeeded)
+        {
+            return NotFound(new { errors = details.Errors });
+        }
+
+        var selection = await _getMenuSelection.ExecuteAsync(id, cancellationToken);
+
+        if (!selection.Succeeded)
+        {
+            return NotFound(new { errors = selection.Errors });
+        }
+
+        var addons = await _getAddonSet.ExecuteAsync(id, cancellationToken);
+
+        if (!addons.Succeeded)
+        {
+            return NotFound(new { errors = addons.Errors });
+        }
+
+        var document = new KitchenBeoDocument(details.Data!, selection.Data!, addons.Data!);
+        var bytes = document.GeneratePdf();
+
+        return File(bytes, "application/pdf", $"BEO-{id}-{DateTime.Now:yyyyMMdd}.pdf");
     }
 
     /// <summary>

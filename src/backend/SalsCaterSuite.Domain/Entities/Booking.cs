@@ -96,6 +96,17 @@ public class Booking : BaseEntity
     public decimal ExtendedAreaAmount { get; private set; }
 
     /// <summary>
+    /// The <b>frozen</b> add-on total in pesos (BR-44, DEC-158).
+    /// <para>
+    /// Like <see cref="ExtendedAreaAmount"/>, this is a column of its own and <b>not</b> an
+    /// inference from <c>Subtotal − PackageAmount − ExtendedAreaAmount</c>: the stored amount is
+    /// what the shared calculator charges, so later edits to the add-on catalogue can never move
+    /// an existing booking's economics (BR-04).
+    /// </para>
+    /// </summary>
+    public decimal AddonsTotal { get; private set; }
+
+    /// <summary>
     /// Computed balance. Always non-negative. A negative would indicate overpayment,
     /// which the domain clamps to zero; the UI/reporting layer can surface overpayments
     /// separately via TotalPayments vs AmountDue.
@@ -118,6 +129,12 @@ public class Booking : BaseEntity
     // ─────────────── Collections ───────────────
     public ICollection<Payment> Payments { get; set; } = new List<Payment>();
     public ICollection<Refund> Refunds { get; set; } = new List<Refund>();
+
+    /// <summary>The frozen dish selection — one row per selected dish (BR-35, DEC-155).</summary>
+    public ICollection<BookingMenu> Menus { get; set; } = new List<BookingMenu>();
+
+    /// <summary>The frozen add-on lines (BR-44, DEC-158).</summary>
+    public ICollection<BookingAddOn> AddOns { get; set; } = new List<BookingAddOn>();
 
     // ═══════════════ Domain Behaviour ═══════════════
 
@@ -239,6 +256,7 @@ public class Booking : BaseEntity
         // The frozen surcharge is written once, here, and read directly by the shared
         // calculator (BR-26, DEC-116). It is never inferred from the subtotal.
         ExtendedAreaAmount = extendedAreaAmount;
+        AddonsTotal = addonsAmount;
         Subtotal = PackageAmount + extendedAreaAmount + addonsAmount;
         DiscountAmount = Math.Min(discountAmount, Subtotal);        // cap at subtotal
         TaxAmount = taxAmount;

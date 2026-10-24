@@ -306,13 +306,28 @@ public static class PackageCostingCalculator
     public static decimal EffectiveAdditionalRate(decimal? additionalRate) => additionalRate ?? 0m;
 
     /// <summary>
-    /// <c>EffectiveAdditionalRate × Pax</c>. <c>null</c> when no municipality is selected or no
-    /// headcount is resolved.
+    /// The combined per-guest out-of-town rate: the municipality's rate plus the tier's own
+    /// extended-location amount (the owner's 2026-10-24 request). Either term absent contributes
+    /// zero; the published component rates keep their own null semantics.
+    /// </summary>
+    public static decimal EffectiveAdditionalRate(decimal? additionalRate, decimal? packageExtendedLocationAmount) =>
+        (additionalRate ?? 0m) + (packageExtendedLocationAmount ?? 0m);
+
+    /// <summary>
+    /// <c>EffectiveAdditionalRate × Pax</c>. <c>null</c> when no headcount is resolved.
     /// </summary>
     public static decimal? ExtendedTotal(decimal? additionalRate, int? pax) =>
         pax is null
             ? null
             : Round(EffectiveAdditionalRate(additionalRate) * pax.Value);
+
+    /// <summary>
+    /// <c>(Area rate + tier amount) × Pax</c>. <c>null</c> when no headcount is resolved.
+    /// </summary>
+    public static decimal? ExtendedTotal(decimal? additionalRate, decimal? packageExtendedLocationAmount, int? pax) =>
+        pax is null
+            ? null
+            : Round(EffectiveAdditionalRate(additionalRate, packageExtendedLocationAmount) * pax.Value);
 
     /// <summary>
     /// <c>AmountPax + EffectiveAdditionalRate</c>. <c>null</c> when the tier carries no rate.
@@ -321,6 +336,17 @@ public static class PackageCostingCalculator
         amountPax is null
             ? null
             : Round(amountPax.Value + EffectiveAdditionalRate(additionalRate));
+
+    /// <summary>
+    /// <c>AmountPax + (Area rate + tier amount)</c>. <c>null</c> when the tier carries no rate.
+    /// </summary>
+    public static decimal? EffectiveRatePerPax(
+        decimal? amountPax,
+        decimal? additionalRate,
+        decimal? packageExtendedLocationAmount) =>
+        amountPax is null
+            ? null
+            : Round(amountPax.Value + EffectiveAdditionalRate(additionalRate, packageExtendedLocationAmount));
 
     /// <summary>
     /// <c>BaseTotal + ExtendedTotal</c> — the contract value of the simulated event. <c>null</c>
@@ -335,6 +361,31 @@ public static class PackageCostingCalculator
         }
 
         var extendedTotal = ExtendedTotal(additionalRate, pax);
+        if (!extendedTotal.HasValue)
+        {
+            return null;
+        }
+
+        return Round(baseTotal.Value + extendedTotal.Value);
+    }
+
+    /// <summary>
+    /// <c>BaseTotal + ((Area rate + tier amount) × Pax)</c> — the contract value of the simulated
+    /// event. <c>null</c> when the tier carries no rate or no headcount is resolved.
+    /// </summary>
+    public static decimal? TotalContractValue(
+        decimal? amountPax,
+        decimal? additionalRate,
+        decimal? packageExtendedLocationAmount,
+        int? pax)
+    {
+        var baseTotal = BaseTotal(amountPax, pax);
+        if (!baseTotal.HasValue)
+        {
+            return null;
+        }
+
+        var extendedTotal = ExtendedTotal(additionalRate, packageExtendedLocationAmount, pax);
         if (!extendedTotal.HasValue)
         {
             return null;

@@ -103,6 +103,15 @@ public class BookingConfiguration : IEntityTypeConfiguration<Booking>
             .IsRequired()
             .HasDefaultValue(0m);
 
+        // The frozen add-on total (BR-44, DEC-151, DEC-158). Like the surcharge it is a column
+        // of its own and never inferred from Subtotal: the stored amount is what the shared
+        // calculator reads, so a later catalogue change can never move a stored booking.
+        builder.Property(e => e.AddonsTotal)
+            .HasColumnName("addonsTotal")
+            .HasPrecision(18, 2)
+            .IsRequired()
+            .HasDefaultValue(0m);
+
         // Balance is a computed property — not stored in the database.
         builder.Ignore(e => e.Balance);
 
@@ -140,6 +149,19 @@ public class BookingConfiguration : IEntityTypeConfiguration<Booking>
         builder.HasMany(e => e.Refunds)
             .WithOne(r => r.Booking)
             .HasForeignKey(r => r.TransactionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // The frozen line items (REQ-BKG-06 / 07). Their own configurations carry the column
+        // mappings and the filtered unique indexes; the navigation is declared here so the
+        // aggregate is loaded from the booking side.
+        builder.HasMany(e => e.Menus)
+            .WithOne(m => m.Booking)
+            .HasForeignKey(m => m.TransactionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(e => e.AddOns)
+            .WithOne(a => a.Booking)
+            .HasForeignKey(a => a.TransactionId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

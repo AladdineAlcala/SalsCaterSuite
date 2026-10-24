@@ -6,7 +6,7 @@ import { EM_DASH, formatCurrency } from '@/utils/currencyFormatter'
 import type { AreaDto } from '@/types/package.types'
 import type { BookingQuote } from '@/types/booking.types'
 import type { BookingWorkbenchDraft, BookingWorkbenchErrors } from '../bookingVocabulary'
-import { NOT_STATED } from '../bookingVocabulary'
+import { NOT_STATED, supportsExtendedArea } from '../bookingVocabulary'
 import { WorkbenchCheckbox, WorkbenchSelectField } from './WorkbenchFields'
 
 export interface WorkbenchLogisticsBlockProps {
@@ -17,6 +17,8 @@ export interface WorkbenchLogisticsBlockProps {
   municipalities: AreaDto[]
   /** The server's quote — the source of the surcharge and the coverage verdict. */
   quote: BookingQuote | null
+  /** The selected tier's stored type. `null` until a tier is chosen. */
+  selectedTierType: string | null
 }
 
 /**
@@ -26,6 +28,13 @@ export interface WorkbenchLogisticsBlockProps {
  * logistics cost come from the **municipality catalogue**, and the surcharge
  * comes from the **server's quote** — the client never multiplies a rate by a
  * headcount itself (DEC-002, BR-26).
+ *
+ * The **area filter** is offered only for the `Regular` and `Premier` types
+ * (DEC-141, DEC-156, DEC-157): it narrows the tier list to the tiers whose
+ * coverage includes the municipality, and the server answers it through
+ * `areaId` (AC-BKG-86). For a tier whose type cannot carry the amount the
+ * **municipality selector is hidden**, so the workbench can never post a
+ * surcharge the API would refuse (AC-BKG-72).
  *
  * The reference's **Included Site Amenities** checklist is a **capability
  * gap**: `Package` carries no inclusions collection, so no amenity is
@@ -37,9 +46,19 @@ export function WorkbenchLogisticsBlock({
   onChange,
   municipalities,
   quote,
+  selectedTierType,
 }: WorkbenchLogisticsBlockProps) {
   const municipality =
     municipalities.find((area) => String(area.areaId) === draft.extendedAreaId) ?? null
+
+  /*
+   * The type the eligibility test reads: the selected tier's own type once a
+   * tier is chosen, otherwise the type filter the operator is composing with.
+   */
+  const areaFilterType = selectedTierType ?? draft.packageType
+  const isAreaFilterOffered = supportsExtendedArea(areaFilterType)
+  const canCarryExtendedArea =
+    selectedTierType !== null && supportsExtendedArea(selectedTierType)
 
   const coverage = quote?.coverage ?? null
   const coverageLabel =
@@ -59,33 +78,61 @@ export function WorkbenchLogisticsBlock({
             <MapPinned className="h-4 w-4 text-caramel-600" aria-hidden="true" />
             Venue &amp; spatial logistics
           </h2>
-          {municipality ? <Badge tone="warning">Out-of-town</Badge> : null}
+          {municipality && canCarryExtendedArea ? <Badge tone="warning">Out-of-town</Badge> : null}
         </div>
 
-        <WorkbenchSelectField
-          id="booking-municipality"
-          label="Municipality"
-          value={draft.extendedAreaId}
-          onChange={(value) => onChange({ extendedAreaId: value })}
-          options={municipalities.map((area) => ({
-            value: String(area.areaId),
-            label: area.areaDetails,
-          }))}
-          placeholder="Select a municipality"
-          error={errors.extendedAreaId}
-          hint="The municipality carries the out-of-town rate"
-        />
+        {isAreaFilterOffered ? (
+          <WorkbenchSelectField
+            id="booking-area-filter"
+            label="Area filter"
+            value={draft.areaFilterId}
+            onChange={(value) => onChange({ areaFilterId: value })}
+            options={municipalities.map((area) => ({
+              value: String(area.areaId),
+              label: area.areaDetails,
+            }))}
+            placeholder="All municipalities"
+            hint="Narrows the tier list to the tiers covering the municipality"
+            disabled={municipalities.length === 0}
+          />
+        ) : null}
 
-        <WorkbenchCheckbox
-          id="booking-apply-extended"
-          label="Apply the out-of-town surcharge"
-          checked={draft.applyExtendedAmount}
-          onChange={(checked) => onChange({ applyExtendedAmount: checked })}
-          error={errors.applyExtendedAmount}
-          hint="The switch is applied at creation; the amount is then frozen on the booking"
-        />
+        {canCarryExtendedArea ? (
+          <>
+            <WorkbenchSelectField
+              id="booking-municipality"
+              label="Municipality"
+              value={draft.extendedAreaId}
+              onChange={(value) => onChange({ extendedAreaId: value })}
+              options={municipalities.map((area) => ({
+                value: String(area.areaId),
+                label: area.areaDetails,
+              }))}
+              placeholder="Select a municipality"
+              error={errors.extendedAreaId}
+              hint="The municipality carries the out-of-town rate"
+            />
 
-        {municipality ? (
+            <WorkbenchCheckbox
+              id="booking-apply-extended"
+              label="Apply the out-of-town surcharge"
+              checked={draft.applyExtendedAmount}
+              onChange={(checked) => onChange({ applyExtendedAmount: checked })}
+              error={errors.applyExtendedAmount}
+              hint="The switch is applied at creation; the amount is then frozen on the booking"
+            />
+          </>
+        ) : selectedTierType !== null ? (
+          <p
+            role="note"
+            className="font-caption text-caption text-espresso-600 rounded-lg bg-surface-container-low p-space-sm border border-artisan-border"
+          >
+            The {selectedTierType} type cannot carry the out-of-town amount — only the Regular
+            and Premier types can (DEC-141). The municipality selector is hidden for this tier.
+          </p>
+        ) : null}
+
+        {municipality && canCarryExtendedArea ? (
           <dl className="flex flex-col gap-1.5 text-caption rounded-lg bg-surface-container-low p-space-sm border border-artisan-border">
             <div className="flex items-center justify-between gap-2">
               <dt className="text-espresso-400">Municipality</dt>
@@ -136,7 +183,7 @@ export function WorkbenchLogisticsBlock({
           </dl>
         ) : null}
 
-        {municipality ? (
+        {municipality && canCarryExtendedArea ? (
           <p className="font-caption text-caption text-espresso-600 flex items-center gap-1.5">
             <Truck className="h-3 w-3" aria-hidden="true" />
             The surcharge is the municipality&apos;s own rate — the same rate the tier quotes.

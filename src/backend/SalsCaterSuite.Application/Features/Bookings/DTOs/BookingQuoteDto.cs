@@ -54,6 +54,17 @@ public class BookingQuoteRequestDto
 
     /// <summary>The initial payment the operator intends to record.</summary>
     public decimal? InitialPaymentAmount { get; set; }
+
+    /// <summary>
+    /// The proposed dish selection, in exactly the create request's shape (contract §15.3).
+    /// The quote prices it through the same code path the create uses (BR-31, DEC-153).
+    /// </summary>
+    public List<BookingMenuSelectionEntryDto>? Selections { get; set; }
+
+    /// <summary>
+    /// The proposed add-on lines, in exactly the create request's shape (contract §16.4).
+    /// </summary>
+    public List<BookingAddonRequestDto>? Addons { get; set; }
 }
 
 /// <summary>
@@ -63,6 +74,10 @@ public class BookingQuoteDto
 {
     // ── Tier ────────────────────────────────────────────────────────────────────
     public string? PackageName { get; set; }
+
+    /// <summary>The tier's human-readable code (the owner's 2026-10-24 request).</summary>
+    public string? PackageCode { get; set; }
+
     public string? PackageType { get; set; }
     public int? MinPax { get; set; }
     public bool IsTierActive { get; set; }
@@ -76,6 +91,12 @@ public class BookingQuoteDto
     /// <summary>The municipality's rate; <c>null</c> when it has stated none (DEC-086).</summary>
     public decimal? ExtendedAreaRate { get; set; }
 
+    /// <summary>
+    /// The tier's own per-guest extended-location amount; <c>null</c> = not stated (the owner's
+    /// 2026-10-24 request).
+    /// </summary>
+    public decimal? PackageExtendedLocationRate { get; set; }
+
     public decimal ExtendedAreaAmount { get; set; }
 
     // ── The discount ────────────────────────────────────────────────────────────
@@ -84,9 +105,30 @@ public class BookingQuoteDto
     public decimal DiscountPercentage { get; set; }
     public decimal DiscountAmount { get; set; }
 
+    /// <summary>The <b>derived</b> source of the discount (BR-44, DEC-154).</summary>
+    public DiscountSource DiscountSource { get; set; }
+
+    /// <summary>The applied band's label, or <c>null</c> when no band applied (DEC-160).</summary>
+    public string? DiscountBandLabel { get; set; }
+
+    /// <summary>The applied band's rate per head, or <c>null</c> when no band applied.</summary>
+    public decimal? DiscountBandRatePerHead { get; set; }
+
     // ── The money chain ─────────────────────────────────────────────────────────
     public decimal GrossAmount { get; set; }
     public decimal NetAmountDue { get; set; }
+
+    /// <summary>The frozen add-on line total that joined the gross (DEC-135, DEC-151).</summary>
+    public decimal AddonsTotal { get; set; }
+
+    /// <summary>
+    /// The VAT-inclusive disclosure — a memo figure <b>within</b> the net amount due (BR-42,
+    /// DEC-143). <c>null</c> when the rate is absent or the net is zero.
+    /// </summary>
+    public decimal? IncludedVatAmount { get; set; }
+
+    /// <summary>The configured VAT rate, or <c>null</c> when the key is absent.</summary>
+    public decimal? VatPercentage { get; set; }
 
     /// <summary>The configured required deposit percentage; <c>null</c> when none is stated.</summary>
     public decimal? RequiredDepositPercentage { get; set; }
@@ -118,6 +160,75 @@ public class BookingQuoteDto
 
     // ── The five pre-dispatch checks (BR-29) ────────────────────────────────────
     public List<BookingQuoteCheckDto> Checks { get; set; } = new();
+
+    // ── The tier's course rules and the proposed selection (contract §14.3) ────
+    /// <summary>
+    /// The tier's own rules, one entry per rule, in the tier's order. <c>qualifiedPool</c> is the
+    /// <b>count</b> of live dishes in the rule's pool.
+    /// </summary>
+    public List<BookingQuoteCourseDto> Courses { get; set; } = new();
+
+    /// <summary>The selection the request asks for (contract §15.1's shape).</summary>
+    public BookingQuoteSelectionDto Selection { get; set; } = new();
+}
+
+/// <summary>
+/// One course rule of the tier as the quote publishes it (contract §14.3). Unlike the selection
+/// read's <see cref="BookingMenuCourseDto"/> it carries the pool's <b>count</b>, not the pool.
+/// </summary>
+public class BookingQuoteCourseDto
+{
+    public int CourseId { get; set; }
+    public string? CourseName { get; set; }
+    public int RequiredQuota { get; set; }
+    public int? PortionGrams { get; set; }
+
+    /// <summary><c>PortionGrams x NumberOfHeads / 1000</c> (DEC-145); <c>null</c> when no portion.</summary>
+    public decimal? BatchMassKg { get; set; }
+
+    public string? RuleDescription { get; set; }
+    public string? InclusionTag { get; set; }
+
+    /// <summary>The number of live dishes in the rule's qualified pool.</summary>
+    public int QualifiedPool { get; set; }
+}
+
+/// <summary>
+/// The proposed selection a quote describes (contract §14.3) — the same shape
+/// <c>GET /api/bookings/{id}/menus</c> uses for a stored selection.
+/// </summary>
+public class BookingQuoteSelectionDto
+{
+    public bool IsLocked { get; set; }
+
+    /// <summary>Always a concrete date — never <c>null</c> (DEC-128).</summary>
+    public DateOnly LockDate { get; set; }
+
+    public List<BookingQuoteSelectionCourseDto> Courses { get; set; } = new();
+
+    /// <summary>The sum of the chosen dishes' food costs, or <c>null</c> when unknown.</summary>
+    public decimal? SelectedFoodCostPerPax { get; set; }
+
+    /// <summary>The selection's planning margin, or <c>null</c> when either input is unknown.</summary>
+    public decimal? SelectedGrossProfitPercentage { get; set; }
+}
+
+/// <summary>One course of the proposed selection (contract §14.3).</summary>
+public class BookingQuoteSelectionCourseDto
+{
+    public int CourseId { get; set; }
+    public string? CourseName { get; set; }
+    public List<BookingQuoteSelectedMenuDto> SelectedMenus { get; set; } = new();
+}
+
+/// <summary>One chosen dish of the proposed selection (contract §14.3).</summary>
+public class BookingQuoteSelectedMenuDto
+{
+    public string MenuId { get; set; } = string.Empty;
+    public string? MenuName { get; set; }
+    public string? Note { get; set; }
+    public string? PrepInstruction { get; set; }
+    public decimal? FoodCost { get; set; }
 }
 
 /// <summary>

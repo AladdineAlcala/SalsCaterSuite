@@ -47,7 +47,7 @@ export function PackageCard({ tier, isSelected, onSelect }: PackageCardProps) {
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-1.5 flex-wrap min-w-0">
             <span className="font-data-sm text-data-sm font-bold text-espresso-900">
-              {tier.packageId}
+              {tier.packageCode}
             </span>
             <PackageTypeChip packageType={tier.packageType} />
           </div>

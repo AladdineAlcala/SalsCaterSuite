@@ -32,8 +32,39 @@ public class BookingRegisterSummaryDto
     /// <summary>The register's own accounts receivable (KPI-39).</summary>
     public BookingRegisterReceivablesDto Receivables { get; set; } = new();
 
+    /// <summary>The menu-change window's open and closed counts (KPI-41, DEC-128).</summary>
+    public BookingRegisterMenuWindowsDto MenuWindows { get; set; } = new();
+
+    /// <summary>The automatic headcount band's take (KPI-42, DEC-154).</summary>
+    public BookingRegisterBandDiscountDto BandDiscount { get; set; } = new();
+
+    /// <summary>The configured VAT rate, or <c>null</c> when the key is absent (DEC-143).</summary>
+    public decimal? VatPercentage { get; set; }
+
     /// <summary>When the aggregate was produced.</summary>
     public DateTime GeneratedAt { get; set; }
+}
+
+/// <summary>The menu-change window's open and closed counts (KPI-41, DEC-128).</summary>
+public class BookingRegisterMenuWindowsDto
+{
+    /// <summary>The bookings whose window is still open.</summary>
+    public int OpenSelectionCount { get; set; }
+
+    /// <summary>The bookings whose window has closed.</summary>
+    public int LockedSelectionCount { get; set; }
+}
+
+/// <summary>
+/// The automatic headcount band's take (KPI-42, DEC-154). The count is never <c>null</c>; it is
+/// <c>0</c> for an empty population.
+/// </summary>
+public class BookingRegisterBandDiscountDto
+{
+    public int DiscountedBookingCount { get; set; }
+
+    /// <summary>The net amount due of the bookings the band priced.</summary>
+    public decimal DiscountedNetAmountDue { get; set; }
 }
 
 /// <summary>The pipeline count and its status split (KPI-33).</summary>

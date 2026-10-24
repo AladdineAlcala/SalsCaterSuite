@@ -25,15 +25,24 @@ public class BookingsRegisterEndpointTests
 
     // ─────────────────────────── the catalogue fixtures ───────────────────────────
 
-    private async Task<int> SeedTierAsync(string type, decimal rate, bool active = true)
+    /// <summary>
+    /// Seeds a tier the operator can book. The <paramref name="label"/> distinguishes the
+    /// fixtures from one another; the <b>type</b> is always <c>Regular</c>, because BR-40
+    /// (DEC-141) limits the out-of-town surcharge to the <c>Regular</c> and <c>Premier</c>
+    /// types verbatim and the pinning test lives in the unit suite.
+    /// </summary>
+    private async Task<int> SeedTierAsync(string label, decimal rate, bool active = true)
     {
         using var scope = _fixture.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<SalsCaterSuiteDbContext>();
 
         var package = new Package
         {
-            PackageType = type,
-            Description = $"{type} Tier",
+            // The code is unique among the live tiers; these fixtures bypass the create command,
+            // so they assign one themselves (the 2026-10-24 code column is NOT NULL + unique).
+            PackageCode = ("PKG-REG-" + Guid.NewGuid().ToString("N"))[..30],
+            PackageType = "Regular",
+            Description = $"{label} Tier",
             AmountPax = rate,
             IsActive = active,
             CreatedDate = DateTime.UtcNow
@@ -216,7 +225,13 @@ public class BookingsRegisterEndpointTests
         quote.GetProperty("baseAmount").GetDecimal().Should().Be(820m * 120);
         quote.GetProperty("extendedAreaAmount").GetDecimal().Should().Be(50m * 120);
         quote.GetProperty("grossAmount").GetDecimal().Should().Be(870m * 120);
-        quote.GetProperty("netAmountDue").GetDecimal().Should().Be(870m * 120);
+
+        // BR-38: 120 heads falls in the 100-999 band, so the quote nets the automatic 20.00
+        // per head and publishes the band it applied.
+        quote.GetProperty("discountSource").GetString().Should().Be("HeadcountBand");
+        quote.GetProperty("discountBandLabel").GetString().Should().Be("100 to 999 heads");
+        quote.GetProperty("discountAmount").GetDecimal().Should().Be(2_400m);
+        quote.GetProperty("netAmountDue").GetDecimal().Should().Be(870m * 120 - 2_400m);
 
         // The deposit and the capacity are configuration and absent by default.
         quote.GetProperty("requiredDepositPercentage").ValueKind.Should().Be(System.Text.Json.JsonValueKind.Null);

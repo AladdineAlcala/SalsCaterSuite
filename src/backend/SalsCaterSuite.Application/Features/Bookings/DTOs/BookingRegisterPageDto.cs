@@ -166,4 +166,18 @@ public class BookingRegisterItemDto
     /// never enters a booking total.
     /// </summary>
     public decimal? BaseGrossProfitPercentage { get; set; }
+
+    // ── The derived discount source and the selection/add-on state (DEC-154, BR-28, BR-39) ──
+
+    /// <summary>The <b>derived</b> source of the discount (BR-44, DEC-154).</summary>
+    public DiscountSource DiscountSource { get; set; }
+
+    /// <summary>Exactly one of <c>None</c>, <c>Selected</c> or <c>Locked</c> (BR-28, M2).</summary>
+    public BookingSelectionState SelectionState { get; set; }
+
+    /// <summary>The number of live add-on lines the booking carries.</summary>
+    public int AddonCount { get; set; }
+
+    /// <summary>The frozen add-on line total that joins the gross (DEC-135, DEC-151).</summary>
+    public decimal AddonsTotal { get; set; }
 }

@@ -2,6 +2,7 @@ using FluentValidation;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
 using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.Services;
 using SalsCaterSuite.Domain.Entities;
 
 namespace SalsCaterSuite.Application.Features.Packages.Commands;
@@ -39,8 +40,18 @@ public class CreatePackageCommand
             Description = request.Description,
             AmountPax = request.AmountPax,
             MinPax = request.MinPax,
+            ExtendedLocationAmount = request.ExtendedLocationAmount,
             IsActive = true
         };
+
+        // The human-readable code is generated once, at create, and frozen (the owner's
+        // 2026-10-24 request). The per-type sequence counts the codes already held, including
+        // the soft-deleted ones, so a number is never reused.
+        var abbreviation = PackageCodeGenerator.Abbreviation(request.PackageType);
+        var existingCodes = await _packages.GetPackageCodesAsync(cancellationToken);
+        package.PackageCode = PackageCodeGenerator.Build(
+            abbreviation,
+            PackageCodeGenerator.NextSequence(existingCodes, abbreviation));
 
         await _packages.AddAsync(package, cancellationToken);
         await _packages.SaveChangesAsync(cancellationToken);

@@ -67,6 +67,9 @@ public class GetBookingRegisterSummaryQuery
             PaymentStates = BuildPaymentStates(filtered),
             Capacity = BuildCapacity(filtered, today),
             Receivables = BuildReceivables(filtered),
+            MenuWindows = BuildMenuWindows(filtered),
+            BandDiscount = BuildBandDiscount(filtered),
+            VatPercentage = _policy.VatPercentage,
             GeneratedAt = _clock.UtcNow
         };
 
@@ -297,6 +300,36 @@ public class GetBookingRegisterSummaryQuery
             BookingCount = withBalance.Count,
             OverdueCount = overdue.Count,
             OverdueAmount = overdue.Sum(row => row.Outstanding)
+        };
+    }
+
+    /// <summary>
+    /// The menu-change window's open and closed counts (KPI-41, DEC-128). Every booking of the
+    /// population has a concrete lock date, so the two counts always add up to the population.
+    /// </summary>
+    private static BookingRegisterMenuWindowsDto BuildMenuWindows(List<BookingRegisterRow> filtered) => new()
+    {
+        OpenSelectionCount = filtered.Count(row => !row.IsMenuSelectionLocked),
+        LockedSelectionCount = filtered.Count(row => row.IsMenuSelectionLocked)
+    };
+
+    /// <summary>
+    /// The automatic headcount band's take (KPI-42, DEC-154): the bookings the <b>derived</b>
+    /// source says the band priced, and their net amount due. The count is never <c>null</c>.
+    /// </summary>
+    private static BookingRegisterBandDiscountDto BuildBandDiscount(List<BookingRegisterRow> filtered)
+    {
+        var byBand = filtered
+            .Where(row => DiscountSourceResolver.Resolve(
+                row.Booking.DiscountCode,
+                row.Booking.NumberOfHeads,
+                row.Booking.DiscountAmount) == DiscountSource.HeadcountBand)
+            .ToList();
+
+        return new BookingRegisterBandDiscountDto
+        {
+            DiscountedBookingCount = byBand.Count,
+            DiscountedNetAmountDue = byBand.Sum(row => row.NetAmountDue)
         };
     }
 }

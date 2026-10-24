@@ -2,6 +2,7 @@ using FluentValidation;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
 using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.Services;
 
 namespace SalsCaterSuite.Application.Features.Packages.Commands;
 
@@ -49,6 +50,12 @@ public class UpdatePackageCommand
         package.Description = request.Description;
         package.AmountPax = request.AmountPax;
         package.MinPax = request.MinPax;
+
+        // The code is frozen at create and is never touched here. The extended-location amount
+        // follows the type: a tier that leaves Regular/Premier loses it (the owner's ruling).
+        package.ExtendedLocationAmount = PackageSurchargeEligibility.IsEligible(request.PackageType)
+            ? request.ExtendedLocationAmount
+            : null;
 
         await _packages.SaveChangesAsync(cancellationToken);
         return Result.Success();

@@ -17,6 +17,10 @@ export interface WorkbenchTierEngineProps {
   /** The buffet tier catalogue the picker reads. */
   tiers: PackageDto[]
   isLoadingTiers: boolean
+  /** The distinct stored tier types the type filter offers (M7). */
+  packageTypes: string[]
+  /** Whether the type filter is currently narrowing the list. */
+  isTypeFiltered: boolean
   /** The selected tier's approved course ruleset. */
   ruleset: PackageCourseRuleset | null
   isLoadingRuleset: boolean
@@ -30,13 +34,16 @@ export interface WorkbenchTierEngineProps {
  * Column 2 — the package tier & course engine (spec §5.3).
  *
  * The **approved course specification** is the tier's real course-coverage
- * ruleset and its qualified pools (contract §13.1) — the approved data. The
- * reference's **per-event dish selection** has no link in the model and is a
- * capability gap in this cycle (DEC-105, REQ-BKG-02).
+ * ruleset and its qualified pools (contract §13.1) — the approved data.
  *
- * The reference's **chef batching prep yield** has no source either — the
- * recipe, ingredient and yield engine is blocked (REQ-MNU-03, DEC-059) — so it
- * is a capability gap too.
+ * The **package-type filter** narrows the tier list by the stored type (M7).
+ * The **area filter** that follows the type lives in the logistics block, and
+ * the tier catalogue itself is filtered by the server through `areaId`
+ * (DEC-157).
+ *
+ * The reference's **chef batching prep yield** has no source — the recipe,
+ * ingredient and yield engine is blocked (REQ-MNU-03, DEC-059) — so it is a
+ * capability gap.
  *
  * The tier's **code** is **not** rendered: `Package` carries no code column,
  * so the block shows the tier's identifier and its description (DEC-119).
@@ -47,6 +54,8 @@ export function WorkbenchTierEngine({
   onChange,
   tiers,
   isLoadingTiers,
+  packageTypes,
+  isTypeFiltered,
   ruleset,
   isLoadingRuleset,
   quote,
@@ -68,6 +77,21 @@ export function WorkbenchTierEngine({
         </div>
 
         <WorkbenchSelectField
+          id="booking-package-type"
+          label="Package type"
+          value={draft.packageType}
+          onChange={(value) => onChange({ packageType: value })}
+          options={packageTypes.map((type) => ({ value: type, label: type }))}
+          placeholder="All package types"
+          hint={
+            isTypeFiltered
+              ? 'Only the tiers of this type are offered. The out-of-town area filter follows the type.'
+              : 'Narrow the tier list by its stored package type.'
+          }
+          disabled={packageTypes.length === 0}
+        />
+
+        <WorkbenchSelectField
           id="booking-package"
           label="Buffet tier"
           value={draft.packageId}
@@ -80,6 +104,13 @@ export function WorkbenchTierEngine({
           error={errors.packageId}
           disabled={isLoadingTiers}
         />
+
+        {isTypeFiltered && tiers.length === 0 ? (
+          <p className="font-caption text-caption text-espresso-600">
+            No active tier of this type is offered. Clear the type or the area filter to see the
+            whole catalogue.
+          </p>
+        ) : null}
 
         {selectedTier ? (
           <>
@@ -232,13 +263,6 @@ export function WorkbenchTierEngine({
           </div>
         ) : null}
       </Card>
-
-      <CapabilityGapNotice
-        title="Per-event dish selection unavailable"
-        missing="There is no booking-to-menu link, so a client cannot choose the dishes for one event; the tier's approved course rules are shown above instead."
-        requirement="REQ-BKG-02"
-        footnote="Deliberately excluded by DEC-105 — the model carries no per-booking dish selection."
-      />
 
       <CapabilityGapNotice
         title="Chef batching prep yield unavailable"

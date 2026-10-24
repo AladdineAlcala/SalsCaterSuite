@@ -1,6 +1,8 @@
 import {
   CircleCheckBig,
+  CircleDashed,
   Hourglass,
+  Lock,
   Wallet,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -8,8 +10,11 @@ import type { BadgeTone } from '@/components/ui/Badge'
 import { getBookingStatusMeta } from '@/utils/bookingStatus'
 import { EM_DASH, formatPercentage } from '@/utils/currencyFormatter'
 import type {
+  AddonPricingBasis,
+  BookingDiscountSource,
   BookingPaymentMeansName,
   BookingPaymentState,
+  BookingSelectionState,
   BookingServiceTypeName,
   BookingSortOption,
   BookingTypeName,
@@ -132,6 +137,178 @@ export interface PaymentStateFilterOption {
 /** The payment-state filter options (spec §5.2 item 3). */
 export const PAYMENT_STATE_FILTER_OPTIONS: readonly PaymentStateFilterOption[] =
   PAYMENT_STATE_ORDER.map((value) => ({ value, label: PAYMENT_STATE_META[value].label }))
+
+/* ------------------------------------------------------------------------- *
+ * M2 — the selection state.
+ * ------------------------------------------------------------------------- */
+
+/** The display metadata of one selection state. */
+export interface SelectionStateMeta {
+  label: string
+  tone: BadgeTone
+  icon: LucideIcon
+}
+
+/**
+ * The three selection states (BR-28, M2).
+ *
+ * The wording is the operational note's: *Menu: not chosen*, *Menu: chosen*
+ * and *Menu: locked*. Exactly one applies — they are never two flags.
+ */
+export const SELECTION_STATE_META: Record<BookingSelectionState, SelectionStateMeta> = {
+  None: { label: 'Menu: not chosen', tone: 'neutral', icon: CircleDashed },
+  Selected: { label: 'Menu: chosen', tone: 'success', icon: CircleCheckBig },
+  Locked: { label: 'Menu: locked', tone: 'warning', icon: Lock },
+}
+
+/** Resolves the display metadata of a selection state, degrading safely. */
+export function getSelectionStateMeta(
+  state: BookingSelectionState | string | null | undefined,
+): SelectionStateMeta {
+  if (state && state in SELECTION_STATE_META) {
+    return SELECTION_STATE_META[state as BookingSelectionState]
+  }
+  return { label: 'Menu: not stated', tone: 'neutral', icon: CircleDashed }
+}
+
+/* ------------------------------------------------------------------------- *
+ * DEC-154 — the discount source.
+ * ------------------------------------------------------------------------- */
+
+/** The operator-facing wording of the discount source. */
+export const DISCOUNT_SOURCE_LABELS: Record<BookingDiscountSource, string> = {
+  None: 'No discount applied',
+  Code: 'Discount code',
+  HeadcountBand: 'Automatic headcount band',
+}
+
+/** Resolves the wording of a discount source, degrading safely. */
+export function discountSourceLabel(
+  source: BookingDiscountSource | string | null | undefined,
+): string {
+  if (source && source in DISCOUNT_SOURCE_LABELS) {
+    return DISCOUNT_SOURCE_LABELS[source as BookingDiscountSource]
+  }
+  return 'Discount source not stated'
+}
+
+/* ------------------------------------------------------------------------- *
+ * DEC-156 — the out-of-town tier restriction.
+ * ------------------------------------------------------------------------- */
+
+/**
+ * The two tier types that may carry the out-of-town amount (DEC-141).
+ *
+ * The comparison is **trimmed** and **case-insensitive** for **equality**
+ * against these values, on the type column only (DEC-156). A type spelled
+ * "Premier Buffet" is **not** eligible.
+ */
+export const EXTENDED_AREA_PACKAGE_TYPES: readonly string[] = ['Regular', 'Premier']
+
+/** Whether a stored `PackageType` may carry the out-of-town amount. */
+export function supportsExtendedArea(packageType: string | null | undefined): boolean {
+  const normalised = (packageType ?? '').trim().toLowerCase()
+  return EXTENDED_AREA_PACKAGE_TYPES.some((type) => type.toLowerCase() === normalised)
+}
+
+/* ------------------------------------------------------------------------- *
+ * DEC-158 — the add-on vocabulary.
+ * ------------------------------------------------------------------------- */
+
+/** The operator-facing wording of an add-on's pricing basis. */
+export function addonPricingBasisLabel(
+  basis: AddonPricingBasis | null | undefined,
+): string {
+  if (basis === 'PerGuest') return 'Per guest'
+  if (basis === 'Flat') return 'Flat rate'
+  // A not-stated basis is treated as Flat by the server (DEC-158).
+  return 'Flat rate (basis not stated)'
+}
+
+/** The category label of an add-on. `null` is **unknown**, never "General". */
+export function addonCategoryLabel(
+  name: string | null | undefined,
+): string {
+  return name && name.trim().length > 0 ? name : 'Category not stated'
+}
+
+/**
+ * The maximum length of a chef's per-event prep instruction (contract §15.2).
+ *
+ * It is a **validation bound**, not a business figure.
+ */
+export const PREP_INSTRUCTION_MAX_LENGTH = 500
+
+/* ------------------------------------------------------------------------- *
+ * BR-15 — the quota verdict, computed over the rules the server publishes.
+ * ------------------------------------------------------------------------- */
+
+/** One course's quota position. */
+export interface MenuQuotaStatus {
+  courseId: number
+  courseName: string
+  requiredQuota: number
+  selectedCount: number
+  isSatisfied: boolean
+}
+
+/** A course rule the quota check reads. */
+export interface MenuQuotaRule {
+  courseId: number
+  courseName: string
+  requiredQuota: number
+}
+
+/** A chosen dish the quota check reads. */
+export interface MenuQuotaSelection {
+  courseId: number
+  menuId: string
+}
+
+/**
+ * Assesses a draft selection against the tier's rules (BR-15).
+ *
+ * This is a **form affordance**: it lets the screen say *"2 of 2 selected"*
+ * and disable a save that the server would refuse anyway. It never prices
+ * anything. The server remains the authority on the verdict.
+ */
+export function assessMenuQuota(
+  rules: readonly MenuQuotaRule[],
+  selections: readonly MenuQuotaSelection[],
+): MenuQuotaStatus[] {
+  return rules.map((rule) => {
+    const selectedCount = selections.filter(
+      (selection) => selection.courseId === rule.courseId,
+    ).length
+    return {
+      courseId: rule.courseId,
+      courseName: rule.courseName,
+      requiredQuota: rule.requiredQuota,
+      selectedCount,
+      isSatisfied: selectedCount === rule.requiredQuota,
+    }
+  })
+}
+
+/**
+ * Whether a draft selection is quota-complete (BR-15).
+ *
+ * An **empty** selection is complete: it clears the selection and reverts the
+ * event to the tier's standard run (DEC-131, AC-BKG-59). A non-empty selection
+ * is complete only when every rule holds exactly its quota and no chosen dish
+ * belongs to a course the tier holds no rule for.
+ */
+export function isMenuSelectionComplete(
+  rules: readonly MenuQuotaRule[],
+  selections: readonly MenuQuotaSelection[],
+): boolean {
+  if (selections.length === 0) return true
+  const ruledCourseIds = new Set(rules.map((rule) => rule.courseId))
+  if (selections.some((selection) => !ruledCourseIds.has(selection.courseId))) {
+    return false
+  }
+  return assessMenuQuota(rules, selections).every((status) => status.isSatisfied)
+}
 
 /* ------------------------------------------------------------------------- *
  * The register's filters.
@@ -287,6 +464,43 @@ export interface BookingWorkbenchDraft {
   initialPaymentAmount: string
   /** The receipt's particulars. */
   particular: string
+  /**
+   * The package-type filter (M7). An empty string means *no type filter*.
+   *
+   * It follows the stored `Package.PackageType` values, so it never restricts
+   * the free-text column (DEC-070).
+   */
+  packageType: string
+  /**
+   * The area filter (DEC-157). It is offered only for `Regular` and
+   * `Premier` tiers, and it narrows the tier list by the coverage the server
+   * publishes.
+   */
+  areaFilterId: string
+  /**
+   * The dishes the operator has chosen for this draft booking.
+   *
+   * The shape is the packages simulator's `selections` shape, with the chef's
+   * per-event instruction added (contract §15.2).
+   */
+  menuSelections: BookingMenuDraftItem[]
+  /** The add-on lines the operator has chosen for this draft booking. */
+  addonLines: BookingAddonDraftLine[]
+}
+
+/** One draft dish choice (contract §15.2). */
+export interface BookingMenuDraftItem {
+  courseId: number
+  menuId: string
+  /** The chef's per-event instruction. */
+  prepInstruction: string
+}
+
+/** One draft add-on line. `amount` is the line total the operator confirms. */
+export interface BookingAddonDraftLine {
+  addonId: number
+  /** The line total, held as the operator typed it. */
+  amount: string
 }
 
 /** The per-field client validation messages of the workbench. */
@@ -333,6 +547,10 @@ export function emptyBookingWorkbenchDraft(): BookingWorkbenchDraft {
     checkNo: '',
     initialPaymentAmount: '',
     particular: '',
+    packageType: '',
+    areaFilterId: '',
+    menuSelections: [],
+    addonLines: [],
   }
 }
 
@@ -515,4 +733,33 @@ export function validateBookingWorkbenchDraft(
   }
 
   return errors
+}
+
+/**
+ * Validates a chef's per-event prep instruction (contract §15.2).
+ *
+ * The bound is the server's own (`<= 500` characters); the message is the
+ * wording the operator reads whether the refusal happens here or in the API.
+ */
+export function validatePrepInstruction(value: string): string | undefined {
+  return value.length > PREP_INSTRUCTION_MAX_LENGTH
+    ? 'The chef prep instruction must not exceed 500 characters.'
+    : undefined
+}
+
+/**
+ * Validates an add-on line total (contract §16.4).
+ *
+ * The line total is what enters the gross, and the server refuses a negative
+ * amount, so the form says so before the request is made.
+ */
+export function validateAddonLineAmount(value: string): string | undefined {
+  const parsed = parseOptionalNumber(value)
+  if (value.trim().length === 0) {
+    return 'State the line total, or leave the add-on out.'
+  }
+  if (parsed === null || parsed < 0) {
+    return 'The add-on line total must be zero or greater.'
+  }
+  return undefined
 }

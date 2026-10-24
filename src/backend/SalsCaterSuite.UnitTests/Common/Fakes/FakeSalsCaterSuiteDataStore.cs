@@ -21,6 +21,7 @@ public sealed class FakeSalsCaterSuiteDataStore
     private int _nextAreaId = 100;
     private int _nextPackageCourseRuleId = 100;
     private int _nextPackageAreaCoverageId = 100;
+    private int _nextAddonId = 100;
 
     public List<Customer> Customers { get; } = new();
 
@@ -37,6 +38,12 @@ public sealed class FakeSalsCaterSuiteDataStore
     public List<CourseCategory> CourseCategories { get; } = new();
 
     public List<AddonDetail> AddonDetails { get; } = new();
+
+    /// <summary>The add-on master's category level (REQ-BKG-07, DEC-142). Empty (BR-13).</summary>
+    public List<AddonCategory> AddonCategories { get; } = new();
+
+    /// <summary>The department master (the owner's 2026-10-24 request). Empty (BR-13).</summary>
+    public List<Department> Departments { get; } = new();
 
     /// <summary>The discount catalogue (REQ-BKG-05). It is empty in production (BR-13).</summary>
     public List<Discount> Discounts { get; } = new();
@@ -113,6 +120,15 @@ public sealed class FakeSalsCaterSuiteDataStore
         if (coverage.PackageAreaCoverageId == 0)
         {
             coverage.PackageAreaCoverageId = ++_nextPackageAreaCoverageId;
+        }
+    }
+
+    /// <summary>Assigns the IDENTITY <c>AddonId</c> on INSERT, mirroring SQL Server.</summary>
+    internal void AssignAddonId(AddonDetail addon)
+    {
+        if (addon.AddonId == 0)
+        {
+            addon.AddonId = ++_nextAddonId;
         }
     }
 }

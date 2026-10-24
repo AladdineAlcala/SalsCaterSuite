@@ -125,7 +125,7 @@ describe('MenuRecipeFormPage', () => {
     expect(screen.getByLabelText('Official Banquet Menu Name')).toHaveValue(
       'Pan-Roasted Herb-Crusted Salmon Fillet',
     )
-    expect(screen.getByLabelText('Selling Price per Pax')).toHaveValue(380)
+    expect(screen.getByLabelText('Selling Price per Pax')).toHaveValue('380.00')
   })
 
   it('shows the duplicate-id message on the recipe-id field', async () => {
@@ -194,8 +194,8 @@ describe('MenuRecipeFormPage', () => {
     expect(screen.getByLabelText('Official Banquet Menu Name')).toHaveValue(
       'Prime Roast Angus Ribeye with Truffle Demi-Glace',
     )
-    expect(screen.getByLabelText('Selling Price per Pax')).toHaveValue(420)
-    expect(screen.getByLabelText('Food Cost')).toHaveValue(138.6)
+    expect(screen.getByLabelText('Selling Price per Pax')).toHaveValue('420.00')
+    expect(screen.getByLabelText('Food Cost')).toHaveValue('138.60')
     expect(screen.getByLabelText('Course Category')).toHaveValue('4')
     // The recipe code identifies the record and is not re-keyed.
     expect(screen.getByLabelText('Recipe ID')).toHaveAttribute('readonly')

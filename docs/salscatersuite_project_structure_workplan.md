@@ -17,7 +17,7 @@
 | **Database Engine** | SQL Server (Development target: LocalDB `MSSQLLocalDB`) |
 | **Test Projects** | `src/backend/SalsCaterSuite.UnitTests` (xUnit), `src/backend/SalsCaterSuite.IntegrationTests` (xUnit + `WebApplicationFactory`) |
 | **Status** | Living document — aligned to the **as-built** repository state |
-| **Last aligned** | 2026-10-22 (AGENT 01 — the **source-control migration** (DEC-125) and the **test-project relocation** (DEC-126) are **closed**: the repository root is the monorepo root, the whole monorepo is under version control, the `**/[Pp]ackages/*` template rule no longer hides the package-configuration module, and both test projects now live under `src/backend/`. Verified by a **clean clone of the remote**: backend build **0 W / 0 E**, **823/823** unit, **133/133** integration, **327/327** Vitest, frontend build green. §1, §1.2, §2.1, §2.6, §7.3, §10 and §11 were realigned to the as-built state in this cycle.)<br>2026-10-22 (AGENT 01 - the **REQ-BKG-05 / REQ-BKG-01 Bookings & Events Register & Reservation Workbench** cycle is **closed**. The Debater plan review returned `PROPOSE_BETTER_PLAN` with **eight blocking findings**; **all eight were applied** and the specification was reissued as **v1.1**. The delivery added a new frontend feature folder, two routes, a client endpoint group, six backend endpoints, one purely additive migration and two absent-by-default configuration keys (DEC-114); **DEC-035 is resolved** - one net-due source, one rounding - the out-of-town surcharge is charged and stored, the soft-deleted-payment exclusion is unified across every money surface, and BR-05 overpayment prohibition is enforced. **Seven review rounds and a live end-to-end validation** found **two defects the suites could not see**, both fixed and pinned; the second is now guarded by a **DTO projection guard** that is proved by execution. AGENT 01 own verification: **823/823** unit, **133/133** integration, **327/327** Vitest, **0** TypeScript errors, **0** warnings / **0** errors, and **52/52** live assertions against a disposable database. Sections 2.2-2.6, 3.1-3.4, 4, 7.3, 7.4, 9, 10 and 11 were realigned to the as-built state in this cycle.) |
+| **Last aligned** | 2026-10-24 (AGENT 01 — the Booking Menu Selection add-on picker UI is delivered under DEC-170. §3.2, §3.3, §4, §5 and §9 were checked against the as-built tree; §10 and §11 record the close-out; the migration/entity inventory now records 17 entities and 7 migrations. Independent frontend validation: 22/22 focused tests, 383/383 full Vitest, TypeScript 0 errors, production build succeeded with the existing Vite chunk-size advisory. A clean remote clone was not verified in this cycle; see §11.) |
 
 > **Read this document before acting.** If the code and this document disagree, **the code is the current truth and this document is stale**. AGENT 01 realigns the document as part of closing the work cycle. A sub-agent that finds a discrepancy must report it to AGENT 01 and must **not** silently treat either side as correct.
 
@@ -203,16 +203,17 @@ The integration-test project is **not** in the `.slnx`; it is run explicitly (§
 SalsCaterSuite.Domain/
 ├── Common/
 │   └── BaseEntity.cs                 (Id + CreatedDate, CreatedByUser, UpdatedDate, IsDeleted — DEC-038)
-├── Entities/                         (13 — every one inherits BaseEntity)
-│   ├── AddonDetail.cs
+├── Entities/                         (17 — every one inherits BaseEntity)
+│   ├── AddonDetail.cs                (2026-10-24: DeptId FK to Department)
 │   ├── Area.cs
 │   ├── Booking.cs                    (the four frozen columns of REQ-BKG-05 — DEC-106, DEC-116:
 │   │                                  CallTime, PackoutTime, DiscountCode, ExtendedAreaAmount)
 │   ├── CourseCategory.cs
 │   ├── Customer.cs
+│   ├── Department.cs                 (2026-10-24: deptId, deptName)
 │   ├── Discount.cs
-│   ├── Menu.cs
-│   ├── Package.cs
+│   ├── Menu.cs                       (2026-10-24: DeptId wired to Department)
+│   ├── Package.cs                    (2026-10-24: PackageCode, ExtendedLocationAmount)
 │   ├── PackageAreaCoverage.cs        (REQ-PKG-02, DEC-077)
 │   ├── PackageCourseRule.cs         (REQ-PKG-02, DEC-077)
 │   ├── Payment.cs
@@ -233,6 +234,8 @@ SalsCaterSuite.Domain/
 ```
 
 * `Domain.Enums.UserRoleEnum` was **removed** (DEC-022). The canonical role vocabulary is `Application/Common/Authorization/AuthorizationPolicies.cs` (DEC-017).
+* **As built** (REQ-BKG-06 / 07 / 08, delivered 2026-10-22): three **new** entities - `AddonCategory.cs`, `BookingMenu.cs` and `BookingAddOn.cs` - taking the entity count from **13 to 16**; the new `Domain/Enums/AddonPricingBasis.cs`, `BookingSelectionState.cs` and `DiscountSource.cs`; and three **new** columns on existing entities - `Booking.AddonsTotal` (DEC-151), `AddonDetail.AddonCategoryId` and `AddonDetail.PricingBasis` (DEC-142, DEC-158). Every column is **additive**; no existing column changes and none is dropped. The three new tables and the two extended tables are specified in `business/data-dictionary.md`.
+* **As built** (2026-10-24, the owner's department/package request): one **new** entity - `Department.cs` - taking the entity count from **16 to 17**; and five **additive** columns - `Package.PackageCode`, `Package.ExtendedLocationAmount`, `AddonDetail.DeptId`, plus the two foreign keys that wire `AddonDetail.DeptId` and the pre-existing `Menu.DeptId` to `Department`. No existing column changes and none is dropped (DEC-162..DEC-165).
 * No EF Core attribute, no `DbSet`, no `IQueryable` in this project.
 
 ### 2.3 Project 2 — `SalsCaterSuite.Application` (Business Orchestration & Use Cases)
@@ -323,12 +326,21 @@ SalsCaterSuite.Application/
 │   │   │                GetPackageCatalogueSummaryQuery, GetPackageCourseRulesetQuery,
 │   │   │                GetPackageSpecSheetQuery, GetPackagesQuery, PreviewPackageCourseRuleQuery,
 │   │   │                PreviewPackageLocationQuery)
-│   │   ├── Services/    (PackageCostingCalculator.cs - the single arithmetic, REQ-PKG-02)
+│   │   ├── Services/    (PackageCodeGenerator.cs - the frozen code, 2026-10-24;
+│   │                 PackageCostingCalculator.cs - the single arithmetic, REQ-PKG-02)
 │   │   ├── Validators/  (AreaRequestValidator.cs, PackageAreaCoverageEntryValidator.cs,
 │   │   │                PackageAreaCoverageRequestValidator.cs, PackageCourseRulePreviewValidator.cs,
 │   │   │                PackageCourseRuleRequestValidator.cs, PackageCourseRulesetRequestValidator.cs,
 │   │   │                PackageLocationPreviewValidator.cs, PackageRequestValidator.cs)
 │   │   └── (AreaNotFoundResult.cs, PackageNotFoundResult.cs)
+│   ├── Addons/                        (the 2026-10-24 Settings → Add-ons administration)
+│   │   ├── Commands/    (CreateAddonCommand, UpdateAddonCommand, DeleteAddonCommand,
+│   │   │                AddonReferenceGuard.cs)
+│   │   ├── DTOs/        (AddonAdminDto.cs — the admin item, the upsert request, DepartmentDto)
+│   │   ├── Queries/     (GetAddonManagementListQuery, GetAddonManagementDetailQuery,
+│   │   │                GetDepartmentsQuery)
+│   │   ├── Validators/  (AddonUpsertValidator.cs)
+│   │   └── (AddonNotFoundResult.cs, AddonAdminMapper.cs)
 │   └── Payments/
 │       ├── DTOs/        (PaymentEntryDto)
 │       ├── Services/    (IPaymentLedgerService.cs, PaymentLedgerService.cs — the authoritative ledger,
@@ -378,6 +390,7 @@ SalsCaterSuite.Infrastructure/
 │   │   ├── AreaConfiguration.cs             (REQ-PKG-02 — the municipality catalogue)
 │   │   ├── BookingConfiguration.cs          (the four frozen columns of REQ-BKG-05 — DEC-106, DEC-116)
 │   │   ├── CustomerConfiguration.cs
+│   │   ├── DepartmentConfiguration.cs         (2026-10-24 — the department master)
 │   │   ├── MenuConfiguration.cs
 │   │   ├── PackageAreaCoverageConfiguration.cs (REQ-PKG-02 — the filtered unique index, DEC-088)
 │   │   ├── PackageConfiguration.cs
@@ -388,15 +401,23 @@ SalsCaterSuite.Infrastructure/
 │   │   ├── 20261018225634_AddAuditColumnsToDomainEntities.cs (+ .Designer.cs)
 │   │   ├── 20261018231318_AddDefaultToBookingIsDeleted.cs (+ .Designer.cs)
 │   │   ├── 20261021205149_AddPackageConfigurationWorkbench.cs (+ .Designer.cs)
-│   │   ├── 20261022050449_AddBookingsEventsRegister.cs (+ .Designer.cs)  (REQ-BKG-05 — the four
+│   │   ├── 20261022050449_AddBookingsEventsRegister.cs (+ .Designer.cs)  (REQ-BKG-05 - the four
 │   │   │   additive Booking columns; generated and script-reviewed only, DEC-020, DEC-106, DEC-116)
+│   │   ├── 20261022105022_AddBookingMenuAndAddOns.cs (+ .Designer.cs)  (REQ-BKG-06/07 - three
+│   │   │   additive tables and three additive columns; generated and script-reviewed only, DEC-020)
+│   │   ├── 20261024021725_AddDepartmentsAndPackageCodes.cs (+ .Designer.cs)  (2026-10-24 - the
+│   │   │   Department table, the two department FKs, p_code with its deterministic backfill and
+│   │   │   the frozen p_code index, and p_extendedLocationAmount; additive only, DEC-020)
 │   │   └── SalsCaterSuiteDbContextModelSnapshot.cs
 │   └── Repositories/                  (the ONLY layer that touches EF Core)
 │       ├── AreaRepository.cs                (REQ-PKG-02)
+│       ├── AddonRepository.cs               (REQ-BKG-07 - the add-on master read + the
+│       │                                    REQ-SET-01 administration writes)
 │       ├── AuthenticationRepository.cs
 │       ├── BookingRepository.cs             (the register's base population — REQ-BKG-05)
 │       ├── CourseCategoryRepository.cs
 │       ├── CustomerRepository.cs
+│       ├── DepartmentRepository.cs         (REQ-SET-01 - the read-only department lookup)
 │       ├── DatabaseMigrator.cs
 │       ├── DatabaseSeeder.cs
 │       ├── DiscountRepository.cs            (REQ-BKG-05 — the discount catalogue, read by code)
@@ -431,9 +452,15 @@ SalsCaterSuite.WebApi/
 ├── Controllers/
 │   ├── AuthController.cs              (login, current user)
 │   ├── AreasController.cs              (the municipality catalogue — REQ-PKG-02, DEC-077)
+│   ├── AddonsController.cs             (the add-on and category master - REQ-BKG-07,
+│   │                                  contract §16.1/§16.2; the administration CRUD §16.2a;
+│   │                                  `headcount` is required on the picker read)
+│   ├── DepartmentsController.cs        (the read-only department lookup - REQ-SET-01, §16.2b)
 │   ├── BookingsController.cs          (CRUD, status, calculation, menus — plus the Bookings & Events
 │   │                                  Register: the paged dossier, the summary aggregate, the quote,
-│   │                                  the contract PDF and the register XLSX — REQ-BKG-05, contract §14)
+│   │                                  the contract PDF and the register XLSX — REQ-BKG-05, contract §14;
+│   │                                  and the dish selection, the add-on lines and the BEO —
+│   │                                  REQ-BKG-06/07, contract §15/§16)
 │   ├── CalendarController.cs          (FullCalendar event feed)
 │   ├── CustomersController.cs         (profiles, directory, receivables, SOA, exports)
 │   ├── DashboardController.cs         (GET /api/dashboard aggregate — REQ-DSH-01)
@@ -577,7 +604,7 @@ src/frontend/salscatersuite-ui/
     │   ├── tokenStore.ts
     │   └── __tests__/apiClient.test.ts
     ├── components/
-    │   ├── ui/                        (Badge, Button, Card, IconBadge, ProgressTrack, Skeleton — `Button` gains an optional `inactive` prop in REQ-PKG-02, DEC-091)
+    │   ├── ui/                        (Badge, Button, Card, CurrencyInput, IconBadge, ProgressTrack, Skeleton — `Button` gains an optional `inactive` prop in REQ-PKG-02, DEC-091; `CurrencyInput` added 2026-10-24, DEC-166)
     │   ├── feedback/                  (AlertBanner, CapabilityGapNotice, EmptyState, RouteErrorBoundary, SpinnerLoader — `CapabilityGapNotice` carries an optional `footnote` prop, DEC-089)
     │   ├── navigation/                (AppSidebar, TopBar, UserChip, navItems.ts, useFocusTrap.ts)
     │   └── (feedback/__tests__/RouteErrorBoundary.test.tsx)
@@ -585,22 +612,26 @@ src/frontend/salscatersuite-ui/
     │   └── AuthContext.tsx            (user state, role check, login/logout)
     ├── features/
     │   ├── auth/                      (LoginPage.tsx)
-    │   ├── bookings/                  (REQ-BKG-05/REQ-BKG-01 — DELIVERED)
-    │   │   ├── components/            (BookingDossierCard, BookingDossierGrid,
+    │   ├── bookings/                  (REQ-BKG-05/01 — DELIVERED · REQ-BKG-06/07/08 — DELIVERED)
+    │   │   ├── components/            (BookingAddonsPanel — selected-only panel with lazy category-filtered modal, DEC-170; BookingBatchYieldPanel,
+    │   │   │                           BookingContractLedger, BookingDossierCard, BookingDossierGrid,
     │   │   │                           BookingEmptyState, BookingFilterBar,
     │   │   │                           BookingKpiCard, BookingKpiGrid,
+    │   │   │                           BookingMenuCourseBoard, BookingMenuCourseTabs,
+    │   │   │                           BookingMenuEventBanner, BookingMenuFilterPanel,
+    │   │   │                           BookingMenuHeader,
     │   │   │                           BookingOperationalDock, BookingOverdueChip,
     │   │   │                           BookingPaymentStateChip, BookingRegisterHeader,
-    │   │   │                           BookingRegisterSkeleton, BookingStatusChip,
-    │   │   │                           BookingTierPills, BookingTotalsStrip;
-    │   │   │                           WorkbenchChecklist, WorkbenchClientRail,
-    │   │   │                           WorkbenchFields, WorkbenchHeader,
-    │   │   │                           WorkbenchLedgerRail, WorkbenchLogisticsBlock,
+    │   │   │                           BookingRegisterSkeleton, BookingSelectionStateChip,
+    │   │   │                           BookingStatusChip, BookingTierPills, BookingTotalsStrip;
+    │   │   │                           WorkbenchAddonPicker, WorkbenchChecklist, WorkbenchClientRail,
+    │   │   │                           WorkbenchFields, WorkbenchHeader, WorkbenchLedgerRail,
+    │   │   │                           WorkbenchLogisticsBlock, WorkbenchMenuDraft,
     │   │   │                           WorkbenchScheduleMatrix, WorkbenchTierEngine)
-    │   │   ├── hooks/                 (useBookingRegister, useBookingWorkbench)
-    │   │   ├── BookingsEventsPage.tsx, BookingWorkbenchPage.tsx,
+    │   │   ├── hooks/                 (useBookingMenu, useBookingRegister, useBookingWorkbench)
+    │   │   ├── BookingMenuPage.tsx, BookingsEventsPage.tsx, BookingWorkbenchPage.tsx,
     │   │   │                           bookingVocabulary.ts
-    │   │   └── __tests__/             (BookingsEventsPage.test.tsx,
+    │   │   └── __tests__/             (BookingMenuPage.test.tsx, BookingsEventsPage.test.tsx,
     │   │                               BookingWorkbenchPage.test.tsx,
     │   │                               noHardcodedFigures.test.ts)
     │   ├── customers/                 (REQ-CUS-01 — DELIVERED)
@@ -650,6 +681,12 @@ src/frontend/salscatersuite-ui/
     │   │                               PackageLocationsPage.test.tsx)
     │   ├── placeholders/
     │   │   └── NotImplementedPage.tsx (every unbuilt route resolves here — AC-F13)
+    │   ├── settings/                  (REQ-SET-01 — DELIVERED 2026-10-24)
+    │   │   ├── SettingsPage.tsx       (/settings — the hub linking Add-ons)
+    │   │   └── addons/
+    │   │       ├── AddonMasterPage.tsx (/settings/addons — list + create/edit/delete)
+    │   │       ├── hooks/useAddonManagement.ts
+    │   │       └── __tests__/AddonMasterPage.test.tsx
     │   └── (calendar, payments, receivables, reports — PLANNED, not yet implemented)
     ├── layouts/
     │   ├── AppLayout.tsx              (sidebar + top bar + content shell)
@@ -661,8 +698,10 @@ src/frontend/salscatersuite-ui/
     ├── test/                          (setup.ts, testHelpers.tsx, customerFixture.ts,
     │                                 dashboardFixture.ts, menuFixture.ts, packageFixture.ts,
     │                                 packageWorkbenchFixture.ts — REQ-PKG-02,
-    │                                 bookingFixture.ts — REQ-BKG-05)
+    │                                 bookingFixture.ts — REQ-BKG-05,
+    │                                 addonFixture.ts — REQ-SET-01)
     ├── types/
+    │   ├── addon.types.ts             (REQ-SET-01 — the administration contracts)
     │   ├── auth.types.ts
     │   ├── booking.types.ts           (REQ-BKG-05 — the contract §14 mirror)
     │   ├── customer.types.ts
@@ -672,7 +711,8 @@ src/frontend/salscatersuite-ui/
     └── utils/
         ├── bookingStatus.ts
         ├── cn.ts
-        ├── currencyFormatter.ts        (₱#,##0.00)
+        ├── currencyFormatter.ts        (₱#,##0.00 - the readout formatter)
+        ├── currencyInput.ts            (1,425.00 - the editable-field formatter/parser, 2026-10-24)
         ├── dateFormatter.ts
         ├── progressRatio.ts
         └── __tests__/
@@ -692,6 +732,7 @@ src/frontend/salscatersuite-ui/
 | `/customers` | `CustomerMasterPage` | DELIVERED (REQ-CUS-01) |
 | `/bookings` | `BookingsEventsPage` | DELIVERED (REQ-BKG-05) |
 | `/bookings/new` | `BookingWorkbenchPage` | DELIVERED (REQ-BKG-01) |
+| `/bookings/:transactionId/menu` | `BookingMenuPage` | **Implemented** (REQ-BKG-06, DEC-133, DEC-170) - the two-column menu workbench with a lazy-loaded, category-filtered add-on modal |
 | `/packages` | `PackageCataloguePage` | DELIVERED (REQ-PKG-01) |
 | `/packages/new` | `PackageTierFormPage` | DELIVERED (REQ-PKG-01) |
 | `/packages/:packageId/edit` | `PackageTierFormPage` | DELIVERED (REQ-PKG-01) |
@@ -701,8 +742,9 @@ src/frontend/salscatersuite-ui/
 | `/receivables` | `NotImplementedPage` | PLANNED |
 | `/calendar` | `NotImplementedPage` | PLANNED |
 | `/reports` | `NotImplementedPage` | PLANNED |
-| `/settings` | `NotImplementedPage` | PLANNED |
-| `*` | redirect to `/` | — |
+| `/settings` | `SettingsPage` | DELIVERED (REQ-SET-01) |
+| `/settings/addons` | `AddonMasterPage` | DELIVERED (REQ-SET-01) |
+| `*` | redirect to `/` | - |
 
 The route table is wrapped in a `RouteErrorBoundary` (DEC-065) so a render failure shows a message instead of a blank page. Navigation entries are declared in `src/components/navigation/navItems.ts` with an `implemented` flag — **no dead links and no fabricated data**.
 
@@ -734,7 +776,20 @@ Paths are relative to the Axios `baseURL` of `/api`.
 | | `POST /bookings` | Creates a draft or a confirmed booking (contract §14.4) |
 | | `GET /bookings/{id}/contract` | The printable catering contract of one booking (contract §14.5) |
 | | `GET /bookings/export` | The XLSX export of the whole filtered register (contract §14.6) |
-| `packages` | `GET /packages` | The buffet tier list (whole catalogue, unpaged) |
+| | `GET /bookings/{id}/menus` | The booking's dish selection, the tier's pools and the lock state (contract §15.1) |
+| | `PUT /bookings/{id}/menus` | Replace the selection (contract §15.2) |
+| | `GET /bookings/{id}/beo` | The Kitchen Banquet Event Order PDF (contract §15.5) |
+| | `GET /bookings/{id}/addons` | The booking's frozen add-on lines (contract §16.3) |
+| | `PUT /bookings/{id}/addons` | Replace the add-on lines (contract §16.4) |
+| `addons` | `GET /addons` | The add-on master; `headcount` is **required** so `lineAmountForBooking` is server-computed (contract §16.1) |
+| | `GET /addons/categories` | The add-on category master (contract §16.2) |
+| | `GET /addons/manage` | The administration list — active + inactive, excluding soft-deleted (contract §16.2a) |
+| | `GET /addons/manage/{id}` | One add-on for the administration form (contract §16.2a) |
+| | `POST /addons` | Create an add-on (contract §16.2a) |
+| | `PUT /addons/{id}` | Update an add-on (contract §16.2a) |
+| | `DELETE /addons/{id}` | Soft-delete an add-on (contract §16.2a) |
+| `departments` | `GET /departments` | The read-only department lookup (contract §16.2b) |
+| `packages` | `GET /packages` | The buffet tier list (whole catalogue, unpaged). Accepts the optional `areaId` filter (DEC-157) |
 | | `GET /packages/summary` | The server-computed catalogue aggregate (DEC-068) |
 | | `GET /packages/{id}` | One tier |
 | | `POST /packages` | Create a tier → `201 { packageId }` |
@@ -760,7 +815,7 @@ Additional server endpoints not yet consumed by the client exist on the Calendar
 - No feature folder may fabricate data to cover a missing endpoint. A gap renders an explicit **capability-gap notice** or a `NotImplementedPage`.
 - Shared UI lives in `components/ui` and `components/feedback`; feature-specific code stays inside its feature folder.
 - Types in `src/types/` mirror the .NET DTOs. Enums travel as **string names**.
-- Currency is always `₱` with no space and 2 decimals, via `utils/currencyFormatter.ts`.
+- Currency is always `₱` with no space and 2 decimals, via `utils/currencyFormatter.ts`. A **money input** uses `utils/currencyInput.ts` and `components/ui/CurrencyInput.tsx` instead (`1,425.00`, no symbol in the editable text — DEC-166).
 - A feature folder carries a `noHardcodedFigures` test that fails if a peso, thousands separator, decimal or 4+ digit literal is hardcoded in the feature.
 
 ---
@@ -774,9 +829,9 @@ Additional server endpoints not yet consumed by the client exist on the Calendar
 | Integration-test target | A disposable per-run LocalDB database created from the real migrations (DEC-019) |
 | DbContext | `Infrastructure\Persistence\SalsCaterSuiteDbContext` |
 | Design-time factory | `SalsCaterSuiteDbContextFactory` (for `dotnet ef`) |
-| Entity set | The 13 `Domain\Entities` types |
+| Entity set | The 17 `Domain\Entities` types (including `AddonCategory`, `BookingAddOn`, `BookingMenu`, and `Department`) |
 | Audit columns | `CreatedDate`, `CreatedByUser`, `UpdatedDate`, `IsDeleted` on **every** entity (DEC-038). `IsDeleted` is stored but **not** a global query filter; the dashboard filters it inside its own queries (DEC-045). |
-| Migrations | `20261018123605_InitialCreate` → `20261018225634_AddAuditColumnsToDomainEntities` → `20261018231318_AddDefaultToBookingIsDeleted` → `20261021205149_AddPackageConfigurationWorkbench` → `20261022050449_AddBookingsEventsRegister` (the REQ-BKG-05 extension: the four additive `Booking` columns — `callTime` time NULL, `packoutTime` time NULL, `discountCode` nvarchar(50) NULL and `extendedAreaAmount` decimal(18,2) NOT NULL DEFAULT 0 — DEC-106, DEC-116; **purely additive**: no drop, no rename, no retype and no data change — **generated and script-reviewed; never applied to an existing or production database** (DEC-020)) |
+| Migrations | `20261018123605_InitialCreate` → `20261018225634_AddAuditColumnsToDomainEntities` → `20261018231318_AddDefaultToBookingIsDeleted` → `20261021205149_AddPackageConfigurationWorkbench` → `20261022050449_AddBookingsEventsRegister` (the four additive `Booking` columns — DEC-106, DEC-116) → `20261022105022_AddBookingMenuAndAddOns` (the `BookingMenu`, `BookingAddOn`, and `AddonCategory` tables plus `Booking.AddonsTotal`, `AddonDetail.AddonCategoryId` and `AddonDetail.PricingBasis` — DEC-127..DEC-158) → `20261024021725_AddDepartmentsAndPackageCodes` (`Department`, the two department FKs, `Package.PackageCode` with deterministic backfill, and `Package.ExtendedLocationAmount` — DEC-162..DEC-165). The last three migrations are **purely additive**, generated and script-reviewed only, and never applied to an existing or production database (DEC-020). |
 | Seeding | System-required data only: Identity roles, one bootstrap administrator, and the `CourseCategory` reference rows (DEC-018). Idempotent. |
 | Startup behaviour | Migration + seed run at startup **only** when `Database:ApplyMigrationsOnStartup` / `Database:SeedOnStartup` are enabled (Development only). |
 | Key script | `db/scripts/backfill-booking-numbers.sql` — precautionary backfill for ad-hoc (`EnsureCreated`) databases only; **must not** be run against a migration-created database (DEC-034). |
@@ -798,6 +853,8 @@ business/                               (AGENT 01 owns)
 ├── kpi-catalog.md                      (KPI-xx formulas, date bases, sources)
 ├── customer-master-feature-spec.md     (REQ-CUS-01 feature specification)
 ├── dashboard-feature-spec.md           (REQ-DSH-01 feature specification)
+├── bookings-events-feature-spec.md     (REQ-BKG-05/01 feature specification)
+├── bookings-events-operations-feature-spec.md (REQ-BKG-06/07/08 feature specification; DEC-170 UI amendment)
 ├── menu-food-costing-feature-spec.md   (REQ-MNU-01/02 feature specification)
 ├── packages-catalogue-feature-spec.md  (REQ-PKG-01 feature specification)
 ├── package-configuration-workbench-feature-spec.md  (REQ-PKG-02 feature specification)
@@ -818,6 +875,7 @@ implementation/                         (AGENT 01 owns)
 
 docs/
 ├── salscatersuite_project_structure_workplan.md   (THIS document)
+├── userupdate.txt                                  (owner-provided current change requests)
 ├── salscatersuite_background_services_workplan.md (PROPOSED background jobs / scheduled work — not yet implemented)
 ├── datadog-log-forwarding.md                      (the DataDog Agent route for the API log — REQ-OPS-01, DEC-095)
 └── datadog-csharp-log-agent.yaml                  (the ready-made Datadog Agent configuration)
@@ -832,7 +890,9 @@ docs/
 ```
 .agents/
 ├── agents/
+│   ├── bi-architect.md                 (AGENT 01 — primary agent definition)
 │   ├── debater.md                      (plan-review sub-agent definition)
+│   ├── dotnet-backend-architect.md     (AGENT 02 — backend sub-agent definition)
 │   └── frontend-uiux-design-expert.md  (frontend design sub-agent)
 ├── rules/
 │   └── frontend-react-uiux-expert.md   (frontend React/UI-UX rule set)
@@ -912,6 +972,8 @@ npm --prefix src/frontend/salscatersuite-ui run test
 | `Dashboard:Benchmarks:TargetFoodCostPercentage` | `appsettings*.json` | Default `35.0` — the conservative end of the BR-07 band (DEC-040). |
 | `Bookings:Deposit:RequiredPercentage` | `appsettings*.json` (user-secrets / environment) | **ABSENT BY DEFAULT** (DEC-101). The required deposit percentage. An absent key means **unknown**, never zero: the workbench reads *"Required deposit: not stated"* and the operator states the deposit. The reference's `30` is **never** hardcoded (DEC-043, DEC-009 stay open). |
 | `Bookings:Capacity:MaximumPax` | `appsettings*.json` (user-secrets / environment) | **ABSENT BY DEFAULT** (DEC-102). The commissary's maximum daily pax. An absent key means **unknown**, never zero: the gauge reads *"Capacity: not stated"* while the load is still published, and the utilisation percentage is `null`. The reference's `400` is **never** hardcoded (BR-16, BR-20). |
+| `Bookings:MenuSelection:LockDaysBeforeEvent` | `appsettings*.json` (user-secrets / environment) | **ABSENT BY DEFAULT** (DEC-128). The menu-change window: how many days before the event the dish selection locks. Absent, the lock date is the event date. The lock date is **always published**; this figure is `null` when the key is absent. |
+| `Bookings:Tax:VatPercentage` | `appsettings*.json` (user-secrets / environment) | **ABSENT BY DEFAULT** (DEC-143, BR-42). The VAT rate for the **inclusive** disclosure line. Absent, the disclosed VAT is `null` and the line is not rendered. The tax policy is still UNRESOLVED (DEC-008) and the rate is never hardcoded. |
 | `VITE_API_PROXY_TARGET` | frontend environment | Defaults to `http://localhost:5149`. |
 | `Serilog:MinimumLevel:Default` / `:Override:*` | `appsettings*.json` | The log levels. Serilog **replaces** the stock providers (DEC-092), so the legacy `Logging:LogLevel` subtree was removed and its levels mirrored here. |
 | `Serilog:WriteTo[]` | `appsettings*.json` | **The destination list** — the "text file or DataDog" switch. `WriteTo[0]` is the Console sink and `WriteTo[1]` is the rolling File sink; the order is pinned because the integration test overrides `WriteTo[1]`'s path. An **empty** list falls back to the Console sink (the safety net). |
@@ -987,11 +1049,14 @@ The authoritative per-feature status, test evidence and outstanding gaps live in
 | Customer Master | REQ-CUS-01 | Directory, profile, SOA, export | `CustomerMasterPage` | Green |
 | Menu & Food Costing Master | REQ-MNU-01/02 | Master, preview, export | `MenuCostingMasterPage`, `MenuRecipeFormPage` | Green |
 | Menu recipe/ingredient/yield engine | REQ-MNU-03 | **BLOCKED** on ten owner decisions | Capability-gap notices | Blocked (DEC-059) |
-| Bookings core (the generic backend surface) | `BookingsController` (transport-only), `CreateBookingCommand`, `CancelBookingCommand` (the **F7 refund cap** enforced before mutation), `GetBookingDetailsQuery`, `GetBookingLedgerQuery`; `BookingNumber` = `BK-YYYYMMDD-NNNNN` + a unique index | - | **Superseded by the row below** | The add-on junction is still unwired (RSK-048); the booking **edit** screen and the booking **detail** screen are still outstanding |
+| Bookings core (the generic backend surface) | `BookingsController` (transport-only), `CreateBookingCommand`, `CancelBookingCommand` (the **F7 refund cap** enforced before mutation), `GetBookingDetailsQuery`, `GetBookingLedgerQuery`; `BookingNumber` = `BK-YYYYMMDD-NNNNN` + a unique index | - | **Superseded by the delivered rows below** | The generic booking APIs are implemented; the register/workbench and operations rows below describe current delivery. A dedicated booking detail/edit screen remains outstanding. |
 | **Bookings & Events Register & Reservation Workbench** | **REQ-BKG-05 / REQ-BKG-01** | **`GET /api/bookings` (the paged, filtered dossier), `GET /api/bookings/summary` (the KPI aggregate), `POST /api/bookings/quote` (the server-computed quote), `GET /api/bookings/{id}/contract` (the contract PDF), `GET /api/bookings/export` (the register XLSX) and the extended `POST /api/bookings` (a draft or a confirmed booking, with an optional initial payment) — contract §14** | **DELIVERED** — `BookingsEventsPage` (the register: the four KPI cards, the command bar, the dossier grid and its chronological rail, the totals strip and the three-card operational dock) and `BookingWorkbenchPage` (the reservation workbench: the client & logistics rail, the tier & course engine and the financial & seal rail, inside the one authenticated shell — DEC-110) | **Backend DELIVERED** — DEC-099, DEC-101, DEC-102, DEC-106, DEC-111..DEC-118: the one net-due source, the one rounding, the stored surcharge, the unified soft-deleted-payment exclusion, the overpayment guard and the three-state payment vocabulary. **Frontend DELIVERED** — DEC-114: the new feature folder, the contract §14 type mirror, the `bookings` endpoint group, the two routes and the promoted navigation flag |
-| Payments & ledger | — | `PaymentLedgerService` | PLANNED | Backend green, UI pending |
+| Payments & ledger | - | `PaymentLedgerService` | PLANNED | Backend green, UI pending |
+| **Bookings & Events Operations - the dish selection, the add-ons and the automatic discounts** | **REQ-BKG-06 / REQ-BKG-07 / REQ-BKG-08** | **DELIVERED** - contract §14–§16, the menu-selection and add-on read/replace endpoints, quote/create support, area filter and the additive `AddBookingMenuAndAddOns` migration (DEC-127..DEC-160). No backend/API/database change in the DEC-170 UI enhancement. | **DELIVERED + enhanced 2026-10-24** - `BookingMenuPage` at `/bookings/:transactionId/menu`; selected-only add-on panel and lazy-loaded category-filtered modal using the existing API; the server-refreshed contract value is shown after save. No new route, endpoint, project, folder or shared component. | Original backend delivery evidence: 941/941 unit, 133/133 integration and 61/61 live assertions on a disposable LocalDB. Current independent FE verification: 22/22 focused, 383/383 Vitest, 0 TS errors, successful production build (existing chunk-size advisory). Active-only master can be empty when no active catalogue rows exist (BR-13); administration is at Settings → Add-ons (DEC-168). |
 | Packages & Buffets catalogue | REQ-PKG-01 | `GET /api/packages/summary`, validated writes | `PackageCataloguePage`, `PackageTierFormPage` | Green |
 | Package configuration workbench | REQ-PKG-02 | **DELIVERED** - the course ruleset, the coverage matrix, the two simulators, the municipality catalogue and the spec sheet (contract section 13) | **DELIVERED** - `PackageCourseRulesPage`, `PackageLocationsPage` | Green (564/564 unit, 106/106 integration — DEC-077..DEC-090) |
+| Department & package enhancements | REQ-PKG-03 | **DELIVERED 2026-10-24** - `Department` + the two FKs, frozen `PackageCode`, per-guest `ExtendedLocationAmount`, one additive migration (DEC-162..DEC-167) | **DELIVERED** - the code in the catalogue/inspector/form, the conditional extended-location field, the shared `CurrencyInput` | Green (977/977 unit, 136/136 integration, 366/366 Vitest) |
+| Add-on Master administration | REQ-SET-01 | **DELIVERED 2026-10-24** - `AddonDetail` CRUD, the management routes and `GET /api/departments` (DEC-168, DEC-169) | **DELIVERED** - the Settings hub and the Add-on Master screen (`/settings`, `/settings/addons`) | Green (999/999 unit, 139/139 integration, 373/373 Vitest) |
 | Calendar service | — | Controller + query | PLANNED | Partial |
 | Reports & documents | — | 6 QuestPDF documents, 5 ClosedXML exports | PLANNED | Partial |
 | Real-time alerts | — | SignalR registered; `NotificationHub` **not yet built** | PLANNED | Not started |
@@ -1028,6 +1093,14 @@ The authoritative per-feature status, test evidence and outstanding gaps live in
 | 2026-10-22 | AGENT 01 | **Source-control migration: the repository root is promoted to the monorepo root (DEC-125).** The Git repository was initialised one level too deep (`src/backend/.git`), so the repository root was the backend project rather than the monorepo. The React frontend (191 files), both test projects (116 files), the entire governance corpus (36 files) and the root tooling existed **only on disk**; a clone of the remote reproduced the backend only, and every root `package.json` script that referenced `src/frontend/...` or `tests/...` failed on a fresh clone. **Executed:** `.git` moved to the monorepo root; the **seven** existing commits were rewritten (`git filter-repo --to-subdirectory-filter src/backend`) so every historical tree places the backend under `src/backend/` — no commit dropped, no authorship altered; the whole monorepo was brought under version control; the remote was updated with a lease-protected force push. **A second, pre-existing defect was found by the clean-clone verification and fixed in the same cycle:** the VisualStudio template rule `**/[Pp]ackages/*` in `src/backend/.gitignore` also matched the **source** folder `SalsCaterSuite.Application/Features/Packages` and had silently excluded the **entire** package-configuration module (**37 files**) from the remote since it was written — invisible in `git status`, and fatal to any clone (`CS0234`, 13 errors). The rule is replaced by a solution-root-anchored `/packages/*`. **Verified by a clean clone of the remote:** backend build **0 W / 0 E**, **823/823** unit, **133/133** integration (real LocalDB), **327/327** Vitest, frontend build green. `opencode.json` (the live Context7 bearer token) is ignored and `opencode.json.example` is the versioned template. A root `.gitattributes` was added. **New §1.2 (Version control layout)** states the four binding rules. | 1, 1.2, 10, 11 |
 | 2026-10-22 | AGENT 01 | **The two test projects move inside the backend, to `src/backend/` (DEC-126).** `tests/SalsCaterSuite.UnitTests` → `src/backend/SalsCaterSuite.UnitTests` and `tests/SalsCaterSuite.IntegrationTests` → `src/backend/SalsCaterSuite.IntegrationTests`, both with `git mv` so the history is preserved as renames. The test projects are part of the backend implementation — they compile the backend's projects, reference them by relative path, and the unit project is a member of `SalsCaterSuite.slnx` — and a separate top-level tree severed them from the solution they belong to. The `.slnx` project path loses its `../../` prefix; both `.csproj` `ProjectReference` paths become `..\<project>`; the unit project's `RepositoryRoot` assembly metadata moves from `..\..\` to `..\..\..\` so the **DTO projection guard** still resolves the repository root; the root `package.json` `test:api` script and the §7.3 commands are updated. The **top-level `tests/` folder no longer exists**. `AGENTS.md`, the `bi-architect` skill, `README.md`, `WORKFLOW_STATE.md`, `implementation/feature-status.md`, the observability and packages business specifications and the background-services workplan are realigned. **No test was renamed, edited, deleted or added** and no assertion changed — the relocation is a path change only. | 1, 1.2, 2.1, 2.6, 7.3, 10, 11 |
 
+| 2026-10-22 | AGENT 01 | **REQ-BKG-06 / REQ-BKG-07 / REQ-BKG-08 Bookings & Events Operations - specified, challenged and re-specified (delivery in progress).** The owner's operational note of 2026-10-22 (`Bookings and Events Operation.txt`) and the **menu-selection design** (`Booking_Menu_Selection/code.html`) drove the cycle: the **headcount-band automatic discounts** (REQ-BKG-08), the **add-on master and the booking's add-on lines** (REQ-BKG-07) and the **per-booking dish selection with its menu-change window** (REQ-BKG-06). The design's own arithmetic settled three questions the note left open - the add-ons **join the contract value** (98,400 + 15,900 + 6,000 = 120,300), the tax is **VAT-inclusive and a disclosure** (120,300 / 1.12 leaves exactly the 12,889.29 the design prints) and the **batch mass is derivable** (180 g x 120 pax = 21.6 kg). The Debater returned `PROPOSE_BETTER_PLAN` with **twelve blocking findings and fourteen clarifications**; **all twelve were applied** to the specification, contract sections 14/15/16, BR-35..BR-44, KPI-40..KPI-42 and the data dictionary before delegation (DEC-151..DEC-160): **F1** the add-on total had no path into the authoritative calculator (`BookingAmountDueCalculator` hardcoded `addonsAmount: 0m`) - it is now a **frozen column** (`Booking.AddonsTotal`) that the calculator reads; **F2** an add-on write's money reaction was unspecified - it now re-freezes, re-caps, leaves the deposit and refuses an overpay; **F3** the quote now accepts the selection and the add-ons so it cannot diverge from the create; **F4** the discount's source is **derived** and published; **F5** the prep instruction travels in the request; **F6** the surcharge tier test is **pinned** to equality on the type column; **F7** the area filter gained **server support** (`GET /api/packages?areaId=`); **F8** the pricing basis became an **explicit column** rather than a string test on money; **F9** the request's amount semantics and BR-01's formula were aligned; **F10** the BEO's "standard run as a dish list" claim was **dropped**; **F11** the server publishes the band label and the VAT rate; **F12** contract section 14 was actually extended. The **allergen chips, the quality stamp, the chef sign-off, the tasting sheet and the reference's hardcoded course groupings** are recorded as **capability gaps** and are never fabricated. New: `business/bookings-events-operations-feature-spec.md` (v1.0, as amended), contract sections 14/15/16, BR-35..BR-44, KPI-40..KPI-42, DEC-127..DEC-160, RSK-062..RSK-068 and acceptance Scenarios 75-99. **Delivered in this cycle:** three new entities, three new columns, six new endpoints, one new controller, one new repository, one new route, one extended frontend feature and two new configuration keys. | 2.2, 3.3, 3.4, 5, 7.4, 9, 10 |
+| 2026-10-24 | AGENT 01 | **The AGENT 01 primary-agent definition is added: `.agents/agents/bi-architect.md`.** The agent map now carries the primary agent alongside the two sub-agent definitions, with `model: muse-spark-1.3`. The definition points to `AGENTS.md`, the `bi-architect` skill and this document as the authoritative sources and restates the reporting structure, the non-negotiables and the mandatory workflow. No product code, test, contract, migration, route or endpoint changed; the skill remains the single source of the full operating instructions. | 6, 10 |
+| 2026-10-24 | AGENT 01 | **The AGENT 02 sub-agent definition is added: `.agents/agents/dotnet-backend-architect.md`.** It mirrors the frontend sub-agent definition: sub-agent frontmatter (no `model` pinned, so it inherits the parent session's model), the authoritative reading order, the Clean Architecture boundaries, the DEC-037 persistence rule, the structural-change protocol, financial and migration safety, API/security standards, testing gates, deliverables, the Context7 policy, and as-built backend and command appendices. It points to the `dotnet-backend-architect` skill for the full operating instructions. No product code, test, contract, migration, route or endpoint changed. | 6, 10 |
+| 2026-10-24 | AGENT 01 | **The owner's department and package enhancements are delivered (DEC-162..DEC-167).** One additive migration `20261024021725_AddDepartmentsAndPackageCodes` creates the `Department` master, wires `AddonDetail.deptId` and the orphaned `Menu.deptId` to it, adds `Package.p_code` (backfilled deterministically from the existing rows before the NOT NULL constraint and the filtered unique index) and `Package.p_extendedLocationAmount`. The Application adds `PackageCodeGenerator` and the repository code query, the package DTO/validator/command changes, the add-on master's `deptId`/`deptName`, the quote's `packageCode`/`packageExtendedLocationRate`, and the pricing composition (`(Area.AdditionalRate + Package.ExtendedLocationAmount) x heads`). The frontend adds `CurrencyInput` and `utils/currencyInput.ts` and applies them to every money field, shows the frozen code in the catalogue/inspector/form, and shows the extended-location field only for `Regular`/`Premier`. **No `MaxPax`** is added (DEC-167). | 2.2, 2.4, 2.5, 2.6, 3.1, 3.2, 10, 11 |
+| 2026-10-24 | AGENT 01 | **The Add-on Master administration is delivered (REQ-SET-01, DEC-168/DEC-169).** The new Application module `Features/Addons` carries the list/detail/departments queries, the create/update/delete commands, the validator and the mapper; `IAddonRepository` gains the management reads and writes and `IDepartmentRepository` is added; `AddonsController` gains `GET /api/addons/manage`, `GET /api/addons/manage/{id}`, `POST /api/addons`, `PUT /api/addons/{id}` and `DELETE /api/addons/{id}`, and the new `DepartmentsController` publishes `GET /api/departments`. The frontend adds the `features/settings` hub (`/settings`) and the Add-on Master (`/settings/addons`) with the list, create/edit form, inline delete confirmation, search and the category/department/basis lookups. The delete is a **soft** delete; the booking picker's `GET /api/addons` stays active-only. No migration is needed — the model already carried every column. | 2.3, 3.1, 3.2, 3.3, 3.4, 9, 10, 11 |
+
+| 2026-10-24 | AGENT 01 | **Booking Menu Selection add-on picker UI delivered (DEC-170).** The existing `BookingAddonsPanel` now shows selected lines only and opens a responsive category-filtered modal; category/master reads are lazy and carry the required headcount; selections remain a draft until the existing full-replace save. A successful add-on write is followed by a fresh server details read for the ledger and confirmation; failed reads are distinguished from failed writes and retain a retryable stale-total warning. No new file, project, feature folder, route, endpoint, shared component, migration or business calculation was added. The as-built workplan inventory was corrected to 17 entities and 7 migrations. AGENT 01 independently ran the focused page suite (22/22), full Vitest (25 files, 383/383), and frontend build (TypeScript 0 errors; build successful with the existing >500 kB chunk advisory). A clean remote clone was not run because the working tree contains pre-existing uncommitted/untracked repository work; no commit/push was performed. | 3.2, 3.3, 4, 5, 9, 10, 11 |
+
 ---
 
 ## 11. Verification Checklist
@@ -1046,7 +1119,16 @@ Before this document is treated as current, AGENT 01 confirms:
 - [ ] **There is exactly one `.git` directory, at the repository root** (DEC-125, §1.2).
 - [ ] **Every path in this document resolves.** The §7.3 commands and the §2.6 tree match the as-built folder positions after any relocation (DEC-126).
 
+**Verification — 2026-10-24 (AGENT 01, DEC-170 add-on picker UI).** AGENT 01 enumerated the existing booking feature tree and confirmed the change adds no file, route, endpoint, project or folder; the route and API tables remain accurate. The backend entity folder contains **17** entity files and the migrations folder contains **7** migration files plus the model snapshot; §4 now matches. The frontend package scripts were run: focused `BookingMenuPage.test.tsx` **22/22**, full Vitest **25 files / 383/383**, and `npm --prefix src/frontend/salscatersuite-ui run build` succeeded with **0 TypeScript errors** and the existing Vite chunk-size advisory. **Clean-clone/remote verification remains unchecked**: this working tree has pre-existing uncommitted/untracked repository work, so no claim is made that the remote contains these files; re-run the clean-clone gate before commit/release (DEC-125). No backend tests or live LocalDB scenario were re-run because no backend/API/data behavior changed.
+
+**Verification — 2026-10-24 (AGENT 01, the REQ-PKG-03 department/package delivery).** Every claim below was executed in this cycle. **Build:** `dotnet build src/backend/SalsCaterSuite.slnx` → **0 warnings / 0 errors**. **Unit:** **977/977** (up from 941/941; the new tests cover the code generator's abbreviations and sequence, the validator's eligibility rules, the command's code/freeze/clear behavior, and the pricing composition). **Integration:** **136/136** (up from 133/133; the new tests cover the code, the extended amount and its rejection on an ineligible type, and the clear-on-type-change path). **Frontend:** `tsc` **0 errors**, `vite build` clean, **366/366** Vitest (up from 359/359; the new tests cover the shared `CurrencyInput` and the conditional extended-location field). **Migration:** generated, script-reviewed as **purely additive**, with the deterministic `p_code` backfill before the NOT NULL constraint and the filtered unique index, and the orphan cleanup before the new `Menu.deptId` FK; `dotnet ef migrations has-pending-model-changes` → **no changes**. The migration was **not** applied to an existing or production database (DEC-020).
+
+**Verification — 2026-10-24 (AGENT 01, the REQ-SET-01 Add-on Master administration).** Executed in this cycle. **Build:** `dotnet build src/backend/SalsCaterSuite.slnx` → **0 warnings / 0 errors**. **Unit:** **999/999** (up from 977/977; the new tests cover the validator's shape rules, the create/update/delete commands, the reference checks, the management list/detail and the department lookup). **Integration:** **139/139** (up from 136/136; the new tests drive the create → list → detail → update → deactivate → soft-delete lifecycle, the validation rejects, and `GET /api/departments` against real LocalDB). **Frontend:** `tsc` **0 errors**, `vite build` clean, **373/373** Vitest (up from 366/366; the new tests cover the Add-on Master list/create/edit/delete/search and the Settings route). **No migration** is part of this delivery — the schema already carried `AddonDetail`, `AddonCategory` and `Department`; `dotnet ef migrations has-pending-model-changes` → **no changes**.
+
+**Source-control and layout migration (2026-10-22, DEC-125 / DEC-126).** The Git repository was promoted to the **monorepo root** and the two test projects moved from the top-level `tests/` folder to `src/backend/`. Section 1, section 2.6, section 7.3 and the header were realigned to the as-built state in the same cycle, and the change-log rows record both moves. **The command paths quoted inside the historical verification paragraphs below are the paths that were used when those runs were executed** - they are a record of what was run, not a pointer to today's layout. The commands to run **now** are the ones in section 7.3.
 **AGENT 01 verification — 2026-10-22 (the close-out of the **REQ-BKG-05 / REQ-BKG-01** cycle).** Every item of section 11 was checked by AGENT 01 against the as-built repository, not from recollection: the trees in 1, 2.2-2.6 and 3.2 against a **live file enumeration**; the package versions in 2.2-2.5 and 3.1 against every `PackageReference` and every `package.json` entry; the route table in 3.3 against `AppRoutes.tsx` (**18** routes) and the endpoint table in 3.4 against `endpoints.ts` (the **six** `bookings` entries); the migration list in 4 against the `Migrations` folder (**5**, the new one reviewed as **purely additive**); the `PLANNED` markers against the folders that genuinely do not exist — and the **empty `src/assets/` folder was removed** so that marker is literally true; and the summary in 9 against `implementation/feature-status.md`. Evidence, **executed by AGENT 01**: `dotnet build src/backend/SalsCaterSuite.slnx` → **0 warnings / 0 errors**; `dotnet test tests/SalsCaterSuite.UnitTests/...` → **823/823**; `dotnet test tests/SalsCaterSuite.IntegrationTests/...` → **133/133**; `npm --prefix src/frontend/salscatersuite-ui run build` → **0 TypeScript errors**; `npm --prefix src/frontend/salscatersuite-ui run test` → **327/327**. **Live end-to-end evidence:** the final build was started against a **disposable** LocalDB database (the developer's own database was never touched) and all **six** endpoints of contract 14 were driven with **52 independent assertions** — **52 passed, 0 failed** — covering the quote base, surcharge, gross and net; the **null** required deposit and **null** capacity; the five pre-dispatch checks; the register totals reconciling; a confirmed booking with a surcharge, a dispatch schedule and a deposit; the details and the ledger agreeing to the cent; the frozen surcharge and its per-guest rate; the **PartiallyPaid** payment state; the summary figures; the **overpayment guard** refusing the payment and writing nothing; and both documents served. The disposable database was dropped afterwards. Two defects that the green suites could **not** see were found by that live run and are fixed and pinned; the second is now guarded by a **DTO projection guard** that is proved by execution. The money chain was also traced **by hand** through every discount case to confirm that `Booking.AmountDue` equals the calculator's `NetAmountDue` to the cent.
 **Frontend verification — 2026-10-22 (AGENT 03, TASK-BKG-01-FE):** §3.2, §3.3, §3.4, §9 and §10 realigned against a **live file enumeration** of the as-built frontend after the **REQ-BKG-05 / REQ-BKG-01** delivery: the `src/features/bookings/` folder now lists its two pages, its vocabulary module, its two hooks, its 22 feature-local components and its three test files; `src/types/booking.types.ts` and `src/test/bookingFixture.ts` are added to §3.2; the route table carries `/bookings` → `BookingsEventsPage` and `/bookings/new` → `BookingWorkbenchPage`; the endpoint table carries the six `bookings` entries of contract §14; and the **Not yet created** line no longer lists `bookings` or `booking.types.ts`. Evidence, executed by AGENT 03: `npm --prefix src/frontend/salscatersuite-ui run build` → **0 TypeScript errors** and a successful Vite build; `npm --prefix src/frontend/salscatersuite-ui run test` → **327/327** Vitest across **22** test files (the 281-test baseline plus the 45 new bookings tests and the one new route-table assertion), re-run **five times consecutively** at this state and green, and re-run twice more after the follow-up that added the contract §1 read-projection mirror (`BookingDetails`, with the frozen `extendedAreaRatePerGuest`) to `src/types/booking.types.ts` — still **327/327**, still **0 TypeScript errors**. No existing test was edited or deleted: the only change to `src/routes/__tests__/AppRoutes.test.tsx` is that the **Bookings & Events** assertion now expects the real register, and a **new** test asserts that every unbuilt navigation entry still resolves to its labelled placeholder. §3.1, §3.5, §2 and §4 are unchanged by this delivery.
 
 **Last verification:** 2026-10-22 (AGENT 02, after the **REQ-BKG-05 / REQ-BKG-01** backend delivery **and AGENT 01's three review rounds**) - §2.2, §2.3, §2.4, §2.5, §2.6, §4, §7.4, §9, §10 and §11 re-aligned against a **live file enumeration** of the as-built repository, and the new sections verified against the code. **Round 3** fixed the details projection: `GET /api/bookings/{id}` now publishes the call time, the pack-out time, the frozen discount code and the frozen surcharge — it published none of them before, because the read `BookingDto` never declared them (the three members lived on the request DTO). The details endpoint and the register now publish **identical** figures for the same booking, pinned at both the unit and the integration level. **Round 4** itemised the out-of-town surcharge and the discount on the **printed contract** and added the **DTO projection guard** — a new test convention that fails when a read DTO gains a member no projection assigns (**proved by execution**). **Round 5** moved the dispatch schedule from the repeating page header to the event's particulars — printed once, next to the programme times it is ordered against — and made the per-guest rate derivation **safe** (published only when it reconstructs the frozen amount exactly). **Round 6** restored the contract's existing wording — the particulars block carries `Guaranteed Pax: {N} Persons` (the wording the documents have always printed, unit included) and the headcount is carried **once**; a regression test asserts that a plain booking's particulars block is textually identical to the block the documents already carried. Rounds 3 to 6 added three unit-test files (`GetBookingDetailsQueryTests`, `ContractDocumentTests`, `DtoProjectionGuardTests`) and the test project gained one `AssemblyMetadata` item, so §2.6's tree changed; §2.2–§2.5 and §4 are unchanged. Backend evidence, re-run by AGENT 02 with the alternate output directory (`-p:OutDir=...` — the developer's dev API holds the `bin` DLLs): `dotnet build src/backend/SalsCaterSuite.slnx` → **0 warnings / 0 errors**; `dotnet test tests/SalsCaterSuite.UnitTests/...` → **823/823** (up from 700/700 — 123 new tests); `dotnet test tests/SalsCaterSuite.IntegrationTests/...` → **133/133** (up from 118/118 — 15 new tests). The migration's T-SQL was regenerated and reviewed as **purely additive** (`ALTER TABLE [Booking] ADD [callTime] time NULL` / `[discountCode] nvarchar(50) NULL` / `[extendedAreaAmount] decimal(18,2) NOT NULL DEFAULT 0.0` / `[packoutTime] time NULL` — no drop, no rename, no retype, no data change) and the migration chain was applied to a **disposable** LocalDB database by the integration suite. The previous verification remains as recorded above: 2026-10-22 - §2.4, §2.5, §2.6, §3.1, §3.2, §5, §7.4, §9, §10 and §11 verified against a live file enumeration. **§3.1/§3.2 re-verified after the Tailwind CSS v4 migration (DEC-098):** the toolchain table matches `package.json` (`tailwindcss` `^4.3.3`, `@tailwindcss/vite` `^4.3.3`, no `postcss` / `autoprefixer`), `postcss.config.js` is gone from the file enumeration, `tailwind.config.js` remains, and the frontend build and the **281/281** Vitest suite were re-run against the migrated toolchain. The full verification was also done against a live file enumeration after the **REQ-OPS-01 Operational Logging** delivery; §2.2, §2.3 and §4 were re-checked and needed no change. Backend evidence: `dotnet build src/backend/SalsCaterSuite.slnx` → **0 warnings / 0 errors**; `dotnet test tests/SalsCaterSuite.UnitTests/SalsCaterSuite.UnitTests.csproj` → **700/700** (up from 564/564 — 136 new tests); `dotnet test tests/SalsCaterSuite.IntegrationTests/SalsCaterSuite.IntegrationTests.csproj` → **118/118** (up from 106/106 — 12 new tests) — all three re-run **independently by AGENT 01**. Live evidence: the **real** rolling log file the delivery produced was read and mined (every line valid JSON; the record shape matching specification §4.2 field-for-field), and a **live** end-to-end run against the running dev API — login, an authenticated dashboard call, a controller-produced 400, the XLSX export and the SOA PDF — proved **zero** occurrences of the administrator's e-mail address, the seeded password or a JWT in the new lines, the body redaction (`username`, `password`, `token` → `***REDACTED***`), the record's own `UserName` redacted while `UserId` and `Roles` survive, the `{ "errors": [...] }` envelope captured on the 400 at `Warning`, and **`ResponseBytes` exactly equal to the bytes the client received** for both binary responses. Plan-review evidence: the Debater returned `PROPOSE_BETTER_PLAN` with ten blocking findings and twelve clarifications; **all were applied** to the specification (reissued **v1.1**), to BR-21..BR-24, to DEC-092 and to the acceptance scenarios (renumbered 55–60), and AGENT 01 re-verified the five load-bearing claims independently on SDK 10.0.402 — F1 **confirmed**, F4 **confirmed**, F5 **rejected** (there is no 30 KB `EnableBuffering` limit, and the proposed "restore the original stream" would have broken every write endpoint), F6 **confirmed**, F7 **corrected** (`IHostBuilder.UseSerilog` exists and works; there is no `IApplicationBuilder.UseSerilog`). Two further defects were found by reading the real log file rather than the source: the seeder echoed the administrator's identity in five log messages (DEC-097) and the record's own `UserName` field wrote the operator's e-mail address in clear (DEC-096) — both corrected. Previously: 2026-10-22 - §2.2, §2.3, §2.4, §2.5, §2.6 and §4 verified against a live file enumeration after the **REQ-PKG-02 Package Configuration Workbench (backend)** delivery; §3.2, §3.3 and §9 were verified in the same cycle after the frontend delivery and needed no change. Backend evidence: `dotnet build src/backend/SalsCaterSuite.slnx` → **0 warnings / 0 errors**; `dotnet test tests/SalsCaterSuite.UnitTests/SalsCaterSuite.UnitTests.csproj` → **564/564** (up from 429/429 — 135 new tests); `dotnet test tests/SalsCaterSuite.IntegrationTests/SalsCaterSuite.IntegrationTests.csproj` → **106/106** (up from 84/84 — 22 new tests). `dotnet ef migrations has-pending-model-changes` → *No changes have been made to the model since the last migration*; the migration's T-SQL was generated with `dotnet ef migrations script` and reviewed — it only adds the three nullable `Area` columns, the two new tables and the two filtered unique indexes (`WHERE [is_deleted] = 0`), and its `Down` drops only what it created. Frontend evidence (from the AGENT 03 cycle, including the FE-1, FE-2 and FE-3 corrections): 0 TypeScript errors, a clean `vite build`, **281/281 Vitest** (up from 221/221 — 60 new tests: `PackageCourseRulesPage` 18, `PackageLocationsPage` 20, `PackageCataloguePage` +3, `PackageTierFormPage` +4, `noHardcodedFigures` +16 for the thirteen new source files, and three new pending-state/debounce tests), and no horizontal overflow measured in headless Chrome at 375 / 768 / 1024 / 1440 px on both new screens (`scrollWidth == clientWidth`).
+
+**Verification - 2026-10-22 (AGENT 01, the REQ-BKG-06 / 07 / 08 close-out).** Every claim below was executed in this cycle; no count is quoted from memory. **Build:** `dotnet build src/backend/SalsCaterSuite.slnx` -> **0 warnings / 0 errors**. **Unit:** **941/941** (up from 823/823; the 118 new tests cover the headcount bands at both edges, the 90-99 gap and 1000+, the tier match (`Regular`/`Premier` trimmed and case-insensitive, `"Premier Buffet"` refused), the VAT disclosure, the batch mass, the derived discount source, the explicit pricing basis, the shared BR-15 validator, the menu window, the add-on re-freeze and the calculator parity). **Integration:** **133/133** (the pre-existing suite, unchanged and green). **Frontend:** `tsc --noEmit` **0 errors**, `vite build` clean, **359/359** Vitest (up from 327/327; +31). **Live:** a fresh **disposable** LocalDB database, the new build on `:5151` with `Bookings:MenuSelection:LockDaysBeforeEvent=7` and `Bookings:Tax:VatPercentage=12`, driven by `run-live-validation-bkg06.ps1` -> **61 / 61 assertions passed, 0 failed**, and the database dropped afterwards. The live run proved: the add-on master refuses a missing headcount (400) and publishes `lineAmountForBooking` from the catalogue basis (150 x 120 = 18,000; flat 1,500; not-stated basis published `null` and priced flat); the quote's gross 122,400.00, band discount 2,400.00, net 120,000.00, server band label/rate and VAT memo 12,857.14; the created booking's frozen `amountDue` **equal to the quote's net to the cent** with the add-on present (the `addonsAmount: 0m` defect is closed); the selection read/replace with a per-dish prep instruction and a quota breach refused (400); a selection replace leaving every money column unchanged; an add-on replace re-freezing the net to 121,500.00 and leaving the deposit untouched; a reduction below the collected amount refused (400) with nothing written; a near event **locked** with a concrete lock date and the write refused; the register publishing `selectionState`/`addonCount`/`addonsTotal`/`discountSource`; the summary publishing `bandDiscount`, `menuWindows` and `vatPercentage`; and the BEO served as a PDF. **Migration:** `20261022105022_AddBookingMenuAndAddOns` adds three tables (`AddonCategory`, `BookingMenu`, `BookingAddOn`) and three columns (`Booking.addonsTotal`, `AddonDetail.addonCategoryId`, `AddonDetail.pricingBasis`) with the two filtered unique indexes (`[is_deleted] = 0`) - **purely additive, no drop, no rename, no retype**; generated and script-reviewed only. **One contract ambiguity** found during delivery was closed rather than worked around: `GET /api/addons` publishes a figure that depends on the headcount but did not declare the parameter, so `headcount` is now a **required** query parameter in contract 16.1 (absent or < 1 is a 400), and the client was renamed to match. The add-on master still **ships empty** (BR-13, RSK-066); the picker is inert until the catalogue is populated, and the empty state says so.

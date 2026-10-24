@@ -6,6 +6,7 @@ import { ProtectedRoute } from './ProtectedRoute'
 import { useAuth } from '@/context/AuthContext'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { BookingsEventsPage } from '@/features/bookings/BookingsEventsPage'
+import { BookingMenuPage } from '@/features/bookings/BookingMenuPage'
 import { BookingWorkbenchPage } from '@/features/bookings/BookingWorkbenchPage'
 import { CustomerMasterPage } from '@/features/customers/CustomerMasterPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
@@ -16,6 +17,8 @@ import { PackageCourseRulesPage } from '@/features/packages/PackageCourseRulesPa
 import { PackageLocationsPage } from '@/features/packages/PackageLocationsPage'
 import { PackageTierFormPage } from '@/features/packages/PackageTierFormPage'
 import { NotImplementedPage } from '@/features/placeholders/NotImplementedPage'
+import { SettingsPage } from '@/features/settings/SettingsPage'
+import { AddonMasterPage } from '@/features/settings/addons/AddonMasterPage'
 
 /**
  * Route table.
@@ -23,9 +26,9 @@ import { NotImplementedPage } from '@/features/placeholders/NotImplementedPage'
  * The Dashboard, the Customer Master, the Menu & Food Costing screens, the
  * Packages & Buffets screens — including the Package Configuration Workbench
  * and its two workbenches — and the Bookings & Events Register with its
- * Reservation Workbench are the implemented ones. Every other navigation entry
- * resolves to a labelled "not yet implemented" page (AC-F13) — no dead links
- * and no fabricated data.
+ * Reservation Workbench and its Menu editor are the implemented ones. Every
+ * other navigation entry resolves to a labelled "not yet implemented" page
+ * (AC-F13) — no dead links and no fabricated data.
  */
 export function AppRoutes() {
   const { status } = useAuth()
@@ -61,6 +64,7 @@ export function AppRoutes() {
           <Route index element={<DashboardPage />} />
           <Route path="bookings" element={<BookingsEventsPage />} />
           <Route path="bookings/new" element={<BookingWorkbenchPage />} />
+          <Route path="bookings/:transactionId/menu" element={<BookingMenuPage />} />
           <Route path="menus" element={<MenuCostingMasterPage />} />
           <Route path="menus/new" element={<MenuRecipeFormPage />} />
           <Route path="menus/:menuId/edit" element={<MenuRecipeFormPage />} />
@@ -83,7 +87,8 @@ export function AppRoutes() {
           />
           <Route path="customers" element={<CustomerMasterPage />} />
           <Route path="reports" element={<NotImplementedPage moduleName="Reports & BEO" />} />
-          <Route path="settings" element={<NotImplementedPage moduleName="Settings" />} />
+          <Route path="settings" element={<SettingsPage />} />
+          <Route path="settings/addons" element={<AddonMasterPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

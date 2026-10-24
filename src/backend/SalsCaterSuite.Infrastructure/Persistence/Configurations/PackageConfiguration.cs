@@ -13,10 +13,22 @@ public class PackageConfiguration : IEntityTypeConfiguration<Package>
         builder.HasKey(e => e.PackageId);
         builder.Property(e => e.PackageId).HasColumnName("p_id");
 
+        // The owner's 2026-10-24 request: the human-readable code is generated once at create
+        // and frozen. It is unique among the live tiers only, so a soft-deleted tier never
+        // blocks a future code that the generator would not reuse anyway.
+        builder.Property(e => e.PackageCode).HasColumnName("p_code").HasMaxLength(30).IsRequired();
+        builder.HasIndex(e => e.PackageCode)
+            .IsUnique()
+            .HasFilter("[is_deleted] = 0")
+            .HasDatabaseName("IX_Package_p_code");
+
         builder.Property(e => e.PackageType).HasColumnName("p_type").HasMaxLength(50);
         builder.Property(e => e.Description).HasColumnName("p_descripton").HasMaxLength(250);
         builder.Property(e => e.AmountPax).HasColumnName("p_amountPax").HasPrecision(18, 2);
         builder.Property(e => e.MinPax).HasColumnName("p_min");
+        builder.Property(e => e.ExtendedLocationAmount)
+            .HasColumnName("p_extendedLocationAmount")
+            .HasPrecision(18, 2);
         builder.Property(e => e.IsActive).HasColumnName("isActive");
         // DEC-038: all four BaseEntity audit columns are persisted. Package keeps its
         // existing date_Created/date_Updated convention; the two columns that had no

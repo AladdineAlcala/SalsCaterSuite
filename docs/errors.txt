@@ -1,0 +1,3 @@
+dotnet ef database update --project src/backend/SalsCaterSuite.Infrastructure --startup-project src/backend/SalsCaterSuite.WebApi
+Build started...
+Build failed. Use dotnet build to see the errors.

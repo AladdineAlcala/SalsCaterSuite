@@ -3,10 +3,15 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { ProgressTrack } from '@/components/ui/ProgressTrack'
-import { formatCount, formatCurrency } from '@/utils/currencyFormatter'
+import { formatCount, formatCurrency, formatPercentage } from '@/utils/currencyFormatter'
 import type { BookingQuote } from '@/types/booking.types'
 import type { BookingWorkbenchDraft, BookingWorkbenchErrors } from '../bookingVocabulary'
-import { NOT_STATED, PAX_UNIT, PAYMENT_MEANS_OPTIONS } from '../bookingVocabulary'
+import {
+  NOT_STATED,
+  PAX_UNIT,
+  PAYMENT_MEANS_OPTIONS,
+  discountSourceLabel,
+} from '../bookingVocabulary'
 import { WorkbenchSelectField, WorkbenchTextField } from './WorkbenchFields'
 import { WorkbenchChecklist } from './WorkbenchChecklist'
 
@@ -44,6 +49,15 @@ export interface WorkbenchLedgerRailProps {
  *
  * The **required deposit** is `null` when no percentage is configured and
  * reads "not stated" — the reference's `30` never appears (DEC-101).
+ *
+ * The **discount line names the rule that produced the figure** (DEC-154): the
+ * source, the band's own label and its published per-head rate. The client
+ * never reconstructs a band or a rate — both travel on the quote (AC-BKG-87).
+ *
+ * The **VAT line is a disclosure**, not a charge: it states what part of the
+ * net amount due is already tax when a rate is configured, and it is **absent**
+ * when the key is absent — never a zero and never a hardcoded rate (DEC-143,
+ * AC-BKG-76).
  */
 export function WorkbenchLedgerRail({
   draft,
@@ -106,7 +120,7 @@ export function WorkbenchLedgerRail({
         <WorkbenchTextField
           id="booking-deposit-amount"
           label="Stated deposit"
-          type="number"
+          currency
           value={draft.depositAmount}
           onChange={(value) => onChange({ depositAmount: value })}
           error={errors.depositAmount}
@@ -148,6 +162,12 @@ export function WorkbenchLedgerRail({
               </dd>
             </div>
             <div className="flex items-center justify-between gap-2 border-b border-artisan-border pb-2">
+              <dt className="font-body-sm text-body-sm text-espresso-600">Selected add-ons</dt>
+              <dd className="font-mono text-body-sm font-bold text-espresso-900">
+                {formatCurrency(quote.addonsTotal)}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-2 border-b border-artisan-border pb-2">
               <dt className="font-body-sm text-body-sm text-espresso-600">
                 Out-of-town surcharge
                 {quote.extendedAreaName ? (
@@ -163,9 +183,18 @@ export function WorkbenchLedgerRail({
             <div className="flex items-center justify-between gap-2 border-b border-artisan-border pb-2">
               <dt className="font-body-sm text-body-sm text-espresso-600">
                 Discount
-                {quote.discountCode ? (
+                <span className="block font-caption text-caption text-espresso-400">
+                  {discountSourceLabel(quote.discountSource)}
+                  {quote.discountSource === 'HeadcountBand' && quote.discountBandLabel
+                    ? ` — ${quote.discountBandLabel}`
+                    : quote.discountCode
+                      ? ` — ${quote.discountCode}`
+                      : ''}
+                </span>
+                {quote.discountSource === 'HeadcountBand' &&
+                quote.discountBandRatePerHead !== null ? (
                   <span className="block font-caption text-caption text-espresso-400">
-                    {quote.discountCode}
+                    {formatCurrency(quote.discountBandRatePerHead)} per head
                   </span>
                 ) : null}
               </dt>
@@ -179,6 +208,19 @@ export function WorkbenchLedgerRail({
                 {formatCurrency(quote.grossAmount)}
               </dd>
             </div>
+            {quote.includedVatAmount !== null && quote.vatPercentage !== null ? (
+              <div className="flex items-center justify-between gap-2 border-b border-artisan-border pb-2">
+                <dt className="font-body-sm text-body-sm text-espresso-600">
+                  VAT — included
+                  <span className="block font-caption text-caption text-espresso-400">
+                    Already inside the total at {formatPercentage(quote.vatPercentage)}
+                  </span>
+                </dt>
+                <dd className="font-mono text-body-sm font-bold text-espresso-900">
+                  {formatCurrency(quote.includedVatAmount)}
+                </dd>
+              </div>
+            ) : null}
             <div className="flex items-center justify-between gap-2 bg-surface-container rounded-lg p-2.5 border border-artisan-border">
               <dt className="font-body-sm text-body-sm font-extrabold text-espresso-900 uppercase">
                 Total net contract
@@ -244,7 +286,7 @@ export function WorkbenchLedgerRail({
         <WorkbenchTextField
           id="booking-initial-payment"
           label="Initial payment amount"
-          type="number"
+          currency
           value={draft.initialPaymentAmount}
           onChange={(value) => onChange({ initialPaymentAmount: value })}
           error={errors.initialPaymentAmount}

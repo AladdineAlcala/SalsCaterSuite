@@ -55,6 +55,32 @@ export const API_ENDPOINTS = {
     contract: (transactionId: number) => `/bookings/${transactionId}/contract`,
     /** The XLSX export of the whole filtered register (contract §14.6). */
     export: '/bookings/export',
+    /** The booking's dish selection, the tier's pools and the lock state (contract §15.1). */
+    menus: (transactionId: number) => `/bookings/${transactionId}/menus`,
+    /** The Kitchen Banquet Event Order PDF (contract §15.5). */
+    beo: (transactionId: number) => `/bookings/${transactionId}/beo`,
+    /** The booking's frozen add-on lines and its lock state (contract §16.3). */
+    addons: (transactionId: number) => `/bookings/${transactionId}/addons`,
+  },
+  addons: {
+    /** The add-on master — every active add-on (contract §16.1). */
+    root: '/addons',
+    /** The add-on category master (contract §16.2). */
+    categories: '/addons/categories',
+    /** The administration list — active and inactive, excluding soft-deleted (2026-10-24). */
+    manage: '/addons/manage',
+    /** One add-on for the administration form. */
+    manageDetail: (addonId: number) => `/addons/manage/${addonId}`,
+    /** Creates an add-on — `201 { addonId }`. */
+    create: '/addons',
+    /** Updates an add-on — `204`. */
+    update: (addonId: number) => `/addons/${addonId}`,
+    /** Soft-deletes an add-on — `204`. */
+    remove: (addonId: number) => `/addons/${addonId}`,
+  },
+  departments: {
+    /** The read-only department lookup (2026-10-24). */
+    root: '/departments',
   },
   packages: {
     /** The whole, unpaged buffet tier catalogue. */

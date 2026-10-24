@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { CurrencyInput } from '@/components/ui/CurrencyInput'
 import { cn } from '@/utils/cn'
 
 const CONTROL_CLASS =
@@ -62,6 +63,8 @@ export interface WorkbenchTextFieldProps {
   error?: string
   hint?: string
   type?: 'text' | 'date' | 'time' | 'number' | 'search'
+  /** Render a money field with the shared two-decimal, thousands-separated format. */
+  currency?: boolean
   placeholder?: string
   className?: string
 }
@@ -75,22 +78,36 @@ export function WorkbenchTextField({
   error,
   hint,
   type = 'text',
+  currency = false,
   placeholder,
   className,
 }: WorkbenchTextFieldProps) {
   return (
     <WorkbenchFieldShell id={id} label={label} error={error} hint={hint} className={className}>
-      <input
-        id={id}
-        name={id}
-        type={type}
-        value={value}
-        placeholder={placeholder}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
-        onChange={(event) => onChange(event.target.value)}
-        className={cn(CONTROL_CLASS, error ? INVALID_CONTROL_CLASS : undefined)}
-      />
+      {currency ? (
+        <CurrencyInput
+          id={id}
+          name={id}
+          value={value}
+          placeholder={placeholder}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
+          onValueChange={onChange}
+          className={cn(CONTROL_CLASS, error ? INVALID_CONTROL_CLASS : undefined)}
+        />
+      ) : (
+        <input
+          id={id}
+          name={id}
+          type={type}
+          value={value}
+          placeholder={placeholder}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
+          onChange={(event) => onChange(event.target.value)}
+          className={cn(CONTROL_CLASS, error ? INVALID_CONTROL_CLASS : undefined)}
+        />
+      )}
     </WorkbenchFieldShell>
   )
 }

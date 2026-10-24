@@ -190,7 +190,8 @@ public sealed class DashboardSeedFixture : IAsyncLifetime
             heads,
             pricePerHead,
             BookingStatus.Pending,
-            heads * pricePerHead,
+            // The create path freezes the automatic headcount band into the net (BR-38).
+            TestApi.NetAmountDueFor(heads, pricePerHead),
             0m);
     }
 

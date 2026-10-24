@@ -128,14 +128,20 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                     b.ToTable("UserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("SalsCaterSuite.Domain.Entities.AddonDetail", b =>
+            modelBuilder.Entity("SalsCaterSuite.Domain.Entities.AddonCategory", b =>
                 {
-                    b.Property<int>("AddonId")
+                    b.Property<int>("AddonCategoryId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
-                        .HasColumnName("addonId");
+                        .HasColumnName("addonCategoryId");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AddonId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AddonCategoryId"));
+
+                    b.Property<string>("AddonCategoryName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)")
+                        .HasColumnName("addonCategoryName");
 
                     b.Property<string>("CreatedByUser")
                         .HasMaxLength(100)
@@ -145,6 +151,47 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("CreatedDate")
                         .HasColumnType("datetime2")
                         .HasColumnName("createdDate");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_deleted");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("updatedDate");
+
+                    b.HasKey("AddonCategoryId");
+
+                    b.ToTable("AddonCategory", (string)null);
+                });
+
+            modelBuilder.Entity("SalsCaterSuite.Domain.Entities.AddonDetail", b =>
+                {
+                    b.Property<int>("AddonId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("addonId");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AddonId"));
+
+                    b.Property<int?>("AddonCategoryId")
+                        .HasColumnType("int")
+                        .HasColumnName("addonCategoryId");
+
+                    b.Property<string>("CreatedByUser")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("createdByUser");
+
+                    b.Property<DateTime?>("CreatedDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("createdDate");
+
+                    b.Property<int?>("DeptId")
+                        .HasColumnType("int")
+                        .HasColumnName("deptId");
 
                     b.Property<string>("Description")
                         .IsRequired()
@@ -162,6 +209,10 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                         .HasDefaultValue(false)
                         .HasColumnName("is_deleted");
 
+                    b.Property<int?>("PricingBasis")
+                        .HasColumnType("int")
+                        .HasColumnName("pricingBasis");
+
                     b.Property<string>("Unit")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)")
@@ -177,6 +228,10 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                         .HasColumnName("updatedDate");
 
                     b.HasKey("AddonId");
+
+                    b.HasIndex("AddonCategoryId");
+
+                    b.HasIndex("DeptId");
 
                     b.ToTable("AddonDetail", (string)null);
                 });
@@ -247,6 +302,13 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                         .HasColumnName("trn_Id");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TransactionId"));
+
+                    b.Property<decimal>("AddonsTotal")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("addonsTotal");
 
                     b.Property<decimal>("AmountDue")
                         .HasPrecision(18, 2)
@@ -447,6 +509,141 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                     b.ToTable("Booking", (string)null);
                 });
 
+            modelBuilder.Entity("SalsCaterSuite.Domain.Entities.BookingAddOn", b =>
+                {
+                    b.Property<int>("BookingAddOnId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("bookingAddOnId");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("BookingAddOnId"));
+
+                    b.Property<int>("AddonId")
+                        .HasColumnType("int")
+                        .HasColumnName("addonId");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<string>("CreatedByUser")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("createdByUser");
+
+                    b.Property<DateTime?>("CreatedDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("createdDate");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_deleted");
+
+                    b.Property<int>("PricingBasis")
+                        .HasColumnType("int")
+                        .HasColumnName("pricingBasis");
+
+                    b.Property<int>("TransactionId")
+                        .HasColumnType("int")
+                        .HasColumnName("trn_Id");
+
+                    b.Property<string>("Unit")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("unit");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("updatedDate");
+
+                    b.HasKey("BookingAddOnId");
+
+                    b.HasIndex("AddonId");
+
+                    b.HasIndex("TransactionId")
+                        .HasDatabaseName("IX_BookingAddOn_Booking");
+
+                    b.HasIndex("TransactionId", "AddonId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_BookingAddOn_Booking_Addon")
+                        .HasFilter("[is_deleted] = 0");
+
+                    b.ToTable("BookingAddOn", (string)null);
+                });
+
+            modelBuilder.Entity("SalsCaterSuite.Domain.Entities.BookingMenu", b =>
+                {
+                    b.Property<int>("BookingMenuId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("bookingMenuId");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("BookingMenuId"));
+
+                    b.Property<int>("CourseId")
+                        .HasColumnType("int")
+                        .HasColumnName("courseId");
+
+                    b.Property<string>("CreatedByUser")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("createdByUser");
+
+                    b.Property<DateTime?>("CreatedDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("createdDate");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("MenuId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("menuId");
+
+                    b.Property<string>("PrepInstruction")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("prepInstruction");
+
+                    b.Property<int>("TransactionId")
+                        .HasColumnType("int")
+                        .HasColumnName("trn_Id");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("updatedDate");
+
+                    b.HasKey("BookingMenuId");
+
+                    b.HasIndex("CourseId");
+
+                    b.HasIndex("MenuId");
+
+                    b.HasIndex("TransactionId")
+                        .HasDatabaseName("IX_BookingMenu_Booking");
+
+                    b.HasIndex("TransactionId", "MenuId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_BookingMenu_Booking_Menu")
+                        .HasFilter("[is_deleted] = 0");
+
+                    b.ToTable("BookingMenu", (string)null);
+                });
+
             modelBuilder.Entity("SalsCaterSuite.Domain.Entities.CourseCategory", b =>
                 {
                     b.Property<int>("CourseId")
@@ -559,6 +756,45 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                     b.HasKey("CustomerId");
 
                     b.ToTable("Customer", (string)null);
+                });
+
+            modelBuilder.Entity("SalsCaterSuite.Domain.Entities.Department", b =>
+                {
+                    b.Property<int>("DeptId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("deptId");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DeptId"));
+
+                    b.Property<string>("CreatedByUser")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("createdByUser");
+
+                    b.Property<DateTime?>("CreatedDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("createdDate");
+
+                    b.Property<string>("DeptName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)")
+                        .HasColumnName("deptName");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_deleted");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("updatedDate");
+
+                    b.HasKey("DeptId");
+
+                    b.ToTable("Department", (string)null);
                 });
 
             modelBuilder.Entity("SalsCaterSuite.Domain.Entities.Discount", b =>
@@ -694,6 +930,8 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CourseId");
 
+                    b.HasIndex("DeptId");
+
                     b.ToTable("Menu", (string)null);
                 });
 
@@ -726,6 +964,11 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(250)")
                         .HasColumnName("p_descripton");
 
+                    b.Property<decimal?>("ExtendedLocationAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("p_extendedLocationAmount");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit")
                         .HasColumnName("isActive");
@@ -740,6 +983,12 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                         .HasColumnType("int")
                         .HasColumnName("p_min");
 
+                    b.Property<string>("PackageCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasColumnName("p_code");
+
                     b.Property<string>("PackageType")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -751,6 +1000,11 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                         .HasColumnName("date_Updated");
 
                     b.HasKey("PackageId");
+
+                    b.HasIndex("PackageCode")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Package_p_code")
+                        .HasFilter("[is_deleted] = 0");
 
                     b.ToTable("Package", (string)null);
                 });
@@ -1241,6 +1495,23 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SalsCaterSuite.Domain.Entities.AddonDetail", b =>
+                {
+                    b.HasOne("SalsCaterSuite.Domain.Entities.AddonCategory", "AddonCategory")
+                        .WithMany()
+                        .HasForeignKey("AddonCategoryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SalsCaterSuite.Domain.Entities.Department", "Department")
+                        .WithMany("AddonDetails")
+                        .HasForeignKey("DeptId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AddonCategory");
+
+                    b.Navigation("Department");
+                });
+
             modelBuilder.Entity("SalsCaterSuite.Domain.Entities.Booking", b =>
                 {
                     b.HasOne("SalsCaterSuite.Domain.Entities.Customer", "Customer")
@@ -1265,6 +1536,52 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                     b.Navigation("Package");
                 });
 
+            modelBuilder.Entity("SalsCaterSuite.Domain.Entities.BookingAddOn", b =>
+                {
+                    b.HasOne("SalsCaterSuite.Domain.Entities.AddonDetail", "AddonDetail")
+                        .WithMany()
+                        .HasForeignKey("AddonId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SalsCaterSuite.Domain.Entities.Booking", "Booking")
+                        .WithMany("AddOns")
+                        .HasForeignKey("TransactionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AddonDetail");
+
+                    b.Navigation("Booking");
+                });
+
+            modelBuilder.Entity("SalsCaterSuite.Domain.Entities.BookingMenu", b =>
+                {
+                    b.HasOne("SalsCaterSuite.Domain.Entities.CourseCategory", "CourseCategory")
+                        .WithMany()
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SalsCaterSuite.Domain.Entities.Menu", "Menu")
+                        .WithMany()
+                        .HasForeignKey("MenuId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SalsCaterSuite.Domain.Entities.Booking", "Booking")
+                        .WithMany("Menus")
+                        .HasForeignKey("TransactionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Booking");
+
+                    b.Navigation("CourseCategory");
+
+                    b.Navigation("Menu");
+                });
+
             modelBuilder.Entity("SalsCaterSuite.Domain.Entities.Menu", b =>
                 {
                     b.HasOne("SalsCaterSuite.Domain.Entities.CourseCategory", "CourseCategory")
@@ -1272,7 +1589,14 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                         .HasForeignKey("CourseId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("SalsCaterSuite.Domain.Entities.Department", "Department")
+                        .WithMany("Menus")
+                        .HasForeignKey("DeptId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("CourseCategory");
+
+                    b.Navigation("Department");
                 });
 
             modelBuilder.Entity("SalsCaterSuite.Domain.Entities.PackageAreaCoverage", b =>
@@ -1345,6 +1669,10 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("SalsCaterSuite.Domain.Entities.Booking", b =>
                 {
+                    b.Navigation("AddOns");
+
+                    b.Navigation("Menus");
+
                     b.Navigation("Payments");
 
                     b.Navigation("Refunds");
@@ -1360,6 +1688,13 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                     b.Navigation("Bookings");
 
                     b.Navigation("Reservations");
+                });
+
+            modelBuilder.Entity("SalsCaterSuite.Domain.Entities.Department", b =>
+                {
+                    b.Navigation("AddonDetails");
+
+                    b.Navigation("Menus");
                 });
 
             modelBuilder.Entity("SalsCaterSuite.Domain.Entities.Package", b =>

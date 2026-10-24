@@ -72,5 +72,36 @@ public class BookingQuoteValidator : AbstractValidator<BookingQuoteRequestDto>
         RuleFor(x => x.PackoutTime)
             .Must((request, packoutTime) => !packoutTime.HasValue || packoutTime.Value >= request.EndTime)
             .WithMessage("The pack-out time must not be earlier than the programme's end time.");
+
+        // ── REQ-BKG-06/07 (contract §14.3) ──────────────────────────────────────
+        // The quote tolerates an EMPTY array as "no selection / no add-ons": it persists
+        // nothing, so there is nothing to clear. The item rules are the create path's.
+        RuleForEach(x => x.Selections)
+            .ChildRules(selection =>
+            {
+                selection.RuleFor(entry => entry.MenuId)
+                    .NotEmpty()
+                    .WithMessage("Every selected dish must name a menu.");
+
+                selection.RuleFor(entry => entry.PrepInstruction)
+                    .MaximumLength(500)
+                    .When(entry => entry.PrepInstruction is not null)
+                    .WithMessage("A prep instruction must not exceed 500 characters.");
+            })
+            .When(x => x.Selections is not null);
+
+        RuleForEach(x => x.Addons)
+            .ChildRules(addon =>
+            {
+                addon.RuleFor(entry => entry.AddonId)
+                    .GreaterThan(0)
+                    .WithMessage("Every add-on line must name a catalogue add-on.");
+
+                addon.RuleFor(entry => entry.Amount)
+                    .GreaterThanOrEqualTo(0)
+                    .When(entry => entry.Amount.HasValue)
+                    .WithMessage("An add-on line total must be zero or greater.");
+            })
+            .When(x => x.Addons is not null);
     }
 }

@@ -108,6 +108,21 @@ public class CreateBookingCommand
             }
         }
 
+        // ── 4b. BR-40: the surcharge is limited to the Regular and Premier types ────
+        // The test is on the tier's own type column, never on its description (DEC-156).
+        // The tier's own per-guest amount is part of the same surcharge (the owner's
+        // 2026-10-24 request), so either source makes the tier subject to the eligibility rule.
+        var carriesExtendedAmount = request.ExtendedAreaId.HasValue
+            || (package?.ExtendedLocationAmount ?? 0m) > 0m;
+
+        if (request.ApplyExtendedAmount
+            && carriesExtendedAmount
+            && !PackageSurchargeEligibility.IsEligible(package?.PackageType))
+        {
+            return Result<int>.Failure(
+                PackageSurchargeEligibility.RejectionMessage(package?.PackageType));
+        }
+
         // ── 5. Resolve the discount (BR-02) ──────────────────────────────────
         Discount? discount = null;
         string? discountCode = null;
@@ -134,6 +149,38 @@ public class CreateBookingCommand
             discount = matches[0];
         }
 
+        // ── 5b. Resolve the dish selection and the add-on lines (BR-15, BR-39) ──
+        // The SAME resolver the quote uses, so the quoted figure and the frozen figure can
+        // never diverge (BR-31, DEC-153). An absent member means "none".
+        var lineItems = new ResolvedBookingLineItems(
+            Array.Empty<ResolvedSelectionRow>(),
+            Array.Empty<ResolvedAddonLine>(),
+            0m);
+
+        var carriesLineItems = request.Selections is { Count: > 0 } || request.Addons is { Count: > 0 };
+
+        if (carriesLineItems)
+        {
+            if (_capabilities?.LineItems is null)
+            {
+                return Result<int>.Failure("Dish selection and add-ons are not available.");
+            }
+
+            var resolved = await _capabilities.LineItems.ResolveAsync(
+                request.PackageId,
+                request.NoOfPerson,
+                request.Selections,
+                request.Addons,
+                cancellationToken);
+
+            if (!resolved.Succeeded)
+            {
+                return Result<int>.Failure(resolved.Errors);
+            }
+
+            lineItems = resolved.Data!;
+        }
+
         // ── 6. Price the booking through the one pricing computation ─────────
         var pricing = (_capabilities?.Pricing ?? new BookingPricingService(
                 _capabilities?.Policy ?? DefaultBookingPolicyProvider.Instance))
@@ -142,9 +189,11 @@ public class CreateBookingCommand
                 PricePerHead = pricePerHead,
                 NumberOfHeads = request.NoOfPerson,
                 ExtendedAreaRate = area?.AdditionalRate,
+                PackageExtendedLocationRate = package?.ExtendedLocationAmount,
                 ApplyExtendedAmount = request.ApplyExtendedAmount,
                 Discount = discount,
                 DiscountCode = discountCode,
+                AddonsTotal = lineItems.AddonsTotal,
                 StatedDepositAmount = request.DepositAmount
             });
 
@@ -197,9 +246,35 @@ public class CreateBookingCommand
         booking.DiscountPercentage = pricing.DiscountPercentage;
         booking.RecalculateFinancials(
             extendedAreaAmount: pricing.ExtendedAreaAmount,
-            addonsAmount: 0m,
+            addonsAmount: pricing.AddonsTotal,
             discountAmount: pricing.DiscountAmount,
             taxAmount: 0m);
+
+        // ── 8b. Stage the frozen line items in the SAME change set (DEC-134, DEC-151) ──
+        // A booking and its dishes (or its add-on lines) are never half-written.
+        foreach (var row in lineItems.Selections)
+        {
+            booking.Menus.Add(new BookingMenu
+            {
+                CourseId = row.CourseId,
+                MenuId = row.MenuId,
+                PrepInstruction = row.PrepInstruction,
+                Booking = booking
+            });
+        }
+
+        foreach (var line in lineItems.Addons)
+        {
+            booking.AddOns.Add(new BookingAddOn
+            {
+                AddonId = line.AddonId,
+                Description = line.Description,
+                Amount = line.Amount,
+                Unit = line.Unit,
+                PricingBasis = line.PricingBasis,
+                Booking = booking
+            });
+        }
 
         // The deposit is advisory — it never changes the balance (BR-30).
         booking.SetDepositAmount(pricing.DepositAmount);

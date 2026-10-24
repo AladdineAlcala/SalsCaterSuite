@@ -1,6 +1,7 @@
 import { CircleCheck, TriangleAlert } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
+import { CurrencyInput } from '@/components/ui/CurrencyInput'
 import { CapabilityGapNotice } from '@/components/feedback/CapabilityGapNotice'
 import { EM_DASH, formatCurrency, formatPercentage, formatPercentagePoints } from '@/utils/currencyFormatter'
 import type { MenuCostingPreview } from '@/types/menu.types'
@@ -69,15 +70,11 @@ export function MenuPricingSimulator({
             </span>
           </div>
           <div className="relative flex items-center">
-            <input
+            <CurrencyInput
               id="menu-price"
               name="price"
-              type="number"
-              inputMode="decimal"
-              step="any"
-              min="0"
               value={price}
-              onChange={(event) => onPriceChange(event.target.value)}
+              onValueChange={onPriceChange}
               required
               aria-required="true"
               className={INPUT_CLASSES}
@@ -98,15 +95,11 @@ export function MenuPricingSimulator({
             </span>
           </div>
           <div className="relative flex items-center">
-            <input
+            <CurrencyInput
               id="menu-food-cost"
               name="foodCost"
-              type="number"
-              inputMode="decimal"
-              step="any"
-              min="0"
               value={foodCost}
-              onChange={(event) => onFoodCostChange(event.target.value)}
+              onValueChange={onFoodCostChange}
               required
               aria-required="true"
               className={INPUT_CLASSES}

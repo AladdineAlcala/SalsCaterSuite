@@ -9,8 +9,8 @@ namespace SalsCaterSuite.Infrastructure.Documents;
 /// One row of the contract's service-details table.
 /// <para>
 /// The table carries the <b>additive</b> line items only — the package and, when the booking
-/// carries one, the out-of-town surcharge. A zero surcharge is <b>not</b> a line item: an
-/// absent line is not a "0.00" row (BR-20's null/zero discipline).
+/// carries them, the out-of-town surcharge and the frozen add-on total. A zero charge is
+/// <b>not</b> a line item: an absent line is not a "0.00" row (BR-20's null/zero discipline).
 /// </para>
 /// </summary>
 /// <param name="Description">What the row is.</param>
@@ -126,6 +126,17 @@ public class ContractDocument : IDocument
                 Pax: Booking.NumberOfHeads,
                 RatePerPax: Booking.ExtendedAreaRatePerGuest,
                 Total: Booking.ExtendedAreaAmount));
+        }
+
+        // The frozen add-on total (BR-44, DEC-135, DEC-151). It is an ADDITIONAL row and only
+        // exists when the booking carries one — a zero total is not a "0.00" row (BR-20).
+        if (Booking.AddonsTotal > 0m)
+        {
+            lines.Add(new ContractServiceLine(
+                Description: "Add-ons",
+                Pax: null,
+                RatePerPax: null,
+                Total: Booking.AddonsTotal));
         }
 
         return lines;
