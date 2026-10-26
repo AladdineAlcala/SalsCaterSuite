@@ -14,6 +14,7 @@ import type {
   BookingDiscountSource,
   BookingPaymentMeansName,
   BookingPaymentState,
+  BookingQuote,
   BookingSelectionState,
   BookingServiceTypeName,
   BookingSortOption,
@@ -209,6 +210,128 @@ export const EXTENDED_AREA_PACKAGE_TYPES: readonly string[] = ['Regular', 'Premi
 export function supportsExtendedArea(packageType: string | null | undefined): boolean {
   const normalised = (packageType ?? '').trim().toLowerCase()
   return EXTENDED_AREA_PACKAGE_TYPES.some((type) => type.toLowerCase() === normalised)
+}
+
+/* ------------------------------------------------------------------------- *
+ * AC-BKG-92..97 — the Package type → Area filter → Buffet tier gate.
+ * ------------------------------------------------------------------------- */
+
+/**
+ * The client gate messages of the tier cascade (AC-BKG-97).
+ *
+ * They are a **form affordance only** and are never sent to the API: the
+ * create payload carries `packageId`, not the gate's fields.
+ */
+export const TIER_GATE_MESSAGES = {
+  /** No package type is selected. */
+  typeRequired: 'Select a package type before choosing a buffet tier.',
+  /** An eligible type is selected but no event area is. */
+  areaRequired: 'Select the event area before choosing a buffet tier.',
+  /** A tier is selected while the type/area gate is unsatisfied. */
+  tierMismatch: 'The selected buffet tier does not match the package type and area.',
+} as const
+
+/**
+ * Exact-after-trim package-type equality for the tier list filter (AC-BKG-96).
+ *
+ * Both sides are trimmed, then compared **case-sensitively** — this is the
+ * list filter's own rule, deliberately not the eligibility test, which is
+ * trimmed and case-**insensitive** (DEC-156).
+ */
+export function isSameTierType(tierType: string, selectedType: string): boolean {
+  return tierType.trim() === selectedType.trim()
+}
+
+/* ------------------------------------------------------------------------- *
+ * AC-BKG-89..91, 98 — the Rate-per-head readout of the selected tier.
+ * ------------------------------------------------------------------------- */
+
+/** The wording of the quiet refresh note shown on quote/catalogue divergence. */
+export const RATE_DIVERGENCE_NOTE =
+  'The quoted rate differs from the catalogue rate — the catalogue has been refreshed.'
+
+/**
+ * The last quote result the client holds, together with the package ID of the
+ * **request that produced it**.
+ *
+ * The quote DTO carries no `packageId`, so the client correlates the result
+ * with its own request instead — no API field is added (AC-BKG-90, AC-BKG-98).
+ */
+export interface BookingQuoteHeldRate {
+  /** The `packageId` of the quote request the rate belongs to. */
+  packageId: number
+  /** The quote's per-head rate — `null` when the quote stated none. */
+  rate: number | null
+}
+
+export interface TierRateResolution {
+  /** The rate the cell renders — `null` renders as "not stated". */
+  statedRate: number | null
+  /** `true` when the rate comes from a current quote for the selected tier. */
+  isQuoteShown: boolean
+  /** `true` when the current quote's rate differs from the catalogue's. */
+  isDivergent: boolean
+}
+
+/**
+ * Resolves the Rate-per-head readout of the selected tier.
+ *
+ * A current quote whose request named the selected tier is **authoritative
+ * even when it states no rate**: a `null` quoted rate renders "not stated" —
+ * it never falls back to the catalogue figure. While the quote is being
+ * re-priced (no current data), the last resolved rate stands in, but only
+ * while the same tier stays selected, and a held `null` rate is a resolved
+ * unknown too — again "not stated", never the catalogue (AC-BKG-89,
+ * AC-BKG-90). Only when no quote for this tier exists at all does the
+ * catalogue `amountPax` back the readout. A catalogue `null` is never
+ * collapsed to the quote's zero (AC-BKG-91). The divergence verdict is the
+ * **strict** comparison of the current quote's rate against the catalogue
+ * rate, including when one side is `null` or zero — the quoted rate wins and
+ * the quiet note accompanies it (AC-BKG-98). The browser never derives a
+ * base amount from the result.
+ */
+export function resolveTierQuoteRate(options: {
+  selectedPackageId: number | null
+  /** The selected tier's catalogue `amountPax`. */
+  catalogueRate: number | null
+  /** The current quote — may belong to another tier or be absent. */
+  quote: BookingQuote | null
+  /** The last quote result held with its request's package ID. */
+  lastResolvedQuote: BookingQuoteHeldRate | null
+}): TierRateResolution {
+  const { selectedPackageId, catalogueRate, quote, lastResolvedQuote } = options
+
+  const identityMatches =
+    selectedPackageId !== null &&
+    lastResolvedQuote !== null &&
+    lastResolvedQuote.packageId === selectedPackageId
+
+  if (quote !== null && identityMatches) {
+    const quotedRate = quote.pricePerHead
+    // A catalogue null is never rendered as the quote's zero, even though the
+    // zero is the quote's own figure; an actual zero stays a zero
+    // (AC-BKG-91). The silent note still fires: the rates differ strictly.
+    const statedRate = quotedRate === 0 && catalogueRate === null ? null : quotedRate
+    return {
+      statedRate,
+      isQuoteShown: statedRate !== null,
+      isDivergent: quotedRate !== catalogueRate,
+    }
+  }
+
+  if (quote === null && identityMatches) {
+    // Re-pricing without a current quote: the held rate stands in — including
+    // a held null, which stays a resolved "not stated".
+    const heldRate = lastResolvedQuote.rate
+    return {
+      statedRate: heldRate === 0 && catalogueRate === null ? null : heldRate,
+      isQuoteShown: false,
+      isDivergent: false,
+    }
+  }
+
+  // No quote belongs to this tier yet — the catalogue backs the readout.
+  return { statedRate: catalogueRate, isQuoteShown: false, isDivergent: false }
 }
 
 /* ------------------------------------------------------------------------- *
@@ -509,6 +632,8 @@ export interface BookingWorkbenchErrors {
   occasion?: string
   venue?: string
   eventDate?: string
+  packageType?: string
+  areaFilterId?: string
   packageId?: string
   noOfPerson?: string
   startTime?: string
@@ -645,8 +770,25 @@ export function validateBookingWorkbenchDraft(
     errors.eventDate = 'Event start date and time is required.'
   }
 
+  /*
+   * The tier cascade gate (AC-BKG-92, AC-BKG-93, AC-BKG-97): a client
+   * affordance only — the create request carries `packageId`, never the
+   * gate's fields.
+   */
+  const isTypeChosen = draft.packageType.trim().length > 0
+  const isAreaRequired = isTypeChosen && supportsExtendedArea(draft.packageType)
+  const isAreaChosen = draft.areaFilterId.trim().length > 0
+
+  if (!isTypeChosen) {
+    errors.packageType = TIER_GATE_MESSAGES.typeRequired
+  } else if (isAreaRequired && !isAreaChosen) {
+    errors.areaFilterId = TIER_GATE_MESSAGES.areaRequired
+  }
+
   if (draft.packageId.trim().length === 0) {
     errors.packageId = 'When a package is specified it must be a valid package ID.'
+  } else if (!isTypeChosen || (isAreaRequired && !isAreaChosen)) {
+    errors.packageId = TIER_GATE_MESSAGES.tierMismatch
   }
 
   if (draft.noOfPerson.trim().length === 0) {

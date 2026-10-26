@@ -1,52 +1,65 @@
-import { ChefHat, Utensils } from 'lucide-react'
+import { useCallback } from 'react'
+import { ChefHat, Eraser, Utensils } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
 import { CapabilityGapNotice } from '@/components/feedback/CapabilityGapNotice'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/feedback/EmptyState'
 import { EM_DASH, formatCount, formatCurrency, formatPercentage } from '@/utils/currencyFormatter'
-import type { PackageCourseRuleset, PackageDto } from '@/types/package.types'
+import type { AreaDto, PackageCourseRuleset, PackageDto } from '@/types/package.types'
 import type { BookingQuote } from '@/types/booking.types'
 import type { BookingWorkbenchDraft, BookingWorkbenchErrors } from '../bookingVocabulary'
-import { NOT_STATED, PAX_UNIT, PLANNING_ESTIMATE_NOTE } from '../bookingVocabulary'
+import {
+  NOT_STATED,
+  PAX_UNIT,
+  PLANNING_ESTIMATE_NOTE,
+  RATE_DIVERGENCE_NOTE,
+  resolveTierQuoteRate,
+  supportsExtendedArea,
+} from '../bookingVocabulary'
+import type { BookingQuoteHeldRate } from '../bookingVocabulary'
 import { WorkbenchSelectField, WorkbenchTextField } from './WorkbenchFields'
 
 export interface WorkbenchTierEngineProps {
   draft: BookingWorkbenchDraft
   errors: BookingWorkbenchErrors
   onChange: (patch: Partial<BookingWorkbenchDraft>) => void
-  /** The buffet tier catalogue the picker reads. */
+  /** The tier list the picker reads — active tiers of the selected type. */
   tiers: PackageDto[]
+  /** `true` while a changed type/area key is still loading or placeholder data stands in. */
   isLoadingTiers: boolean
+  /** The municipality catalogue the area filter reads. */
+  municipalities: AreaDto[]
   /** The distinct stored tier types the type filter offers (M7). */
   packageTypes: string[]
-  /** Whether the type filter is currently narrowing the list. */
-  isTypeFiltered: boolean
   /** The selected tier's approved course ruleset. */
   ruleset: PackageCourseRuleset | null
   isLoadingRuleset: boolean
-  /** The server's quote — the source of the rate and the base value. */
+  /** The server's quote — the source of the quoted rate and the base value. */
   quote: BookingQuote | null
+  /** The last quote result, held with the package ID of the request that produced it. */
+  lastResolvedQuote: BookingQuoteHeldRate | null
   /** `true` while the quote is being re-priced. */
   isRecalculating: boolean
 }
 
 /**
- * Column 2 — the package tier & course engine (spec §5.3).
+ * Column 2 — the package tier & course engine (spec §5.2).
+ *
+ * The tier controls read top-to-bottom in the enforced cascade
+ * **Package type → Area filter → Buffet tier** (AC-BKG-92..95): the type is
+ * required; for the eligible `Regular`/`Premier` types the required Area
+ * filter sits directly above the picker (DEC-156, DEC-157); every type or
+ * area change clears the selected tier in the same state update, and a
+ * non-empty area prefills the event municipality without turning the
+ * surcharge on (DEC-171).
  *
  * The **approved course specification** is the tier's real course-coverage
  * ruleset and its qualified pools (contract §13.1) — the approved data.
  *
- * The **package-type filter** narrows the tier list by the stored type (M7).
- * The **area filter** that follows the type lives in the logistics block, and
- * the tier catalogue itself is filtered by the server through `areaId`
- * (DEC-157).
- *
  * The reference's **chef batching prep yield** has no source — the recipe,
  * ingredient and yield engine is blocked (REQ-MNU-03, DEC-059) — so it is a
  * capability gap.
- *
- * The tier's **code** is **not** rendered: `Package` carries no code column,
- * so the block shows the tier's identifier and its description (DEC-119).
  */
 export function WorkbenchTierEngine({
   draft,
@@ -54,14 +67,86 @@ export function WorkbenchTierEngine({
   onChange,
   tiers,
   isLoadingTiers,
+  municipalities,
   packageTypes,
-  isTypeFiltered,
   ruleset,
   isLoadingRuleset,
   quote,
+  lastResolvedQuote,
   isRecalculating,
 }: WorkbenchTierEngineProps) {
   const selectedTier = tiers.find((tier) => String(tier.packageId) === draft.packageId) ?? null
+
+  const isTypeChosen = draft.packageType.trim().length > 0
+  const isAreaOffered = isTypeChosen && supportsExtendedArea(draft.packageType)
+  const isAreaChosen = draft.areaFilterId.trim().length > 0
+  const gateSatisfied = isTypeChosen && !(isAreaOffered && !isAreaChosen)
+
+  const areaFilterName =
+    municipalities.find((area) => String(area.areaId) === draft.areaFilterId)?.areaDetails ?? null
+
+  /*
+   * The cascade updates are **atomic** (AC-BKG-94, DEC-171): one change event
+   * emits one draft patch, so the tier is cleared together with the control
+   * that moved — never through a refetch or a follow-up effect.
+   */
+  const handleTypeChange = useCallback(
+    (value: string) => {
+      onChange({
+        packageType: value,
+        packageId: '',
+        // A switch between the two eligible types keeps the chosen area;
+        // every non-eligible type hides and clears it.
+        ...(supportsExtendedArea(value) ? {} : { areaFilterId: '' }),
+      })
+    },
+    [onChange],
+  )
+
+  const handleAreaChange = useCallback(
+    (value: string) => {
+      onChange({
+        areaFilterId: value,
+        packageId: '',
+        // DEC-171 — a non-empty area prefills the event municipality in the
+        // same update; clearing the filter never reverse-syncs it back out,
+        // and the prefill never turns the surcharge switch on.
+        ...(value.length > 0 ? { extendedAreaId: value } : {}),
+      })
+    },
+    [onChange],
+  )
+
+  const clearArea = useCallback(() => {
+    onChange({ areaFilterId: '', packageId: '' })
+  }, [onChange])
+
+  const clearType = useCallback(() => {
+    onChange({ packageType: '', packageId: '', areaFilterId: '' })
+  }, [onChange])
+
+  /*
+   * The Rate per head readout (AC-BKG-89..91, AC-BKG-98): the quote for the
+   * selected tier wins, the last resolved rate stands in while the quote is
+   * re-priced for the same tier, and the catalogue `amountPax` backs the
+   * readout before any quote exists — "not stated" when neither is stated.
+   */
+  const rateResolution = resolveTierQuoteRate({
+    selectedPackageId: selectedTier === null ? null : selectedTier.packageId,
+    catalogueRate: selectedTier === null ? null : selectedTier.amountPax,
+    quote,
+    lastResolvedQuote,
+  })
+  const rateText =
+    rateResolution.statedRate === null ? NOT_STATED : formatCurrency(rateResolution.statedRate)
+
+  /*
+   * The no-stale exception is the **rate cell alone** (AC-BKG-90). Every
+   * other quote-derived display — the deactivation verdict, the headcount
+   * note and the planning estimate — shows nothing from a previous request
+   * while the quote is being re-priced.
+   */
+  const isQuoteCurrent = quote !== null && !isRecalculating
 
   return (
     <div className="flex flex-col gap-space-md min-w-0">
@@ -71,7 +156,7 @@ export function WorkbenchTierEngine({
             <Utensils className="h-4 w-4 text-culinary-700" aria-hidden="true" />
             Package tier &amp; headcount
           </h2>
-          {quote && !quote.isTierActive ? (
+          {isQuoteCurrent && !quote.isTierActive ? (
             <Badge tone="danger">The tier is deactivated</Badge>
           ) : null}
         </div>
@@ -80,16 +165,35 @@ export function WorkbenchTierEngine({
           id="booking-package-type"
           label="Package type"
           value={draft.packageType}
-          onChange={(value) => onChange({ packageType: value })}
+          onChange={handleTypeChange}
           options={packageTypes.map((type) => ({ value: type, label: type }))}
-          placeholder="All package types"
+          placeholder="Select a package type"
+          error={errors.packageType}
           hint={
-            isTypeFiltered
+            isTypeChosen
               ? 'Only the tiers of this type are offered. The out-of-town area filter follows the type.'
-              : 'Narrow the tier list by its stored package type.'
+              : undefined
           }
           disabled={packageTypes.length === 0}
+          required
         />
+
+        {isAreaOffered ? (
+          <WorkbenchSelectField
+            id="booking-area-filter"
+            label="Area filter"
+            value={draft.areaFilterId}
+            onChange={handleAreaChange}
+            options={municipalities.map((area) => ({
+              value: String(area.areaId),
+              label: area.areaDetails,
+            }))}
+            placeholder="Select an event area"
+            error={errors.areaFilterId}
+            hint="The tiers must cover the event area — the selector copies it to the event municipality"
+            required
+          />
+        ) : null}
 
         <WorkbenchSelectField
           id="booking-package"
@@ -100,16 +204,51 @@ export function WorkbenchTierEngine({
             value: String(tier.packageId),
             label: `${tier.description} · ${tier.packageType}`,
           }))}
-          placeholder={isLoadingTiers ? 'Loading the tier catalogue…' : 'Select a tier'}
+          placeholder={
+            isLoadingTiers
+              ? areaFilterName
+                ? `Loading the tiers for ${areaFilterName}…`
+                : 'Loading the tier catalogue…'
+              : isTypeChosen
+                ? 'Select a tier'
+                : 'Select a package type first'
+          }
           error={errors.packageId}
-          disabled={isLoadingTiers}
+          disabled={!gateSatisfied || isLoadingTiers}
+          hint={
+            isTypeChosen
+              ? isAreaOffered && !isAreaChosen
+                ? 'Choose the event area to load its tiers'
+                : 'The tiers of the selected type, narrowed to the event area when one is chosen'
+              : 'Choose the package type to load its tiers'
+          }
         />
 
-        {isTypeFiltered && tiers.length === 0 ? (
-          <p className="font-caption text-caption text-espresso-600">
-            No active tier of this type is offered. Clear the type or the area filter to see the
-            whole catalogue.
-          </p>
+        {gateSatisfied && !isLoadingTiers && tiers.length === 0 ? (
+          // The previous area's list never stands in here — the loading gate
+          // above holds the options until the new key settles (AC-BKG-95).
+          <div className="flex flex-col gap-2">
+            <p
+              role="note"
+              className="font-caption text-caption text-espresso-600 rounded-lg bg-surface-container-low p-space-sm border border-artisan-border"
+            >
+              {isAreaOffered
+                ? `No active tier of type ${draft.packageType} covers ${
+                    areaFilterName ?? 'the selected area'
+                  }. Clear the area or clear the type to see the whole catalogue.`
+                : `No active tier of type ${draft.packageType} is offered. Clear the type to see the whole catalogue.`}
+            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              {isAreaOffered ? (
+                <Button variant="secondary" size="sm" icon={Eraser} onClick={clearArea}>
+                  Clear the area
+                </Button>
+              ) : null}
+              <Button variant="secondary" size="sm" icon={Eraser} onClick={clearType}>
+                Clear the type
+              </Button>
+            </div>
+          </div>
         ) : null}
 
         {selectedTier ? (
@@ -143,11 +282,19 @@ export function WorkbenchTierEngine({
                     Rate per head
                   </span>
                   <span className="font-mono text-data-md font-extrabold text-espresso-900">
-                    {isRecalculating
-                      ? '—'
-                      : quote === null
-                        ? EM_DASH
-                        : formatCurrency(quote.pricePerHead)}
+                    {rateText}
+                  </span>
+                  {/*
+                   * The polite cue names the re-pricing without blanking the
+                   * rate (AC-BKG-90) — the cell itself never falls back to an
+                   * em dash while the quote is recalculated.
+                   */}
+                  <span
+                    aria-live="polite"
+                    data-testid="booking-rate-recalculating"
+                    className="font-caption text-caption text-espresso-400 min-h-[1em]"
+                  >
+                    {isRecalculating ? 'Re-pricing…' : ''}
                   </span>
                 </div>
                 <div className="flex flex-col">
@@ -164,9 +311,19 @@ export function WorkbenchTierEngine({
                 </div>
               </div>
 
-              {quote?.headcountFloorNote ? (
+              {isQuoteCurrent && quote.headcountFloorNote ? (
                 <p className="font-caption text-caption text-caramel-700 break-words">
                   {quote.headcountFloorNote}
+                </p>
+              ) : null}
+
+              {rateResolution.isDivergent ? (
+                <p
+                  data-testid="booking-rate-divergence"
+                  aria-live="polite"
+                  className="font-caption text-caption text-espresso-600 break-words"
+                >
+                  {RATE_DIVERGENCE_NOTE}
                 </p>
               ) : null}
             </div>
@@ -183,7 +340,7 @@ export function WorkbenchTierEngine({
           </>
         ) : null}
 
-        {quote ? (
+        {isQuoteCurrent ? (
           <div className="rounded-lg bg-surface-container-low p-space-sm flex flex-col gap-1">
             <span className="font-caption text-caption text-espresso-400 uppercase">
               Tier planning estimate

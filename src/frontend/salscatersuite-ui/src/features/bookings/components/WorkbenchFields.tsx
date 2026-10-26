@@ -46,7 +46,8 @@ export function WorkbenchFieldShell({
         <p id={`${id}-error`} role="alert" className="font-caption text-caption text-error">
           {error}
         </p>
-      ) : hint ? (
+      ) : null}
+      {hint ? (
         <p id={`${id}-hint`} className="font-caption text-caption text-espresso-400">
           {hint}
         </p>
@@ -173,6 +174,8 @@ export interface WorkbenchSelectFieldProps {
   hint?: string
   className?: string
   disabled?: boolean
+  /** Marks the gate controls the operator must satisfy before the next one opens. */
+  required?: boolean
 }
 
 /** A labelled select control of the workbench form. */
@@ -187,7 +190,11 @@ export function WorkbenchSelectField({
   hint,
   className,
   disabled,
+  required,
 }: WorkbenchSelectFieldProps) {
+  const describedBy =
+    [error ? `${id}-error` : null, hint ? `${id}-hint` : null].filter(Boolean).join(' ') ||
+    undefined
   return (
     <WorkbenchFieldShell id={id} label={label} error={error} hint={hint} className={className}>
       <select
@@ -195,8 +202,9 @@ export function WorkbenchSelectField({
         name={id}
         value={value}
         disabled={disabled}
+        required={required}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
+        aria-describedby={describedBy}
         onChange={(event) => onChange(event.target.value)}
         className={cn(CONTROL_CLASS, error ? INVALID_CONTROL_CLASS : undefined)}
       >

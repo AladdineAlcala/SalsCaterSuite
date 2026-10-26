@@ -10,6 +10,7 @@ import type {
   CreateBookingRequest,
   CreateBookingResponse,
 } from '@/types/booking.types'
+import type { BookingQuoteHeldRate } from '../bookingVocabulary'
 
 export const BOOKING_QUOTE_QUERY_KEY = 'booking-quote' as const
 export const BOOKING_TIER_CATALOGUE_QUERY_KEY = 'booking-tier-catalogue' as const
@@ -121,10 +122,45 @@ export function useBookingQuote(request: BookingQuoteRequest | null) {
     retry: shouldRetry,
   })
 
+  /**
+   * The last resolved quote, held with the package ID of the request that
+   * produced it (AC-BKG-90, AC-BKG-98).
+   *
+   * The quote DTO carries no `packageId`, so the client correlates the result
+   * with the request of the query key that returned it — the request and the
+   * data always belong to the same key, so no stale response can attach
+   * another tier's identity. The rate stands in for the quote only while the
+   * same package stays selected; a package change falls back to the new
+   * tier's catalogue rate at once.
+   */
+  const [lastResolvedQuote, setLastResolvedQuote] = useState<
+    (BookingQuoteHeldRate & { key: string }) | null
+  >(null)
+
+  useEffect(() => {
+    const resolvedRequest = debounced.request
+    const data = query.data
+    if (resolvedRequest === null || data === undefined) return
+    setLastResolvedQuote((current) => {
+      if (
+        current !== null &&
+        current.key === debounced.key &&
+        current.rate === (data.pricePerHead ?? null)
+      ) {
+        return current
+      }
+      return {
+        packageId: resolvedRequest.packageId,
+        rate: (data.pricePerHead ?? null),
+        key: debounced.key,
+      }
+    })
+  }, [debounced.key, debounced.request, query.data])
+
   /** `true` while the typed inputs have not reached the server yet. */
   const isDebouncing = debounced.key !== key
 
-  return { ...query, isRecalculating: isDebouncing || query.isFetching }
+  return { ...query, isRecalculating: isDebouncing || query.isFetching, lastResolvedQuote }
 }
 
 /**
@@ -164,16 +200,24 @@ export function useCreateBooking() {
  *
  * `areaId` is the server-side area filter (DEC-157, AC-BKG-86): the API returns
  * the active tiers whose coverage includes the municipality, so the browser
- * never fans out one request per tier. The package-type filter is applied to
- * the returned list, because the type is free text and the list is unpaged
- * (DEC-070).
+ * never fans out one request per tier. `activeOnly` is the existing server
+ * switch that returns the only selectable tiers (AC-BKG-93). The
+ * package-type filter is applied to the returned list, because the type is
+ * free text and the list is unpaged (DEC-070).
+ *
+ * The previous list is retained as placeholder data while a changed key is in
+ * flight — the caller must gate selection until the new key settles
+ * (AC-BKG-95), via the query's own `isPlaceholderData` / `isPending` state.
  */
-export function useBookingTierCatalogue(areaId: number | null = null) {
+export function useBookingTierCatalogue(areaId: number | null = null, activeOnly = false) {
   return useQuery({
-    queryKey: [BOOKING_TIER_CATALOGUE_QUERY_KEY, areaId],
+    queryKey: [BOOKING_TIER_CATALOGUE_QUERY_KEY, areaId, activeOnly],
     queryFn: async (): Promise<PackageDto[]> => {
       const response = await apiClient.get<PackageDto[]>(API_ENDPOINTS.packages.root, {
-        params: { areaId: areaId ?? undefined },
+        params: {
+          areaId: areaId ?? undefined,
+          activeOnly: activeOnly || undefined,
+        },
       })
       return response.data
     },

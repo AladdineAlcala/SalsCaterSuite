@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { RefreshCw } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { ApiError } from '@/api/apiClient'
 import { AlertBanner } from '@/components/feedback/AlertBanner'
 import { Button } from '@/components/ui/Button'
@@ -25,12 +26,15 @@ import {
   useBookingQuote,
   useBookingTierCatalogue,
   useCreateBooking,
+  BOOKING_TIER_CATALOGUE_QUERY_KEY,
 } from './hooks/useBookingWorkbench'
 import { useAddonMaster } from './hooks/useBookingMenu'
 import {
   emptyBookingWorkbenchDraft,
   isMenuSelectionComplete,
+  isSameTierType,
   parseOptionalNumber,
+  resolveTierQuoteRate,
   supportsExtendedArea,
   toWireTime,
   validateAddonLineAmount,
@@ -81,16 +85,17 @@ export function BookingWorkbenchPage() {
   const [serverErrors, setServerErrors] = useState<string[]>([])
 
   /*
-   * The whole catalogue feeds the **package-type** filter, and the
-   * area-filtered catalogue feeds the **tier** picker. The server answers the
-   * area filter through `areaId` (DEC-157, AC-BKG-86).
+   * The whole catalogue feeds the **package-type** filter, and the tier picker
+   * reads the **active** tiers of the selected type, server-filtered by the
+   * area when one is chosen (DEC-157, AC-BKG-86, AC-BKG-93).
    */
   const catalogueQuery = useBookingTierCatalogue()
   const areaFilterId = parseIdentifier(draft.areaFilterId)
-  const tiersQuery = useBookingTierCatalogue(areaFilterId)
+  const tiersQuery = useBookingTierCatalogue(areaFilterId, true)
   const municipalitiesQuery = useBookingMunicipalityCatalogue()
   const clientsQuery = useBookingClientCatalogue(clientSearch)
   const createBooking = useCreateBooking()
+  const queryClient = useQueryClient()
 
   const handleDraftChange = useCallback((patch: Partial<BookingWorkbenchDraft>) => {
     setDraft((current) => ({ ...current, ...patch }))
@@ -105,13 +110,14 @@ export function BookingWorkbenchPage() {
   }, [catalogueQuery.data])
 
   /*
-   * The type filter is applied to the server's list: the type is free text and
-   * the list is unpaged, so no request carries it.
+   * The type filter is applied to the server's list: both sides are trimmed
+   * but the comparison stays case-sensitive (AC-BKG-96, DEC-156's
+   * eligibility test is deliberately not reused).
    */
   const filteredTiers = useMemo(() => {
     const tiers = tiersQuery.data ?? []
-    if (draft.packageType.length === 0) return tiers
-    return tiers.filter((tier) => tier.packageType === draft.packageType)
+    if (draft.packageType.trim().length === 0) return tiers
+    return tiers.filter((tier) => isSameTierType(tier.packageType, draft.packageType))
   }, [tiersQuery.data, draft.packageType])
 
   const selectedTier = useMemo(
@@ -124,7 +130,9 @@ export function BookingWorkbenchPage() {
 
   /*
    * A tier the current filters no longer offer cannot stay selected: the
-   * operator would be composing against a tier the list has hidden.
+   * operator would be composing against a tier the list has hidden. This
+   * effect is a **backstop** only (a deactivation or a catalogue change) —
+   * the cascade itself clears the tier in the change event (AC-BKG-94).
    */
   useEffect(() => {
     if (!tiersQuery.data || draft.packageId.length === 0) return
@@ -150,6 +158,14 @@ export function BookingWorkbenchPage() {
       applyExtendedAmount: false,
     }))
   }, [selectedTier, draft.extendedAreaId, draft.applyExtendedAmount])
+
+  /**
+   * Whether the tier picker must hold: no data yet, placeholder data for a
+   * changed key, or a fetch in flight — a cached-but-refetching new area key
+   * must not stay selectable either (AC-BKG-95).
+   */
+  const isTierListLoading =
+    tiersQuery.isPending || tiersQuery.isPlaceholderData || tiersQuery.isFetching
 
   const packageId = parseIdentifier(draft.packageId)
   const pax = parseIdentifier(draft.noOfPerson)
@@ -262,6 +278,28 @@ export function BookingWorkbenchPage() {
     if (!quoteQuery.error) return []
     return readErrorMessages(quoteQuery.error)
   }, [quoteQuery.error])
+
+  /*
+   * The tier catalogue is invalidated **once** per observed divergence
+   * (AC-BKG-98): the quote is keyless of the tier, so its identity comes from
+   * the request that produced it. The ref remembers the divergence already
+   * acted on, so rerenders never re-send the invalidation.
+   */
+  const invalidatedRateDivergenceRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (selectedTier === null) return
+    const resolution = resolveTierQuoteRate({
+      selectedPackageId: selectedTier.packageId,
+      catalogueRate: selectedTier.amountPax,
+      quote: quoteQuery.data ?? null,
+      lastResolvedQuote: quoteQuery.lastResolvedQuote,
+    })
+    if (!resolution.isDivergent) return
+    const divergenceKey = `${selectedTier.packageId}|${resolution.statedRate}|${selectedTier.amountPax}`
+    if (invalidatedRateDivergenceRef.current === divergenceKey) return
+    invalidatedRateDivergenceRef.current = divergenceKey
+    void queryClient.invalidateQueries({ queryKey: [BOOKING_TIER_CATALOGUE_QUERY_KEY] })
+  }, [selectedTier, quoteQuery.data, quoteQuery.lastResolvedQuote, queryClient])
 
   const errors = useMemo(() => validateBookingWorkbenchDraft(draft), [draft])
 
@@ -557,6 +595,7 @@ export function BookingWorkbenchPage() {
             onChange={handleDraftChange}
             municipalities={municipalitiesQuery.data ?? []}
             quote={quoteQuery.data ?? null}
+            isRecalculating={quoteQuery.isRecalculating}
             selectedTierType={selectedTier?.packageType ?? null}
           />
         </div>
@@ -568,12 +607,13 @@ export function BookingWorkbenchPage() {
             errors={errors}
             onChange={handleDraftChange}
             tiers={filteredTiers}
-            isLoadingTiers={tiersQuery.isPending}
+            isLoadingTiers={isTierListLoading}
+            municipalities={municipalitiesQuery.data ?? []}
             packageTypes={packageTypes}
-            isTypeFiltered={draft.packageType.length > 0}
             ruleset={ruleset}
             isLoadingRuleset={rulesetQuery.isPending}
             quote={quoteQuery.data ?? null}
+            lastResolvedQuote={quoteQuery.lastResolvedQuote}
             isRecalculating={quoteQuery.isRecalculating}
           />
 

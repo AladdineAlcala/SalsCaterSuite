@@ -1687,3 +1687,91 @@ Feature: Booking Menu Selection add-on picker (REQ-BKG-07, DEC-170, AC-BKG-88)
     And the browser has not calculated an authoritative total
 ```
 ---
+
+### Scenario 110: The Reservation Workbench Publishes A Tier Rate Before A Quote
+```gherkin
+Feature: Reservation Workbench rate per head (REQ-BKG-01, AC-BKG-89..91, AC-BKG-98)
+  Scenario: Show the catalogue rate while the booking is incomplete and repricing
+    Given the active tier catalogue publishes a selected tier's amountPax
+    And the booking is not yet complete enough to request a quote
+    When I select that tier
+    Then the Rate per head cell immediately displays its catalogue amount
+    And the Base value remains in its awaiting-quote state
+    When the server quote resolves a rate for that tier
+    And I change the headcount while the next quote is recalculating
+    Then the last resolved rate for that same tier remains populated with a polite recalculating cue
+    And the Base value and ledger do not display a stale amount
+    When I select a different tier while its quote is not yet available
+    Then the Rate per head cell immediately displays the new tier's catalogue amount
+    And it never carries the previous tier's rate
+
+  Scenario: Preserve the null-versus-zero distinction
+    Given a selected tier whose catalogue amountPax is null
+    When the quote is absent or reports zero for that tier
+    Then Rate per head reads "not stated"
+    And it never reads ₱0.00
+    Given a selected tier whose catalogue amountPax is zero
+    Then Rate per head reads ₱0.00
+
+  Scenario: A current quote corrects a stale catalogue rate once
+    Given a current quote for the selected tier differs from the catalogue amountPax
+    When the quote is displayed
+    Then the quoted rate is the only rate shown
+    And a quiet catalogue-refresh note is shown
+    And the tier-catalogue query is invalidated once
+```
+---
+
+### Scenario 111: The Reservation Workbench Enforces Type, Area And Tier In Order
+```gherkin
+Feature: Reservation Workbench tier cascade (REQ-BKG-01, AC-BKG-92..97)
+  Scenario: The tier cannot be selected before its required gates
+    Given the package type is blank
+    Then the required type selector says "Select a package type"
+    And the empty Buffet tier picker is disabled with a type-first hint
+    When I select "Regular"
+    Then the required Area filter appears above Buffet tier
+    And Buffet tier stays disabled until I select an area
+    When I select an area
+    Then the client requests the package catalogue once with activeOnly=true and that areaId
+    And only server-returned tiers whose trimmed type exactly matches "Regular" are selectable
+    And event Municipality is prefilled with that area when the Municipality control is shown
+    And the Area prefill does not turn on the out-of-town surcharge switch
+
+  Scenario: Type and area changes clear a stale tier immediately
+    Given I selected a Regular tier for an area
+    When I change the area
+    Then the selected tier is cleared in the same state update
+    And no tier from the previous area's placeholder results can be selected
+    When I change the type from Regular to Premier
+    Then the tier is cleared and the selected area is retained
+    When I change the type to Wedding
+    Then both the tier and area are cleared
+    And the Area filter is hidden
+    And only active Wedding tiers from the unfiltered catalogue are offered
+
+  Scenario: The Area prefill remains editable and clearing the filter does not reverse-sync
+    Given a non-empty Area filter has prefilled the event Municipality
+    When I choose a different event Municipality
+    Then my Municipality choice remains editable and is retained
+    When I clear the Area filter
+    Then the tier is cleared
+    And the event Municipality value is not cleared by reverse synchronization
+
+  Scenario: A whitespace-padded stored type still matches after trimming
+    Given the catalogue contains an active tier whose packageType is "Regular "
+    When I select the "Regular" package type
+    Then that tier remains in the filtered options
+    And matching is exact and case-sensitive after trimming
+
+  Scenario: An empty area/type result explains recovery and save is gated
+    Given a selected eligible type and area have no matching active tiers
+    Then the tier picker is enabled with no options
+    And the explanation names both the type and area
+    And I can clear the area or the type
+    When the type/area gate is unsatisfied
+    Then Save draft and Confirm booking are blocked with the specified validation messages
+    And the create payload contains no packageType or areaFilterId member
+    And the event Municipality control remains independent and obeys AC-BKG-72
+```
+---

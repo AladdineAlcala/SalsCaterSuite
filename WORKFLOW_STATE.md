@@ -1,4 +1,164 @@
-# Workflow State — Booking Add-on Picker Modal (2026-10-24)
+# Workflow State — Reservation Workbench Rate & Tier Cascade (2026-10-24)
+
+| Field | Value |
+| :--- | :--- |
+| **Cycle** | 2026-10-24 — Booking & Events Reservation Workbench: catalogue rate per head and Type → Area → Buffet tier cascade |
+| **Source** | `docs/userupdate.txt` — owner request |
+| **Status** | **Closed locally 2026-10-24.** The frontend enhancement is delivered and independently validated; RSK-072 and the remote-clone/live-browser limitations remain explicitly open. |
+| **Specification** | `business/bookings-events-operations-feature-spec.md` v1.2, §5.2, AC-BKG-89..98; Scenarios 110–111 |
+| **Decision** | DEC-171 — confirmed by the owner: a non-empty Area filter prefills event Municipality; it remains editable and the surcharge switch is not turned on |
+| **Workplan constraints** | `docs/salscatersuite_project_structure_workplan.md` §3.2 (existing `features/bookings` component/hooks/test boundary), §3.4 (existing `GET /api/packages` with `activeOnly` and `areaId`), §3.5 (no client-authoritative money) |
+| **Stage** | 10 — Close (workplan, feature status, traceability and decision/risk artifacts realigned) |
+
+## Verified facts (Inspect)
+
+- `WorkbenchTierEngine.tsx` currently shows the rate only from `quote.pricePerHead`, returns an em dash when no quote exists, and replaces the rate with an em dash while `isRecalculating` is true. The selected `PackageDto.amountPax` is available and nullable.
+- `BookingWorkbenchPage.tsx` currently offers an **All package types** choice, filters by raw exact equality, and resets a hidden/stale tier in effects after query results. Its selected-tier lookup is from the unfiltered catalogue. The quote hook has no placeholder data, but the request is debounced; the `BookingQuote` DTO has **no `packageId`**. The rate guard must correlate quote data to the package ID in the exact query request/key that produced it (for example, expose an internal `quotedPackageId` from `useBookingQuote`); do not infer identity from DTO display fields or add a server DTO field.
+- `useBookingTierCatalogue(areaId)` currently requests `GET /packages` with an optional `areaId`, sets `staleTime` to 300 seconds, and uses `keepPreviousData`. The page currently gates tiers on `isPending` only, which is insufficient for a changed query key.
+- `WorkbenchLogisticsBlock.tsx` currently owns both the Area filter and the event Municipality/surcharge controls. The existing `supportsExtendedArea` helper implements trimmed, case-insensitive equality with Regular/Premier (DEC-156). Keep the event Municipality and surcharge switch behavior, including AC-BKG-72, while moving only the Area filter into the tier panel.
+- `bookingVocabulary.ts` already has `supportsExtendedArea`, draft fields `packageType` / `areaFilterId`, and validation for the booking's other fields. It has no corresponding `packageType` or `areaFilterId` errors or gate checks.
+- `WorkbenchSelectField` currently has no `required` prop. It can be extended in-place; no shared component or new UI abstraction is needed.
+- **Specification reference discrepancy:** `docs/userupdate.txt` points to the operations spec §5.3 for this workbench behavior, but in the as-built spec §5.3 is the menu editor; the reservation workbench is §5.2. This plan follows the repository's current spec layout, updates §5.2, and retains §3.6 / DEC-070/141/156/157 for the existing eligibility and area-filter rules.
+- `GET /api/packages` already accepts both optional `activeOnly` and `areaId`. `PackagesController` passes both to `GetPackagesQuery`; `PackageRepository` composes the active-package predicate and live-area-coverage predicate. To satisfy the request's **active** tier lists, the client must pass `activeOnly=true` for the tier picker, with `areaId` for eligible types; this is an existing endpoint contract, not an API change.
+- The frontend has `BookingWorkbenchPage.test.tsx`, `BookingsEventsPage.test.tsx` and `BookingMenuPage.test.tsx` under `features/bookings/__tests__/`. There is **no** `components/WorkbenchTierEngine.test.tsx` and no `bookingVocabulary` test file. New tests belong in the existing `__tests__` directory, not at the component path suggested in the request text.
+- No backend test found directly exercises `GET /api/packages?areaId=`: `PackageCatalogueEndpointTests` does not call that query; `PackageQueryTests` and `PackageRepositoryTests` do not pass `areaId`; `PackageWorkbenchEndpointTests` cover area setup/coverage endpoints. The current workbench page test asserts that its mocked frontend request carries `areaId`, but its mock returns the entire catalogue. The endpoint behavior exists in code, but direct backend test coverage is **not verified**. No backend/API code change is in scope; AGENT 02 is asked to confirm this finding only. A test-only backend addition would need separate owner scope approval.
+
+## Approved scope and implementation plan
+
+### Business behavior
+
+1. Show Rate per head without waiting for a complete quote. Use the current quote rate when it belongs to the selected tier; otherwise use the selected catalogue tier's `amountPax`; otherwise show **"not stated"**. Preserve `null` versus zero, and never derive base value as rate × headcount.
+2. Keep the rate visible during recalculation. Since the quote query has no placeholder data, retain the last resolved rate together with the package ID from its query request (a feature-local ref/state); use that rate while recalculating only if the same package remains selected. On a package change, immediately use the new tier's catalogue value and never carry the previous tier's figure. The DTO itself does not carry `packageId`, so correlate the result with the query key/request internally, without changing the API contract. The strict no-stale-figure behavior remains for Base value and the ledger.
+3. On catalogue/quote divergence, show the quote only, show the quiet refresh note, and invalidate the tier-catalogue query once per observed divergence (not once per render).
+4. Enforce the visual and state cascade **Package type → Area filter → Buffet tier**. Package type is required. Eligible type uses `supportsExtendedArea` without reimplementing eligibility. The Area filter is required for eligible types; the tier picker is disabled until the gate is satisfied. Other stored types clear/hide Area and use the full active catalogue.
+5. Every type change clears the tier; changing to a non-eligible type also clears Area; switching Regular ↔ Premier keeps an existing Area. Every Area change, including clearing Area, clears the tier in the **same state update**, independent of refetch. Keep the existing stale-tier effect only as a deactivation/catalogue-change backstop.
+6. Use one `GET /api/packages` request for the filtered catalogue (`activeOnly=true`, and `areaId` when set); no per-tier coverage calls. While a new area key is fetching/placeholder data, disable the picker, name the loading area, and do not expose the previous area's options. Empty matching results remain enabled and explain the type and area with clear-area / clear-type actions.
+7. Trim both sides for package-type list comparison, retaining case-sensitive exact equality after trim. Do not reuse the eligibility comparison for this list filter.
+8. Add client-only gate validation. These form errors are never sent to the API. The create payload remains unchanged: it contains `packageId`, not `packageType` or `areaFilterId`.
+9. Put the Area filter immediately above Buffet tier in `WorkbenchTierEngine` (Column 2), so the visible order communicates the enforced cascade. `WorkbenchLogisticsBlock` retains only the event Municipality and surcharge controls. This preserves the existing municipality-hiding rule.
+10. Implement owner-confirmed DEC-171: when Area filter changes to a non-empty `A`, set both `areaFilterId` and `extendedAreaId` to `A` in the same draft update. Municipality remains editable; this prefill does not toggle `applyExtendedAmount` (false on a fresh draft). Clearing the Area filter clears `packageId` but does not reverse-sync/clear `extendedAreaId`. Existing non-eligible-tier municipality hiding/clearing behavior remains.
+
+### Ordered task breakdown
+
+| Order | Task | Owner | Deliverables / constraints |
+| :--- | :--- | :--- | :--- |
+| 1 | **TASK-BKG-09-BE — verify existing area-filter contract only** | AGENT 02, review-only | Read the workplan first; verify `activeOnly=true` + optional `areaId` composition against §3.4 and the existing query/repository implementation. Report whether the endpoint's behavior is present and repeat the test-coverage gap above. No endpoint, DTO, repository, business-rule, migration or test changes are delegated; ask before proposing a test-only change. |
+| 2 | **TASK-BKG-09-FE — rate readout and tier cascade** | AGENT 03, proposed implementation delegation after Debater approval | Read the workplan first; change only existing `features/bookings` components, hook/query usage, vocabulary and tests. Implement the approved behaviors above, including DEC-171 prefill; preserve municipality editability and existing eligibility hiding. No new route, feature folder, shared component, endpoint or API payload field. |
+| 3 | **TASK-BKG-09-GV — close-out** | AGENT 01 | Review the diff, independently run the test matrix, resolve/document decisions, update `implementation/feature-status.md`, update the RTM, and realign workplan §3.2 / §9 / §10 / §11 from an as-built file enumeration at Close. |
+
+### File-level change list
+
+**Implemented frontend files (AGENT 03; existing §3.2 `features/bookings` boundary):**
+
+- `src/frontend/salscatersuite-ui/src/features/bookings/BookingWorkbenchPage.tsx` — atomic type/area cascade; non-empty Area selection also prefills `extendedAreaId` in that state update; clearing Area does not clear event Municipality; active-area catalogue selection; trimmed exact type filtering; stale/placeholder loading gate; one-time catalogue invalidation; save/confirm remains blocked by validation; no create-payload additions.
+- `src/frontend/salscatersuite-ui/src/features/bookings/components/WorkbenchTierEngine.tsx` — required type and area controls in order; tier disabled/loading/empty states and clear actions; catalogue/quote rate resolution; last resolved quote rate held with its package identity (no query placeholder); null-vs-zero display, divergence note and polite recalculating cue.
+- `src/frontend/salscatersuite-ui/src/features/bookings/components/WorkbenchLogisticsBlock.tsx` — remove only the Area filter; retain event Municipality, coverage/surcharge display and eligibility hiding behavior.
+- `src/frontend/salscatersuite-ui/src/features/bookings/components/WorkbenchFields.tsx` — add an optional required attribute to the existing select helper for the two gated fields.
+- `src/frontend/salscatersuite-ui/src/features/bookings/hooks/useBookingWorkbench.ts` — use existing `activeOnly` query parameter and expose/use React Query `isFetching` / `isPlaceholderData` state as needed; correlate each quote result with its query request's package ID for the rate guard; retain `keepPreviousData` and the existing area query key.
+- `src/frontend/salscatersuite-ui/src/features/bookings/bookingVocabulary.ts` — add gate error members and validation; preserve `supportsExtendedArea` as the sole eligibility helper.
+- `src/frontend/salscatersuite-ui/src/features/bookings/__tests__/BookingWorkbenchPage.test.tsx` — cascade, gate, refetch, no stale selectable options, municipality regression, and unchanged create payload assertions.
+- `src/frontend/salscatersuite-ui/src/features/bookings/__tests__/WorkbenchTierEngine.test.tsx` — **new test file in the existing test directory** for rate display, nullable values, quote precedence and component states.
+- `src/frontend/salscatersuite-ui/src/features/bookings/__tests__/bookingVocabulary.test.ts` — **new test file in the existing test directory** for the exact gate validation messages.
+
+**Cycle governance artifacts:**
+
+- `business/bookings-events-operations-feature-spec.md` — v1.2, workbench cascade/rate spec, AC-BKG-89..98, and resolved DEC-171.
+- `implementation/acceptance-test-scenarios.md` — Scenarios 110–111.
+- `governance/decision-log.md` — DEC-171, CONFIRMED (owner-approved prefill).
+- `governance/risk-register.md` — RSK-072, OPEN (direct backend coverage gap; no backend test change without owner approval).
+- `WORKFLOW_STATE.md` — this cycle plan, Debater review, implementation/validation record and close-out.
+
+**No backend/API/contract/database change was made.** Two tests were added in the existing bookings `__tests__` directory; §3.2 now lists them. No route, feature folder, shared component, project or dependency was added.
+
+## Acceptance and test matrix
+
+| Check | Acceptance | Test level / expected evidence |
+| :--- | :--- | :--- |
+| Catalogue rate before quote | AC-BKG-89 | WorkbenchTierEngine test: selected tier with amountPax renders immediately while quote is absent; no derived base amount appears. |
+| Rate stays during repricing | AC-BKG-90 | Page/component test: after a quoted rate is resolved, hold/recalculate quote after headcount change; the last rate remains populated only for the same package, `aria-live="polite"` cue appears, Base value/ledger remain no-stale; package switch uses the new catalogue rate immediately. |
+| Null versus zero | AC-BKG-91 | Unit/component tests: null + absent/zero quote reads "not stated"; numeric zero formats as currency zero. No `formatCurrency(null)` call. |
+| Required package type | AC-BKG-92 | Page test: placeholder and `required` state; empty type forces `packageId=''`, tier disabled, explanatory hint. |
+| Eligible area gate and active server list | AC-BKG-93 | Page test: Regular/Premier show required Area above tier; tier disabled until A; captured GET includes `activeOnly=true` and `areaId`; no per-tier calls; returned list filters to trimmed type. Backend code inspection confirms current conjunction; direct endpoint test coverage is currently missing and is reported, not changed under this scope. |
+| Immediate cascade | AC-BKG-94 | Page test: type change always clears packageId; ineligible type clears area; eligible-to-eligible preserves area; area set/clear clears package immediately before a query settles. |
+| No previous-area selection | AC-BKG-95 | Page test with deferred query response and React Query placeholder data: picker disabled and labels target area until the new query settles; previous-area tier cannot be selected. |
+| Trimmed package type | AC-BKG-96 | Vocabulary/page tests: `"Regular "` matches selected `"Regular"`; case remains significant after trim. |
+| Validation + unchanged payload | AC-BKG-97 | `bookingVocabulary` tests assert exact messages; page tests prove Save/Confirm blocked; valid create request has no `packageType` / `areaFilterId` members and otherwise retains existing shape. |
+| Quote/catalogue divergence | AC-BKG-98 | Page/hook test: query-request package identity proves the quote belongs to the selected package; quote wins, note appears, invalidate the tier catalogue once despite rerenders; package change cannot show the previous package's quote. |
+| Municipality prefill and regression | DEC-171, AC-BKG-72, AC-BKG-93 | Page test: selecting a non-empty Area copies it to Municipality without enabling surcharge; Municipality remains editable; clearing Area does not clear Municipality; ineligible tier continues hiding Municipality and the surcharge switch. Verify coverage verdict may update but quote money does not change while the switch is off. |
+| Hardcoded figures | Existing `noHardcodedFigures.test.ts` | Run unchanged; no monetary/percentage literal or rate × pax arithmetic introduced in production code. |
+| End-to-end quality gates | Full frontend | Run focused booking tests, full Vitest, TypeScript check and production build; copy actual counts/output at validation. No backend suite is planned unless review identifies changed backend code. |
+
+## Open scope and review notes
+
+- **DEC-171 owner approval:** the owner answered **Yes, prefill**. For a non-empty Area selection, copy A to event Municipality in the same update; keep Municipality editable; do not toggle `applyExtendedAmount`; clearing Area does not reverse-sync. This may change the quote coverage verdict but not money while the surcharge switch is off.
+- **Backend test-coverage finding:** endpoint and repository implementation accept `activeOnly` and `areaId`, but no direct integration test was found. The owner's brief expects no backend test change. This plan therefore assigns AGENT 02 a verification-only task and leaves a test-only backend addition out of scope unless the owner approves it.
+- **Test path discrepancy:** userupdate names `components/WorkbenchTierEngine.test.tsx` and bookingVocabulary tests, but neither exists as built. Tests will be added under the existing `features/bookings/__tests__/` convention; no test folder is added.
+- **Payload invariance:** `areaFilterId` / `packageType` are UI state only. Preserve all current create and quote request shapes and the existing server pricing behavior.
+- **Validation evidence:** AGENT 01 independently ran focused bookings **6 files / 127/127**, full Vitest **27 files / 423/423**, and `npm --prefix src/frontend/salscatersuite-ui run build` (TypeScript completed without diagnostics; Vite succeeded with the existing chunk-size advisory). AGENT 02's backend suites were verification-only and do not cover the `areaId` path (RSK-072).
+
+## Superseded Debater Review (before owner ruling on DEC-171)
+
+- **Decision:** APPROVE
+- **Rationale:** The plan at that review met the requested behavior within the existing `features/bookings` boundary. It reused the existing package endpoint, avoided changing the backend contract or booking payload, retained server-authoritative totals, and left the municipality-prefill question unresolved pending owner input. No materially better or lower-risk plan was identified at that point.
+- **Findings:**
+  - **[Quote identity]** `BookingQuote` has no `packageId`, but the existing quote query key includes the exact request key and that request includes `packageId`. Exposing/correlating the package identity internally from the request that produced the quote is feasible and avoids relying on non-unique display fields or changing the API DTO.
+  - **[Existing endpoint]** `PackagesController` and `GetPackagesQuery` accept both `activeOnly` and `areaId`; `PackageRepository` applies both predicates conjunctively. `activeOnly=true` is an existing query parameter, not an API change; the frontend task must name it explicitly.
+  - **[Coverage gap]** A direct backend integration test for `GET /api/packages?areaId=` was not found. The plan reports this accurately and honors the owner's instruction that no backend test change is expected by keeping AGENT 02 verification-only and making no test change without separate owner approval.
+  - **[Edge cases]** The plan covers synchronous state resets, React Query placeholder-data gating, exact-after-trim type matching, nullable/zero rates, once-per-divergence invalidation, no stale quote across package changes, municipality hiding, and payload invariance.
+  - **[Placement]** The two new test files are placed in the existing `features/bookings/__tests__/` directory because the user-suggested `components/WorkbenchTierEngine.test.tsx` and vocabulary test do not exist. No new folder, route, component, endpoint, or project is introduced.
+  - **[Owner decision]** The owner answered DEC-171 **Yes, prefill**: a non-empty Area selection copies to event Municipality, leaves it editable, and does not turn on the surcharge. This is recorded as CONFIRMED and included in the revised task/test scope.
+- **Delegation status:** No implementation task was issued in this planning-only step, as explicitly required by the source brief's "Do not write production code in this step" constraint.
+- **Review recording note:** The Debater returned the APPROVE decision and findings but its session hit the tool-step limit before it could append the section; AGENT 01 recorded the returned review here. The owner subsequently confirmed DEC-171, so this review is retained for history and superseded by the current-plan review below.
+
+## Debater Review — Current Plan
+
+- **Decision:** APPROVE
+- **Rationale:** The revised plan stays inside the existing `features/bookings` boundary, reuses `GET /api/packages` with its existing filters, preserves server-authoritative money and leaves the create/API contract unchanged. The owner-confirmed DEC-171 behavior is incorporated, and no material improvement was identified.
+- **Findings:**
+  - **[Complexity / placement]** No new route, feature folder, shared component, endpoint, DTO field, or backend project. New tests use the existing `features/bookings/__tests__/` convention.
+  - **[Edge cases]** Immediate type/area resets, React Query placeholder-data gating, exact-after-trim matching, nullable versus zero rate, quote request identity, one-time divergence invalidation, and DEC-171 prefill/editability/no-auto-surcharge/no-reverse-sync are included.
+  - **[Compatibility]** No backend/API/database/financial calculation change; create payload remains unchanged and all authoritative totals stay server-sourced.
+  - **[Coverage]** Frontend tests and full frontend quality gates are specified. No backend test change is approved; the direct endpoint-coverage gap remains visible as RSK-072.
+- **Recording note:** The Debater returned this APPROVE and findings but again reached its tool-step limit before writing. AGENT 01 recorded the returned review; no finding was invented or altered.
+- **Delegation status:** Plan review is complete. Proceed with scoped delegation; the source instruction prohibiting production code applied to the preceding planning step, and the owner has now authorized implementation.
+
+## Delegated implementation (2026-10-24)
+
+- **AGENT 03 — TASK-BKG-09-FE:** frontend rate readout and type → area → tier cascade, including owner-confirmed DEC-171. Scope is limited to the existing `features/bookings` components, hook, vocabulary and tests. No route, API contract, payload, backend code or shared component change is authorized. **Delivered; AGENT 01 corrections applied and independently validated.**
+- **AGENT 02 — TASK-BKG-09-BE:** verification-only inspection of the existing `activeOnly` + `areaId` endpoint and direct-test coverage. **Completed: no backend files changed.**
+
+### AGENT 02 verification report (2026-10-24)
+
+- Confirmed the existing controller → query → repository chain accepts `activeOnly` and `areaId`; the repository composes active-package and active/non-deleted coverage predicates. The generated EF SQL uses a parameterized `EXISTS` against SQL Server; no API or backend implementation change is needed.
+- Confirmed **no direct backend test covers `areaId`**. The integration suite does not pass the parameter. Also found the hand-written `FakePackageRepository` area branch reads an unpopulated navigation instead of the store's separate coverage list; any future fake-based unit test would return a misleading empty list. RSK-072 records both gaps. No backend test change was authorized.
+- AGENT 02 reported executing `dotnet test` for the unit and integration projects: **999 passed, 0 failed, 0 skipped** and **139 passed, 0 failed, 0 skipped**, respectively. These green suites do **not** prove the `areaId` filter because that path is untested; AGENT 01 did not rerun backend suites because no backend code changed.
+- The running API held output DLLs during an initial build attempt; AGENT 02 did not stop that process and used an alternate artifacts output path. No destructive or development-database operation was performed.
+
+### AGENT 03 implementation report and AGENT 01 validation (2026-10-24)
+
+- AGENT 03 reported changes confined to the existing §3.2 bookings feature: rate resolution/held quote identity, type-area-tier cascade, DEC-171 prefill, query invalidation, validation, municipality quote-staleness gating, and two test files in the existing `__tests__` folder.
+- AGENT 03 reported focused booking tests **127/127**, TypeScript **0 errors**, full Vitest **423/423**, and production build exit **0** (existing chunk advisory). AGENT 01 independently reproduced the focused **127/127** and full **423/423** counts and ran the production build successfully.
+- AGENT 01 review corrections (null quote precedence/divergence, `isFetching` gate, stale quote-derived displays, active-only test mock) were applied. No backend/API changes were made.
+- AGENT 01 independently ran `npm --prefix src/frontend/salscatersuite-ui run test -- src/features/bookings`: **6 files, 127/127 passed**; `npm --prefix src/frontend/salscatersuite-ui run test`: **27 files, 423/423 passed**; and `npm --prefix src/frontend/salscatersuite-ui run build`: `tsc` passed without diagnostics and Vite exited 0 with its existing >500 kB chunk-size advisory.
+
+### AGENT 01 review findings — resolved before independent validation
+
+- **Quote null discipline:** the initial resolver treats a current `pricePerHead: null` as absent and falls back to catalogue data. The approved quote-first ladder requires the authoritative null to render as **"not stated"**; the same applies to a held null rate for the selected package. A zero quote with catalogue null must remain not stated while still being detected as a divergence for note/invalidation.
+- **Fetch state:** the tier-picker gate uses `isPending || isPlaceholderData` but omits `isFetching`. Include fetching so a cached, refetching area key cannot remain selectable during the request.
+- **Stale quote outputs:** the rate cell is the only same-package held-value exception. The initial implementation still renders quote-dependent headcount/planning data and logistics coverage/surcharge values during recalculation. Hide or mark these stale quote outputs until the current quote resolves, especially after DEC-171 changes `extendedAreaId`.
+- **Mock fidelity:** the general page test mock returns inactive tiers even when the client sends `activeOnly=true`; make the mock reflect the endpoint's active-only response and assert inactive tiers are not offered.
+- AGENT 03 applied these corrections and added targeted coverage. AGENT 01 independently reran the focused/full frontend suites and build above. No remaining frontend review blocker was found.
+
+## Close-out (2026-10-24)
+
+- **Delivered:** AC-BKG-89..98 and DEC-171 in the existing Booking Workbench; the server/API/create payload and financial calculations are unchanged.
+- **Independent validation:** focused bookings **127/127**; full Vitest **27 files / 423/423**; production build/TypeScript passed, with the existing Vite chunk-size advisory.
+- **Backend:** AGENT 02 made no changes. Its reported suites were **999/999 unit** and **139/139 integration**; the `areaId` filter itself remains untested and is tracked as OPEN RSK-072, including the hand-written fake divergence.
+- **Governance close-out:** DEC-171 is CONFIRMED; AC/scenarios, feature status, RTM, RSK-072 and workplan §§3.2/3.4/3.5/9/10/11 are updated. No clean remote clone or live browser E2E was run; no commit/push was performed.
+
+---
+
+# Previous Cycle — Booking Add-on Picker Modal (2026-10-24)
 
 | Field | Value |
 | :--- | :--- |

@@ -1,9 +1,10 @@
-import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AxiosRequestConfig, AxiosResponse } from 'axios'
+import type { PackageDto } from '@/types/package.types'
 import { apiClient, ApiError } from '@/api/apiClient'
 import { BookingWorkbenchPage } from '@/features/bookings/BookingWorkbenchPage'
 import type { BookingQuoteRequest } from '@/types/booking.types'
@@ -35,6 +36,8 @@ interface MockOptions {
   quote?: unknown
   /** The create endpoint refuses the payload. */
   createError?: ApiError
+  /** The catalogue answer — `GET /packages` (every key, params unfiltered). */
+  tiers?: PackageDto[]
 }
 
 function renderWorkbench() {
@@ -70,6 +73,14 @@ interface CapturedRequest {
   params: Record<string, unknown> | undefined
 }
 
+function paramsOf(config?: AxiosRequestConfig): Record<string, unknown> {
+  return (config?.params ?? {}) as Record<string, unknown>
+}
+
+function isActiveTier(tier: unknown): boolean {
+  return Boolean((tier as { isActive?: boolean }).isActive)
+}
+
 /** The bodies of every create request the workbench sent. */
 const createdBodies: unknown[] = []
 
@@ -85,7 +96,15 @@ function mockApi(options: MockOptions = {}) {
       requests.push({ url, params: config?.params as Record<string, unknown> | undefined })
 
       if (url.includes('/course-rules')) return axiosResponse(packageCourseRulesetFixture)
-      if (url.includes('/packages')) return axiosResponse(packageTiersFixture)
+      if (url.includes('/packages')) {
+        // Mock fidelity — the server honours `activeOnly` and answers with the
+        // selectable tiers only; the general catalogue fixture's inactive row
+        // must never reach a filtered request.
+        if (paramsOf(config).activeOnly) {
+          return axiosResponse((options.tiers ?? packageTiersFixture).filter(isActiveTier))
+        }
+        return axiosResponse(options.tiers ?? packageTiersFixture)
+      }
       if (url === '/areas') return axiosResponse(areaCatalogueFixture)
       if (url.includes('/customers')) return axiosResponse(customerDirectoryFixture)
       // The add-on master ships empty in this cycle; the fixtures keep the
@@ -148,9 +167,12 @@ async function waitForEnabled(label: string): Promise<HTMLSelectElement> {
 /**
  * Fills every input the server needs before it can price the booking.
  *
- * The controls are driven with a single change event each rather than a
- * keystroke per character: the component test does not need to simulate a
- * human's typing speed.
+ * The type/area gate comes first (AC-BKG-92): the tier picker stays disabled
+ * until a package type is chosen. The Wedding tier is not an eligible
+ * out-of-town type, so no area is required on this path. The controls are
+ * driven with a single change event each rather than a keystroke per
+ * character: the component test does not need to simulate a human's typing
+ * speed.
  */
 async function fillRequiredInputs() {
   await waitForEnabled('Client')
@@ -158,6 +180,8 @@ async function fillRequiredInputs() {
   fireEvent.change(screen.getByLabelText('Occasion'), { target: { value: 'Golden Jubilee' } })
   fireEvent.change(screen.getByLabelText('Venue'), { target: { value: 'The Grand Pavilion' } })
   fireEvent.change(screen.getByLabelText('Event date'), { target: { value: '2026-11-20' } })
+  await waitForEnabled('Package type')
+  fireEvent.change(screen.getByLabelText('Package type'), { target: { value: 'Wedding' } })
   await waitForEnabled('Buffet tier')
   fireEvent.change(screen.getByLabelText('Buffet tier'), { target: { value: '12' } })
   fireEvent.change(screen.getByLabelText('Contract headcount'), { target: { value: '250' } })
@@ -294,17 +318,25 @@ describe('BookingWorkbenchPage', () => {
     const areaFilter = await waitForEnabled('Area filter')
     expect(screen.queryByLabelText('Municipality')).not.toBeInTheDocument()
 
-    // The area filter is answered by the server through `areaId`.
+    // The area filter is answered by the server through `areaId`, and the tier
+    // list asks for the active tiers only (AC-BKG-93).
     fireEvent.change(areaFilter, { target: { value: '4' } })
     await waitFor(() => {
       expect(
         api.requests.some(
-          (request) => request.url.includes('/packages') && request.params?.areaId === 4,
+          (request) =>
+            request.url === '/packages' &&
+            request.params?.areaId === 4 &&
+            request.params?.activeOnly === true,
         ),
       ).toBe(true)
     })
 
     await waitForEnabled('Buffet tier')
+    // One server-filtered list — the client never fans out a call per tier.
+    expect(
+      api.requests.filter((request) => /^\/packages\/\d+$/.test(request.url)),
+    ).toHaveLength(0)
     fireEvent.change(screen.getByLabelText('Buffet tier'), { target: { value: '31' } })
     expect(screen.getByLabelText('Municipality')).toBeInTheDocument()
 
@@ -492,5 +524,381 @@ describe('BookingWorkbenchPage', () => {
       await screen.findByText('The initial payment exceeds the net amount due.'),
     ).toBeInTheDocument()
     expect(screen.getByLabelText('Occasion')).toHaveValue('Golden Jubilee')
+  })
+
+  it('starts the cascade required and closed, naming the package type as the first step', async () => {
+    mockApi()
+
+    renderWorkbench()
+
+    const typeControl = await waitForEnabled('Package type') as HTMLSelectElement
+    expect(typeControl.required).toBe(true)
+    const tierControl = screen.getByLabelText('Buffet tier') as HTMLSelectElement
+    expect(tierControl).toBeDisabled()
+    expect(within(tierControl).getByText('Select a package type first')).toBeInTheDocument()
+    expect(screen.getByText('Choose the package type to load its tiers')).toBeInTheDocument()
+    expect(within(typeControl).getByText('Select a package type')).toBeInTheDocument()
+  })
+
+  it('requires the event area for an eligible type and answers the tier list from one filtered server request', async () => {
+    const api = mockApi()
+
+    renderWorkbench()
+
+    await waitForEnabled('Package type')
+    fireEvent.change(screen.getByLabelText('Package type'), { target: { value: 'Premier' } })
+
+    const tierControl = screen.getByLabelText('Buffet tier') as HTMLSelectElement
+    expect(tierControl).toBeDisabled()
+    expect(screen.getByText('Choose the event area to load its tiers')).toBeInTheDocument()
+
+    const areaFilter = await waitForEnabled('Area filter') as HTMLSelectElement
+    expect(areaFilter.required).toBe(true)
+
+    fireEvent.change(areaFilter, { target: { value: '6' } })
+    await waitFor(() => {
+      expect(
+        api.requests.some(
+          (request) =>
+            request.url === '/packages' &&
+            request.params?.areaId === 6 &&
+            request.params?.activeOnly === true,
+        ),
+      ).toBe(true)
+    })
+
+    // One server-filtered list, still without a per-tier fan-out (AC-BKG-93).
+    expect(
+      api.requests.filter((request) => /^\/packages\/\d+$/.test(request.url)),
+    ).toHaveLength(0)
+  })
+
+  it('clears the tier inside the change that moves the type or the area, keeping the area across the two eligible types', async () => {
+    mockApi()
+
+    renderWorkbench()
+
+    await waitForEnabled('Package type')
+    fireEvent.change(screen.getByLabelText('Package type'), { target: { value: 'Wedding' } })
+    await waitForEnabled('Buffet tier')
+    fireEvent.change(screen.getByLabelText('Buffet tier'), { target: { value: '12' } })
+    expect(screen.getByLabelText('Buffet tier')).toHaveValue('12')
+
+    // A type change always clears the tier — synchronously, in the change.
+    fireEvent.change(screen.getByLabelText('Package type'), { target: { value: 'Regular' } })
+    expect(screen.getByLabelText('Buffet tier')).toHaveValue('')
+
+    fireEvent.change(screen.getByLabelText('Area filter'), { target: { value: '4' } })
+    await waitForEnabled('Buffet tier')
+    fireEvent.change(screen.getByLabelText('Buffet tier'), { target: { value: '31' } })
+
+    // An eligible-to-eligible switch keeps the chosen area and clears the tier.
+    fireEvent.change(screen.getByLabelText('Package type'), { target: { value: 'Premier' } })
+    expect(screen.getByLabelText('Buffet tier')).toHaveValue('')
+    expect(screen.getByLabelText('Area filter')).toHaveValue('4')
+    await waitForEnabled('Buffet tier')
+    fireEvent.change(screen.getByLabelText('Buffet tier'), { target: { value: '24' } })
+
+    // An area change — including a clear — clears the tier in the same update.
+    fireEvent.change(screen.getByLabelText('Area filter'), { target: { value: '5' } })
+    expect(screen.getByLabelText('Buffet tier')).toHaveValue('')
+
+    // A non-eligible type hides and clears the area.
+    fireEvent.change(screen.getByLabelText('Package type'), { target: { value: 'Pm' } })
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Area filter')).not.toBeInTheDocument()
+    })
+    expect(await waitForEnabled('Buffet tier')).toHaveValue('')
+  })
+
+  it('holds the tier picker until a changed area settles and never exposes the previous area options', async () => {
+    const heldAreaFetches: Array<{
+      areaId: unknown
+      resolve: (response: AxiosResponse) => void
+    }> = []
+    vi.spyOn(apiClient, 'get').mockImplementation(
+      async (url: string, config?: AxiosRequestConfig): Promise<AxiosResponse> => {
+        if (url === '/packages') {
+          const params = (config?.params ?? {}) as Record<string, unknown>
+          if (!params.activeOnly || params.areaId === undefined) {
+            return axiosResponse(packageTiersFixture)
+          }
+          return new Promise((resolve) => {
+            heldAreaFetches.push({ areaId: params.areaId, resolve })
+          }) as Promise<AxiosResponse>
+        }
+        if (url.includes('/course-rules')) return axiosResponse(packageCourseRulesetFixture)
+        if (url === '/areas') return axiosResponse(areaCatalogueFixture)
+        if (url.includes('/customers')) return axiosResponse(customerDirectoryFixture)
+        if (url === '/addons') return axiosResponse(addonMasterFixture)
+        return axiosResponse({})
+      },
+    )
+
+    renderWorkbench()
+
+    await waitForEnabled('Package type')
+    fireEvent.change(screen.getByLabelText('Package type'), { target: { value: 'Regular' } })
+    const areaFilter = await waitForEnabled('Area filter')
+    fireEvent.change(areaFilter, { target: { value: '4' } })
+    await waitFor(() => {
+      expect(heldAreaFetches.some((fetch) => fetch.areaId === 4)).toBe(true)
+    })
+    heldAreaFetches
+      .filter((fetch) => fetch.areaId === 4)
+      .forEach((fetch) => fetch.resolve(axiosResponse([packageTiersFixture[3]])))
+    await waitForEnabled('Buffet tier')
+    fireEvent.change(screen.getByLabelText('Buffet tier'), { target: { value: '31' } })
+    expect(screen.getByLabelText('Buffet tier')).toHaveValue('31')
+
+    // A new area immediately clears the tier and holds the picker — the
+    // previous area's tier cannot be selected while the list stands in.
+    // userEvent honors the `disabled` attribute, so a selection attempt on
+    // the held picker fails (fireEvent would bypass it and prove nothing).
+    fireEvent.change(screen.getByLabelText('Area filter'), { target: { value: '5' } })
+    const tierControl = screen.getByLabelText('Buffet tier') as HTMLSelectElement
+    expect(tierControl).toHaveValue('')
+    expect(tierControl).toBeDisabled()
+    expect(await screen.findByText('Loading the tiers for Batangas City…')).toBeInTheDocument()
+    // The previous area's tier still stands in the list, but only as text:
+    // the picker is disabled, so the draft cannot hold the staged choice
+    // (AC-BKG-95) — the cascade already cleared it in the same update.
+    expect(within(tierControl).getByText(/Regular Feast Buffet/)).toBeInTheDocument()
+    expect(tierControl).toBeDisabled()
+
+    // The new area answers with no tier of this type — the explanation names
+    // both and offers the clear actions.
+    heldAreaFetches
+      .filter((fetch) => fetch.areaId === 5)
+      .forEach((fetch) => fetch.resolve(axiosResponse([packageTiersFixture[2]])))
+    expect(
+      await screen.findByText(/No active tier of type Regular covers Batangas City/),
+    ).toBeInTheDocument()
+
+    // Clearing the area re-closes the eligible-type gate; choosing an area
+    // reopens it.
+    await userEvent.click(screen.getByText('Clear the area'))
+    expect(
+      await screen.findByText('Choose the event area to load its tiers'),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Buffet tier')).toBeDisabled()
+
+    fireEvent.change(screen.getByLabelText('Area filter'), { target: { value: '4' } })
+    await waitFor(() => {
+      expect(heldAreaFetches.filter((fetch) => fetch.areaId === 4).length).toBeGreaterThan(0)
+    })
+    heldAreaFetches
+      .filter((fetch) => fetch.areaId === 4)
+      .forEach((fetch) => fetch.resolve(axiosResponse([packageTiersFixture[3]])))
+    await waitForEnabled('Buffet tier')
+    fireEvent.change(screen.getByLabelText('Buffet tier'), { target: { value: '31' } })
+    expect(screen.getByLabelText('Buffet tier')).toHaveValue('31')
+  })
+
+  it('blocks save and confirm while the type/area gate is unsatisfied and keeps the create payload unchanged', async () => {
+    mockApi()
+
+    renderWorkbench()
+
+    await waitForEnabled('Package type')
+
+    // The gate is unsatisfied on a fresh draft, so save and confirm are off —
+    // and the messages are the client's own (never sent to the API).
+    const saveButtons = screen.getAllByText('Save draft')
+    saveButtons.forEach((button) => expect(button).toBeDisabled())
+    screen
+      .getAllByText('Confirm booking')
+      .forEach((button) => expect(button).toBeDisabled())
+    expect(
+      screen.getAllByText('Select a package type before choosing a buffet tier.').length,
+    ).toBeGreaterThan(0)
+    await userEvent.click(saveButtons[0])
+    expect(createdBodies).toHaveLength(0)
+
+    await fillRequiredInputs()
+    await screen.findByText('₱305,000.00')
+
+    await userEvent.click(screen.getAllByText('Save draft')[0])
+    await waitFor(() => {
+      expect(createdBodies).toHaveLength(1)
+    })
+
+    // Package type and area filter are UI state only — the create request
+    // carries `packageId` and is otherwise unchanged (AC-BKG-97).
+    expect(createdBodies[0]).not.toHaveProperty('packageType')
+    expect(createdBodies[0]).not.toHaveProperty('areaFilterId')
+    expect(createdBodies[0]).toMatchObject({ packageId: 12, confirm: false })
+  })
+
+  it('wins the rate with the quote on catalogue divergence and refreshes the tier catalogue only once', async () => {
+    const api = mockApi()
+    renderWorkbench()
+
+    await fillRequiredInputs()
+
+    // The Wedding tier's catalogue rate is 1450 while the quote's is 1140 —
+    // the quote wins and the divergence note appears.
+    expect(await screen.findByTestId('booking-rate-divergence')).toHaveTextContent(
+      'The quoted rate differs from the catalogue rate — the catalogue has been refreshed.',
+    )
+    expect(screen.getAllByText('₱1,140.00').length).toBeGreaterThan(0)
+
+    const packageRequestCount = () =>
+      api.requests.filter((request) => request.url === '/packages').length
+    await waitFor(() => {
+      expect(packageRequestCount()).toBe(4)
+    })
+
+    // Rerenders and re-pricing never re-send the invalidation.
+    fireEvent.change(screen.getByLabelText('Contract headcount'), { target: { value: '300' } })
+    await screen.findByTestId('booking-rate-recalculating')
+    await screen.findByText('₱305,000.00')
+    await waitFor(() => {
+      expect(packageRequestCount()).toBe(4)
+    })
+  })
+
+  it('filters the tier list by the trimmed and still case-sensitive package type', async () => {
+    /*
+     * The stored types carry whitespace and a case variant — the list filter
+     * trims both sides and keeps the case (AC-BKG-96), while the eligibility
+     * test stays its own trimmed, case-insensitive rule (DEC-156).
+     */
+    const typedTiersFixture: PackageDto[] = [
+      ...packageTiersFixture.filter((tier) => tier.packageType !== 'Regular'),
+      {
+        packageId: 71,
+        packageCode: 'PKG-REG-71',
+        packageType: ' Regular',
+        description: 'Whitespace Regular Tier',
+        amountPax: 900,
+        minPax: 80,
+        extendedLocationAmount: null,
+        isActive: true,
+      },
+      {
+        packageId: 72,
+        packageCode: 'PKG-REG-72',
+        packageType: 'regular',
+        description: 'Lowercase regular Tier',
+        amountPax: 800,
+        minPax: 80,
+        extendedLocationAmount: null,
+        isActive: true,
+      },
+    ]
+
+    mockApi({ tiers: typedTiersFixture })
+
+    renderWorkbench()
+
+    await waitForEnabled('Package type')
+    // The type options are the stored types after trimming — exact values.
+    fireEvent.change(screen.getByLabelText('Package type'), { target: { value: 'Regular' } })
+    // The Regular gate needs an area before the picker opens (AC-BKG-93).
+    const areaFilter = await waitForEnabled('Area filter')
+    fireEvent.change(areaFilter, { target: { value: '4' } })
+    await waitForEnabled('Buffet tier')
+    const buffet = screen.getByLabelText('Buffet tier')
+    expect(within(buffet).getByText(/Whitespace Regular Tier/)).toBeInTheDocument()
+    expect(within(buffet).queryByText(/Lowercase regular Tier/)).not.toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Package type'), { target: { value: 'regular' } })
+    const lowered = screen.getByLabelText('Buffet tier')
+    expect(within(lowered).getByText(/Lowercase regular Tier/)).toBeInTheDocument()
+    expect(within(lowered).queryByText(/Whitespace Regular Tier/)).not.toBeInTheDocument()
+  })
+
+  it('prefills the event municipality from the area filter without turning the surcharge on', async () => {
+    mockApi()
+
+    renderWorkbench()
+
+    await waitForEnabled('Package type')
+    fireEvent.change(screen.getByLabelText('Package type'), { target: { value: 'Regular' } })
+    const areaFilter = await waitForEnabled('Area filter')
+    fireEvent.change(areaFilter, { target: { value: '4' } })
+    await waitForEnabled('Buffet tier')
+    fireEvent.change(screen.getByLabelText('Buffet tier'), { target: { value: '31' } })
+
+    // DEC-171 — the non-empty area copies into the event municipality in the
+    // same update, leaves it editable, and never enables the surcharge. The
+    // clearing branch's no-reverse-sync is asserted by the exact patch shape
+    // in WorkbenchTierEngine.test.tsx.
+    const municipality = screen.getByLabelText('Municipality') as HTMLSelectElement
+    await waitFor(() => {
+      expect(municipality).toHaveValue('4')
+    })
+    expect(screen.getByLabelText('Apply the out-of-town surcharge')).not.toBeChecked()
+
+    fireEvent.change(municipality, { target: { value: '9' } })
+    expect(municipality).toHaveValue('9')
+    expect(screen.getByLabelText('Apply the out-of-town surcharge')).not.toBeChecked()
+  })
+
+  it('offers no inactive tier on the filtered server list', async () => {
+    mockApi()
+
+    renderWorkbench()
+
+    await waitForEnabled('Package type')
+    fireEvent.change(screen.getByLabelText('Package type'), { target: { value: 'Regular' } })
+    fireEvent.change(await waitForEnabled('Area filter'), { target: { value: '4' } })
+    const buffet = await waitForEnabled('Buffet tier')
+
+    // Mock fidelity — the fixture's inactive Morning Briefing row never
+    // reaches an `activeOnly=true` response.
+    expect(within(buffet).getByText(/Regular Feast Buffet/)).toBeInTheDocument()
+    expect(within(buffet).queryByText(/Morning Briefing Tier/)).not.toBeInTheDocument()
+  })
+
+  it('hides every quote-derived figure but the rate while the quote is re-priced', async () => {
+    const gate = mockApi({ holdQuote: true })
+
+    renderWorkbench()
+
+    await waitForEnabled('Client')
+    fireEvent.change(screen.getByLabelText('Client'), { target: { value: '18' } })
+    fireEvent.change(screen.getByLabelText('Occasion'), { target: { value: 'Golden Jubilee' } })
+    fireEvent.change(screen.getByLabelText('Venue'), { target: { value: 'The Grand Pavilion' } })
+    fireEvent.change(screen.getByLabelText('Event date'), { target: { value: '2026-11-20' } })
+    await waitForEnabled('Package type')
+    fireEvent.change(screen.getByLabelText('Package type'), { target: { value: 'Regular' } })
+    fireEvent.change(await waitForEnabled('Area filter'), { target: { value: '4' } })
+    await waitForEnabled('Buffet tier')
+    fireEvent.change(screen.getByLabelText('Buffet tier'), { target: { value: '31' } })
+    fireEvent.change(screen.getByLabelText('Contract headcount'), { target: { value: '120' } })
+    fireEvent.change(screen.getByLabelText('Program'), { target: { value: '17:00' } })
+    fireEvent.change(screen.getByLabelText('Service ends'), { target: { value: '22:00' } })
+
+    // The first quote resolves (fixture: surcharge ₱36,000.00 covered, floor note).
+    await waitFor(() => {
+      expect(gate.pendingCount()).toBeGreaterThan(0)
+    })
+    gate.releaseQuote()
+    const tierPanel = await screen.findByText('Regular Feast Buffet')
+    expect(tierPanel).toBeInTheDocument()
+    expect((await screen.findAllByText('₱36,000.00')).length).toBeGreaterThan(0)
+    expect(
+      await screen.findByText('The tier states a minimum of 150 heads.'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Tier planning estimate')).toBeInTheDocument()
+
+    // A re-priced quote holds — none of the previous request's figures stays.
+    fireEvent.change(screen.getByLabelText('Contract headcount'), { target: { value: '150' } })
+    await screen.findByTestId('booking-quote-recalculating')
+    await waitFor(() => {
+      expect(gate.pendingCount()).toBeGreaterThan(0)
+    })
+    expect(screen.queryByText('₱36,000.00')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('The tier states a minimum of 150 heads.'),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText('Tier planning estimate')).not.toBeInTheDocument()
+    // …but the rate cell alone keeps the same-package held rate.
+    expect(screen.getAllByText('₱1,140.00').length).toBeGreaterThan(0)
+
+    gate.releaseQuote()
+    expect((await screen.findAllByText('₱36,000.00')).length).toBeGreaterThan(0)
   })
 })

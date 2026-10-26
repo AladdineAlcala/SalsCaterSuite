@@ -1,9 +1,17 @@
 # Sal's CaterSuite — Implementation Feature Status
 
 Overall Architecture State: **Green — .NET 10, repository-only persistence (DEC-037/DEC-039), API runtime-verified, and the delivered business modules are tracked in the feature table below. Latest recorded backend suites: 999/999 unit and 139/139 integration.**
-Frontend State: **Green — app shell/auth, dashboard, customer master, menu costing, packages/workbench, booking register/workbench/operations (including the DEC-170 add-on picker modal), Settings and add-on administration; 0 TypeScript errors, 383/383 Vitest.**
-Governance State: **Active — decisions through DEC-170, risks, requirements traceability and open owner decisions are maintained in their governance artifacts.**
-Last verified: 2026-10-24 (**Booking Menu Selection add-on picker UI, DEC-170**). AGENT 01 independently ran `BookingMenuPage.test.tsx` (**22/22**), full Vitest (**25 files, 383/383**), and `npm --prefix src/frontend/salscatersuite-ui run build` (exit 0; TypeScript **0 errors**; Vite emitted the existing >500 kB chunk-size advisory). No backend code changed in this cycle; latest backend evidence remains 999/999 unit and 139/139 integration from the Add-on Master Administration cycle.
+Frontend State: **Green — app shell/auth, dashboard, customer master, menu costing, packages/workbench, booking register/workbench/operations (including DEC-170 and the rate/tier cascade), Settings and add-on administration; TypeScript/build passed, 423/423 Vitest.**
+Governance State: **Active — decisions through DEC-171, risks through RSK-072, requirements traceability and open owner decisions are maintained in their governance artifacts.**
+Last verified: 2026-10-24 (**Reservation Workbench rate and tier cascade, AC-BKG-89..98 / DEC-171**). AGENT 01 independently ran focused bookings (**6 files, 127/127**), full Vitest (**27 files, 423/423**), and `npm --prefix src/frontend/salscatersuite-ui run build` (exit 0; TypeScript completed without diagnostics; Vite emitted the existing >500 kB chunk-size advisory). No backend code changed; AGENT 02 reports 999/999 unit and 139/139 integration tests, with the direct `areaId` path still uncovered (RSK-072). No live browser E2E or clean remote clone was run.
+
+## Latest feature cycle — Reservation Workbench Rate & Tier Cascade (2026-10-24)
+
+**Status: DELIVERED.** The existing `/bookings/new` workbench now shows Rate per head before a full quote using quote → same-package held quote during repricing → catalogue rate, with null-versus-zero protection and one-time catalogue refresh on divergence. The enforced cascade is **Package type → Area filter → Buffet tier**; active tiers are requested with the existing `activeOnly=true` and optional `areaId` filters. Type/area changes clear the tier synchronously; DEC-171 prefills editable event Municipality from a non-empty Area selection without turning on the surcharge. Quote-derived figures other than the rate cell are suppressed while repricing. No backend/API/database or create-payload change.
+
+**AGENT 01 independent evidence:** focused bookings **6 files / 127/127 passed**; full frontend **27 files / 423/423 passed**; `npm --prefix src/frontend/salscatersuite-ui run build` succeeded with TypeScript passing and the existing Vite chunk-size advisory. New tests are under the existing `features/bookings/__tests__/` directory. The direct backend package-area endpoint test gap and fake-repository divergence remain open as RSK-072; no backend test change was authorized.
+
+---
 
 ---
 

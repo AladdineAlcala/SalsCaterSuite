@@ -17,7 +17,7 @@
 | **Database Engine** | SQL Server (Development target: LocalDB `MSSQLLocalDB`) |
 | **Test Projects** | `src/backend/SalsCaterSuite.UnitTests` (xUnit), `src/backend/SalsCaterSuite.IntegrationTests` (xUnit + `WebApplicationFactory`) |
 | **Status** | Living document — aligned to the **as-built** repository state |
-| **Last aligned** | 2026-10-24 (AGENT 01 — the Booking Menu Selection add-on picker UI is delivered under DEC-170. §3.2, §3.3, §4, §5 and §9 were checked against the as-built tree; §10 and §11 record the close-out; the migration/entity inventory now records 17 entities and 7 migrations. Independent frontend validation: 22/22 focused tests, 383/383 full Vitest, TypeScript 0 errors, production build succeeded with the existing Vite chunk-size advisory. A clean remote clone was not verified in this cycle; see §11.) |
+| **Last aligned** | 2026-10-24 (AGENT 01 — Reservation Workbench rate and Type → Area → Buffet tier enhancement delivered under AC-BKG-89..98 / DEC-171. §3.2, §3.4, §3.5 and §9 were realigned to the enumerated frontend tree and existing API; §10 and §11 record close-out. Independent frontend validation: focused bookings 6 files / 127 tests; full Vitest 27 files / 423 tests; `tsc` and production build succeeded with the existing Vite chunk-size advisory. No route, endpoint, backend or database change. Clean remote clone not verified; see §11.) |
 
 > **Read this document before acting.** If the code and this document disagree, **the code is the current truth and this document is stale**. AGENT 01 realigns the document as part of closing the work cycle. A sub-agent that finds a discrepancy must report it to AGENT 01 and must **not** silently treat either side as correct.
 
@@ -632,8 +632,8 @@ src/frontend/salscatersuite-ui/
     │   │   ├── BookingMenuPage.tsx, BookingsEventsPage.tsx, BookingWorkbenchPage.tsx,
     │   │   │                           bookingVocabulary.ts
     │   │   └── __tests__/             (BookingMenuPage.test.tsx, BookingsEventsPage.test.tsx,
-    │   │                               BookingWorkbenchPage.test.tsx,
-    │   │                               noHardcodedFigures.test.ts)
+    │   │                               BookingWorkbenchPage.test.tsx, WorkbenchTierEngine.test.tsx,
+    │   │                               bookingVocabulary.test.ts, noHardcodedFigures.test.ts)
     │   ├── customers/                 (REQ-CUS-01 — DELIVERED)
     │   │   ├── components/            (CustomerBanner, CustomerDirectoryTable, CustomerDrawer,
     │   │   │                           CustomerFilterBar, CustomerKpiCard, CustomerKpiGrid,
@@ -789,7 +789,7 @@ Paths are relative to the Axios `baseURL` of `/api`.
 | | `PUT /addons/{id}` | Update an add-on (contract §16.2a) |
 | | `DELETE /addons/{id}` | Soft-delete an add-on (contract §16.2a) |
 | `departments` | `GET /departments` | The read-only department lookup (contract §16.2b) |
-| `packages` | `GET /packages` | The buffet tier list (whole catalogue, unpaged). Accepts the optional `areaId` filter (DEC-157) |
+| `packages` | `GET /packages` | The buffet tier list (unpaged). Accepts optional `activeOnly` and `areaId` filters (DEC-157); the reservation workbench requests active tiers and adds `areaId` for eligible types |
 | | `GET /packages/summary` | The server-computed catalogue aggregate (DEC-068) |
 | | `GET /packages/{id}` | One tier |
 | | `POST /packages` | Create a tier → `201 { packageId }` |
@@ -811,7 +811,7 @@ Additional server endpoints not yet consumed by the client exist on the Calendar
 
 ### 3.5 Frontend rules
 
-- Financial totals come from the **server**; the client never recomputes an authoritative amount. A client-side figure is a preview only and must use the documented formula.
+- Financial totals come from the **server**; the client never recomputes an authoritative amount. A client-side figure is a preview only and must use the documented formula. The workbench's Rate per head is read from the current quote or package catalogue (with the same-package last resolved quote held during recalculation); the browser never multiplies rate by headcount.
 - No feature folder may fabricate data to cover a missing endpoint. A gap renders an explicit **capability-gap notice** or a `NotImplementedPage`.
 - Shared UI lives in `components/ui` and `components/feedback`; feature-specific code stays inside its feature folder.
 - Types in `src/types/` mirror the .NET DTOs. Enums travel as **string names**.
@@ -1051,6 +1051,7 @@ The authoritative per-feature status, test evidence and outstanding gaps live in
 | Menu recipe/ingredient/yield engine | REQ-MNU-03 | **BLOCKED** on ten owner decisions | Capability-gap notices | Blocked (DEC-059) |
 | Bookings core (the generic backend surface) | `BookingsController` (transport-only), `CreateBookingCommand`, `CancelBookingCommand` (the **F7 refund cap** enforced before mutation), `GetBookingDetailsQuery`, `GetBookingLedgerQuery`; `BookingNumber` = `BK-YYYYMMDD-NNNNN` + a unique index | - | **Superseded by the delivered rows below** | The generic booking APIs are implemented; the register/workbench and operations rows below describe current delivery. A dedicated booking detail/edit screen remains outstanding. |
 | **Bookings & Events Register & Reservation Workbench** | **REQ-BKG-05 / REQ-BKG-01** | **`GET /api/bookings` (the paged, filtered dossier), `GET /api/bookings/summary` (the KPI aggregate), `POST /api/bookings/quote` (the server-computed quote), `GET /api/bookings/{id}/contract` (the contract PDF), `GET /api/bookings/export` (the register XLSX) and the extended `POST /api/bookings` (a draft or a confirmed booking, with an optional initial payment) — contract §14** | **DELIVERED** — `BookingsEventsPage` (the register: the four KPI cards, the command bar, the dossier grid and its chronological rail, the totals strip and the three-card operational dock) and `BookingWorkbenchPage` (the reservation workbench: the client & logistics rail, the tier & course engine and the financial & seal rail, inside the one authenticated shell — DEC-110) | **Backend DELIVERED** — DEC-099, DEC-101, DEC-102, DEC-106, DEC-111..DEC-118: the one net-due source, the one rounding, the stored surcharge, the unified soft-deleted-payment exclusion, the overpayment guard and the three-state payment vocabulary. **Frontend DELIVERED** — DEC-114: the new feature folder, the contract §14 type mirror, the `bookings` endpoint group, the two routes and the promoted navigation flag |
+| **Reservation Workbench Rate & Tier Cascade (REQ-BKG-01 enhancement, 2026-10-24)** | **AC-BKG-89..98; DEC-171** | **No backend/API/database change.** Existing `GET /api/packages` accepts `activeOnly` + `areaId`; direct endpoint-test gap remains RSK-072. | **DELIVERED** — `BookingWorkbenchPage`, `WorkbenchTierEngine`, `WorkbenchLogisticsBlock`, `WorkbenchFields`, `useBookingWorkbench`, `bookingVocabulary`; current/catalogue/held same-package rate; required type → area → tier cascade; DEC-171 Municipality prefill; unchanged create payload. New tests are in the existing bookings `__tests__` folder. | AGENT 01 independent frontend evidence: focused bookings **6 files / 127 tests**, full Vitest **27 files / 423 tests**, TypeScript check passed and production build succeeded with the existing Vite chunk-size advisory. No live browser E2E; Playwright is not implemented. |
 | Payments & ledger | - | `PaymentLedgerService` | PLANNED | Backend green, UI pending |
 | **Bookings & Events Operations - the dish selection, the add-ons and the automatic discounts** | **REQ-BKG-06 / REQ-BKG-07 / REQ-BKG-08** | **DELIVERED** - contract §14–§16, the menu-selection and add-on read/replace endpoints, quote/create support, area filter and the additive `AddBookingMenuAndAddOns` migration (DEC-127..DEC-160). No backend/API/database change in the DEC-170 UI enhancement. | **DELIVERED + enhanced 2026-10-24** - `BookingMenuPage` at `/bookings/:transactionId/menu`; selected-only add-on panel and lazy-loaded category-filtered modal using the existing API; the server-refreshed contract value is shown after save. No new route, endpoint, project, folder or shared component. | Original backend delivery evidence: 941/941 unit, 133/133 integration and 61/61 live assertions on a disposable LocalDB. Current independent FE verification: 22/22 focused, 383/383 Vitest, 0 TS errors, successful production build (existing chunk-size advisory). Active-only master can be empty when no active catalogue rows exist (BR-13); administration is at Settings → Add-ons (DEC-168). |
 | Packages & Buffets catalogue | REQ-PKG-01 | `GET /api/packages/summary`, validated writes | `PackageCataloguePage`, `PackageTierFormPage` | Green |
@@ -1103,7 +1104,15 @@ The authoritative per-feature status, test evidence and outstanding gaps live in
 
 ---
 
+### Additional change-log entry — 2026-10-24
+
+| Date | Agent | Change | Sections touched |
+| :--- | :--- | :--- | :--- |
+| 2026-10-24 | AGENT 01 | **Reservation Workbench rate and tier cascade delivered (AC-BKG-89..98, DEC-171).** The existing `features/bookings` workbench now displays the current quote rate, a same-package held rate during repricing, or the catalogue rate with null-versus-zero discipline; enforces the Package type → Area filter → Buffet tier cascade; pre-fills editable event Municipality from a non-empty Area selection without enabling surcharge; and keeps all other quote-derived figures in the no-stale state. Two tests were added under the existing `__tests__` directory. No route, endpoint, API payload, backend, database or financial-calculation change. AGENT 01 independently ran focused bookings **6 files / 127 tests**, full Vitest **27 files / 423 tests**, and the frontend build (TypeScript passed; Vite succeeded with the existing chunk advisory). RSK-072 remains open: direct backend area-filter endpoint coverage is absent and no test change was approved. A clean remote clone and live browser E2E were not verified in this cycle. | 3.2, 3.4, 3.5, 9, 10, 11 |
+
 ## 11. Verification Checklist
+
+**Verification — 2026-10-24 (AGENT 01, Reservation Workbench rate and tier cascade).** The bookings feature component and test file enumerations match §3.2; the existing package endpoint accepts both filters used by the client and §3.4 now records `activeOnly` + `areaId`. **Executed independently:** focused bookings **6 files / 127 passed**, full frontend **27 files / 423 passed**, and `npm --prefix src/frontend/salscatersuite-ui run build` succeeded (TypeScript completed without diagnostics; Vite build succeeded with the existing >500 kB chunk advisory). No backend code, endpoint, database, or business calculation changed. AGENT 02 reported **999/999 unit** and **139/139 integration** tests, but these do not exercise `areaId`; the gap and hand-written fake divergence remain **RSK-072**. No live browser E2E was run because the repository's Playwright suite remains planned/not implemented. **Clean-clone/remote verification remains unchecked** because the working tree contains pre-existing uncommitted work; no claim is made that the remote contains these files (DEC-125).
 
 Before this document is treated as current, AGENT 01 confirms:
 

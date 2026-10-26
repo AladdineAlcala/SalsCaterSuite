@@ -17,24 +17,23 @@ export interface WorkbenchLogisticsBlockProps {
   municipalities: AreaDto[]
   /** The server's quote — the source of the surcharge and the coverage verdict. */
   quote: BookingQuote | null
+  /** `true` while the quote is being re-priced — a DEC-171 area prefill, a headcount, a switch. */
+  isRecalculating: boolean
   /** The selected tier's stored type. `null` until a tier is chosen. */
   selectedTierType: string | null
 }
 
 /**
- * The venue & spatial logistics block (spec §5.3, BR-17, BR-18).
+ * The venue & spatial logistics block (spec §5.2, BR-17, BR-18).
  *
  * The municipality, its distance, its logistics note and its per-event
  * logistics cost come from the **municipality catalogue**, and the surcharge
  * comes from the **server's quote** — the client never multiplies a rate by a
  * headcount itself (DEC-002, BR-26).
  *
- * The **area filter** is offered only for the `Regular` and `Premier` types
- * (DEC-141, DEC-156, DEC-157): it narrows the tier list to the tiers whose
- * coverage includes the municipality, and the server answers it through
- * `areaId` (AC-BKG-86). For a tier whose type cannot carry the amount the
- * **municipality selector is hidden**, so the workbench can never post a
- * surcharge the API would refuse (AC-BKG-72).
+ * The **area filter** lives with the tier cascade in the tier engine now; this
+ * block keeps the **event municipality** and the surcharge switch, and hides
+ * both for a tier whose type cannot carry the amount (DEC-141, AC-BKG-72).
  *
  * The reference's **Included Site Amenities** checklist is a **capability
  * gap**: `Package` carries no inclusions collection, so no amenity is
@@ -46,21 +45,24 @@ export function WorkbenchLogisticsBlock({
   onChange,
   municipalities,
   quote,
+  isRecalculating,
   selectedTierType,
 }: WorkbenchLogisticsBlockProps) {
   const municipality =
     municipalities.find((area) => String(area.areaId) === draft.extendedAreaId) ?? null
 
   /*
-   * The type the eligibility test reads: the selected tier's own type once a
-   * tier is chosen, otherwise the type filter the operator is composing with.
+   * The quote's figures and verdicts display only while they are **current**
+   * (AC-BKG-90): an out-of-town surcharge or a coverage verdict from a
+   * previous request — for example after the DEC-171 area prefill changes
+   * the quote inputs — must never stand in while the server re-prices.
    */
-  const areaFilterType = selectedTierType ?? draft.packageType
-  const isAreaFilterOffered = supportsExtendedArea(areaFilterType)
+  const isQuoteCurrent = quote !== null && !isRecalculating
+
   const canCarryExtendedArea =
     selectedTierType !== null && supportsExtendedArea(selectedTierType)
 
-  const coverage = quote?.coverage ?? null
+  const coverage = isQuoteCurrent ? quote.coverage : null
   const coverageLabel =
     coverage === null
       ? 'Not priced yet'
@@ -80,22 +82,6 @@ export function WorkbenchLogisticsBlock({
           </h2>
           {municipality && canCarryExtendedArea ? <Badge tone="warning">Out-of-town</Badge> : null}
         </div>
-
-        {isAreaFilterOffered ? (
-          <WorkbenchSelectField
-            id="booking-area-filter"
-            label="Area filter"
-            value={draft.areaFilterId}
-            onChange={(value) => onChange({ areaFilterId: value })}
-            options={municipalities.map((area) => ({
-              value: String(area.areaId),
-              label: area.areaDetails,
-            }))}
-            placeholder="All municipalities"
-            hint="Narrows the tier list to the tiers covering the municipality"
-            disabled={municipalities.length === 0}
-          />
-        ) : null}
 
         {canCarryExtendedArea ? (
           <>
@@ -163,24 +149,27 @@ export function WorkbenchLogisticsBlock({
             <div className="flex items-center justify-between gap-2">
               <dt className="text-espresso-400">Surcharge rate</dt>
               <dd className="font-mono text-espresso-900 text-right">
-                {quote?.extendedAreaRate === null || quote?.extendedAreaRate === undefined
-                  ? NOT_STATED
-                  : `${formatCurrency(quote.extendedAreaRate)} per head`}
+                {!isQuoteCurrent
+                  ? EM_DASH
+                  : quote.extendedAreaRate === null || quote.extendedAreaRate === undefined
+                    ? NOT_STATED
+                    : `${formatCurrency(quote.extendedAreaRate)} per head`}
               </dd>
             </div>
             <div className="flex items-center justify-between gap-2">
               <dt className="text-espresso-400">Surcharge</dt>
               <dd className="font-mono text-espresso-900 text-right">
-                {quote?.extendedAreaAmount === null || quote?.extendedAreaAmount === undefined
+                {!isQuoteCurrent
                   ? EM_DASH
-                  : formatCurrency(quote.extendedAreaAmount)}
+                  : quote.extendedAreaAmount === null || quote.extendedAreaAmount === undefined
+                    ? EM_DASH
+                    : formatCurrency(quote.extendedAreaAmount)}
               </dd>
             </div>
             <div className="flex items-start justify-between gap-2">
               <dt className="text-espresso-400">Tier coverage</dt>
               <dd className="text-espresso-800 text-right break-words">{coverageLabel}</dd>
-            </div>
-          </dl>
+            </div>          </dl>
         ) : null}
 
         {municipality && canCarryExtendedArea ? (
