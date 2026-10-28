@@ -16,8 +16,8 @@ using SalsCaterSuite.Domain.Entities;
 public interface IPackageCourseRuleRepository
 {
     /// <summary>
-    /// The tier's <b>live</b> rules, with the course name and the upgrade add-on's details
-    /// resolved. Soft-deleted rules are excluded (DEC-074).
+    /// The tier's <b>live</b> rules, with the course name resolved. Soft-deleted rules are
+    /// excluded (DEC-074).
     /// </summary>
     Task<IReadOnlyList<PackageCourseRuleProjection>> GetLiveRulesAsync(
         int packageId,
@@ -41,12 +41,6 @@ public interface IPackageCourseRuleRepository
     /// </para>
     /// </summary>
     Task<bool> LiveCourseExistsAsync(int courseId, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// True when a <b>live</b> add-on with this id exists. A soft-deleted add-on does not exist
-    /// for the workbench's validation (spec §3.6).
-    /// </summary>
-    Task<bool> LiveAddonExistsAsync(int addonId, CancellationToken cancellationToken = default);
 
     Task AddAsync(PackageCourseRule rule, CancellationToken cancellationToken = default);
 

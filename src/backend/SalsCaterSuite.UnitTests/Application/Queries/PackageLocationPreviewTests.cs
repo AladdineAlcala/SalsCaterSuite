@@ -25,7 +25,8 @@ public class PackageLocationPreviewTests
             Description = "Wedding Grand Tier",
             AmountPax = 1000m,
             MinPax = 50,
-            IsActive = true
+            IsActive = true,
+            NumPaxId = 4,
         });
 
         _store.CourseCategories.Add(new CourseCategory { CourseId = 1, CourseName = "Main Course" });

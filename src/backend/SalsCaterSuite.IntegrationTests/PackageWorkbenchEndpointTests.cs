@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
@@ -12,9 +12,9 @@ namespace SalsCaterSuite.IntegrationTests;
 
 /// <summary>
 /// The Package Configuration Workbench endpoints against a real SQL Server (LocalDB) database
-/// (contract §13, REQ-PKG-02).
+/// (contract Â§13, REQ-PKG-02).
 /// <para>
-/// Nothing is seeded (BR-13): every probe row — the tier, the municipality and the dish — is
+/// Nothing is seeded (BR-13): every probe row â€” the tier, the municipality and the dish â€” is
 /// created through the real API, and each test owns a uniquely suffixed probe so the probes never
 /// collide.
 /// </para>
@@ -26,7 +26,7 @@ public class PackageWorkbenchEndpointTests
 
     public PackageWorkbenchEndpointTests(IntegrationDatabaseFixture fixture) => _fixture = fixture;
 
-    // ─────────────────────────── the course ruleset ───────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ the course ruleset â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     [Fact]
     public async Task The_course_rules_endpoint_should_return_the_documented_envelope()
@@ -49,17 +49,17 @@ public class PackageWorkbenchEndpointTests
         ruleset.GetProperty("minPax").GetInt32().Should().Be(150);
         ruleset.GetProperty("isActive").GetBoolean().Should().BeTrue();
 
-        // The benchmark is the base configuration's 35.0 — the host runs in the Testing
+        // The benchmark is the base configuration's 35.0 â€” the host runs in the Testing
         // environment, so the ceiling assertions are deterministic.
         ruleset.GetProperty("targetFoodCostPercentage").GetDecimal().Should().Be(35.0m);
         ruleset.GetProperty("targetMarginPercentage").GetDecimal().Should().Be(65.0m);
         ruleset.GetProperty("isBenchmarkConfigured").GetBoolean().Should().BeTrue();
 
-        // 1450 × 35 % = 507.50 and 1450 × 150 = 217 500.00.
+        // 1450 Ã— 35 % = 507.50 and 1450 Ã— 150 = 217 500.00.
         ruleset.GetProperty("costCeilingPerPax").GetDecimal().Should().Be(507.50m);
         ruleset.GetProperty("minimumContractValue").GetDecimal().Should().Be(217500.00m);
 
-        // No rule is configured yet, so the planning figures are unknown — never zero.
+        // No rule is configured yet, so the planning figures are unknown â€” never zero.
         ruleset.GetProperty("standardRunFoodCostPerPax").ValueKind.Should().Be(JsonValueKind.Null);
         ruleset.GetProperty("standardRunFoodCostPercentage").ValueKind.Should().Be(JsonValueKind.Null);
         ruleset.GetProperty("baseGrossProfitPercentage").ValueKind.Should().Be(JsonValueKind.Null);
@@ -87,7 +87,7 @@ public class PackageWorkbenchEndpointTests
             $"/api/packages/{packageId}/course-rules",
             new RulesetPayload(new[]
             {
-                new RulePayload(courseId, 1, 120, "Exactly one main course", "Included", null)
+                new RulePayload(courseId, 1, 120, "Exactly one main course")
             }));
 
         put.StatusCode.Should().Be(HttpStatusCode.OK, await put.DescribeAsync());
@@ -99,8 +99,19 @@ public class PackageWorkbenchEndpointTests
         rule.GetProperty("requiredQuota").GetInt32().Should().Be(1);
         rule.GetProperty("portionGrams").GetInt32().Should().Be(120);
         rule.GetProperty("ruleDescription").GetString().Should().Be("Exactly one main course");
-        rule.GetProperty("inclusionTag").GetString().Should().Be("Included");
-        rule.GetProperty("upgradeAddonId").ValueKind.Should().Be(JsonValueKind.Null);
+
+        // The retired inclusion tag and upgrade add-on are gone from the wire (DEC-172). The
+        // ABSENCE is asserted — a deleted assertion would not prove the removal.
+        rule.TryGetProperty("inclusionTag", out _).Should().BeFalse(
+            "the retired inclusion tag must not be published any more");
+        rule.TryGetProperty("upgradeAddonId", out _).Should().BeFalse(
+            "the retired upgrade add-on must not be published any more");
+        rule.TryGetProperty("upgradeAddonDescription", out _).Should().BeFalse(
+            "the retired upgrade add-on's description must not be published any more");
+        rule.TryGetProperty("upgradeAddonUnitPrice", out _).Should().BeFalse(
+            "the retired upgrade add-on's unit price must not be published any more");
+        rule.TryGetProperty("upgradeAddonUnit", out _).Should().BeFalse(
+            "the retired upgrade add-on's unit must not be published any more");
 
         // The pool is the live dishes of the course.
         rule.GetProperty("poolSize").GetInt32().Should().BeGreaterThanOrEqualTo(1);
@@ -109,6 +120,52 @@ public class PackageWorkbenchEndpointTests
 
         // The standard run is the mean of the costed pool.
         ruleset.GetProperty("standardRunFoodCostPerPax").ValueKind.Should().NotBe(JsonValueKind.Null);
+    }
+
+    /// <summary>
+    /// A client that still sends the retired <c>inclusionTag</c> and <c>upgradeAddonId</c> is
+    /// <b>ignored</b>, never rejected (DEC-172): the removal is of the contract, not a new
+    /// strictness about unknown members.
+    /// </summary>
+    [Fact]
+    public async Task The_put_course_rules_endpoint_should_ignore_the_retired_request_members()
+    {
+        var client = await _fixture.CreateAdministratorClientAsync();
+        var suffix = NewSuffix();
+
+        var packageId = await CreateProbeTierAsync(client, suffix, 1000m, 50);
+        var courseId = await GetCourseIdAsync(client, "Main Course");
+
+        // A raw body carrying the retired members alongside the supported ones.
+        var body = new
+        {
+            rules = new[]
+            {
+                new
+                {
+                    courseId,
+                    requiredQuota = 1,
+                    portionGrams = (int?)120,
+                    ruleDescription = "One main course",
+                    inclusionTag = "Included",
+                    upgradeAddonId = 7
+                }
+            }
+        };
+
+        var response = await client.PutAsJsonAsync($"/api/packages/{packageId}/course-rules", body);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK, await response.DescribeAsync());
+
+        var ruleset = await client.GetJsonAsync($"/api/packages/{packageId}/course-rules");
+
+        var rule = ruleset.GetProperty("rules").EnumerateArray().Single();
+        rule.GetProperty("courseId").GetInt32().Should().Be(courseId);
+        rule.GetProperty("ruleDescription").GetString().Should().Be("One main course");
+
+        // The retired members are neither echoed nor persisted.
+        rule.TryGetProperty("inclusionTag", out _).Should().BeFalse();
+        rule.TryGetProperty("upgradeAddonId", out _).Should().BeFalse();
     }
 
     [Fact]
@@ -124,8 +181,8 @@ public class PackageWorkbenchEndpointTests
             $"/api/packages/{packageId}/course-rules",
             new RulesetPayload(new[]
             {
-                new RulePayload(courseId, 1, null, "One main course", null, null),
-                new RulePayload(courseId, 2, null, "The same course again", null, null)
+                new RulePayload(courseId, 1, null, "One main course"),
+                new RulePayload(courseId, 2, null, "The same course again")
             }));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -168,8 +225,8 @@ public class PackageWorkbenchEndpointTests
             $"/api/packages/{packageId}/course-rules",
             new RulesetPayload(new[]
             {
-                new RulePayload(courseId, 1, null, "One main course", null, null),
-                new RulePayload(otherCourseId, 1, null, "One dessert", null, null)
+                new RulePayload(courseId, 1, null, "One main course"),
+                new RulePayload(otherCourseId, 1, null, "One dessert")
             }));
 
         // Replace the ruleset with a single rule.
@@ -177,7 +234,7 @@ public class PackageWorkbenchEndpointTests
             $"/api/packages/{packageId}/course-rules",
             new RulesetPayload(new[]
             {
-                new RulePayload(courseId, 1, null, "One main course", null, null)
+                new RulePayload(courseId, 1, null, "One main course")
             }));
 
         replace.StatusCode.Should().Be(HttpStatusCode.OK, await replace.DescribeAsync());
@@ -206,7 +263,7 @@ public class PackageWorkbenchEndpointTests
 
         await client.PutAsJsonAsync(
             $"/api/packages/{packageId}/course-rules",
-            new RulesetPayload(new[] { new RulePayload(courseId, 1, null, "One main course", null, null) }));
+            new RulesetPayload(new[] { new RulePayload(courseId, 1, null, "One main course") }));
 
         var clear = await client.PutAsJsonAsync(
             $"/api/packages/{packageId}/course-rules",
@@ -232,7 +289,7 @@ public class PackageWorkbenchEndpointTests
         var packageId = await CreateProbeTierAsync(client, suffix, 1000m, 50);
         var courseId = await GetCourseIdAsync(client, "Main Course");
 
-        var rules = new[] { new RulePayload(courseId, 1, null, "One main course", null, null) };
+        var rules = new[] { new RulePayload(courseId, 1, null, "One main course") };
 
         await client.PutAsJsonAsync($"/api/packages/{packageId}/course-rules", new RulesetPayload(rules));
         await client.PutAsJsonAsync($"/api/packages/{packageId}/course-rules", new RulesetPayload(Array.Empty<RulePayload>()));
@@ -263,7 +320,7 @@ public class PackageWorkbenchEndpointTests
 
         await client.PutAsJsonAsync(
             $"/api/packages/{packageId}/course-rules",
-            new RulesetPayload(new[] { new RulePayload(courseId, 1, null, "One main course", null, null) }));
+            new RulesetPayload(new[] { new RulePayload(courseId, 1, null, "One main course") }));
 
         // The filtered unique index on (p_id, courseId) is the database-level guarantee (DEC-088).
         using var scope = _fixture.CreateScope();
@@ -281,7 +338,7 @@ public class PackageWorkbenchEndpointTests
         await act.Should().ThrowAsync<DbUpdateException>();
     }
 
-    // ─────────────────────────── the selection simulator ───────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ the selection simulator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     [Fact]
     public async Task The_course_rule_preview_should_return_the_expected_figures()
@@ -297,7 +354,7 @@ public class PackageWorkbenchEndpointTests
 
         await client.PutAsJsonAsync(
             $"/api/packages/{packageId}/course-rules",
-            new RulesetPayload(new[] { new RulePayload(courseId, 1, null, "Exactly one main course", null, null) }));
+            new RulesetPayload(new[] { new RulePayload(courseId, 1, null, "Exactly one main course") }));
 
         var response = await client.PostAsJsonAsync(
             $"/api/packages/{packageId}/course-rules/preview",
@@ -312,7 +369,7 @@ public class PackageWorkbenchEndpointTests
         preview.GetProperty("pax").GetInt32().Should().Be(120);
         preview.GetProperty("targetFoodCostPercentage").GetDecimal().Should().Be(35.0m);
 
-        // 1000 × 35 % = 350.00.
+        // 1000 Ã— 35 % = 350.00.
         preview.GetProperty("costCeilingPerPax").GetDecimal().Should().Be(350.00m);
         preview.GetProperty("selectedFoodCostPerPax").GetDecimal().Should().Be(100.00m);
         preview.GetProperty("effectiveFoodCostPercentage").GetDecimal().Should().Be(10.00m);
@@ -366,7 +423,7 @@ public class PackageWorkbenchEndpointTests
         (await response.ReadErrorsAsync()).Should().Contain("Selections must be supplied.");
     }
 
-    // ─────────────────────────── the municipality catalogue ───────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ the municipality catalogue â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     [Fact]
     public async Task The_area_catalogue_should_round_trip_through_the_api()
@@ -438,7 +495,7 @@ public class PackageWorkbenchEndpointTests
         (await response.ReadErrorsAsync()).Should().Contain("Area not found.");
     }
 
-    // ─────────────────────────── the coverage matrix ───────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ the coverage matrix â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     [Fact]
     public async Task The_area_attach_endpoint_should_return_created()
@@ -533,7 +590,7 @@ public class PackageWorkbenchEndpointTests
         live.Should().Be(0);
     }
 
-    // ─────────────────────────── the location simulator ───────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ the location simulator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     [Fact]
     public async Task The_location_preview_should_return_the_expected_breakdown()
@@ -548,7 +605,7 @@ public class PackageWorkbenchEndpointTests
         await CreateProbeDishAsync(client, menuId, courseId, $"Location dish {suffix}", 500m, 100m);
         await client.PutAsJsonAsync(
             $"/api/packages/{packageId}/course-rules",
-            new RulesetPayload(new[] { new RulePayload(courseId, 1, null, "Exactly one main course", null, null) }));
+            new RulesetPayload(new[] { new RulePayload(courseId, 1, null, "Exactly one main course") }));
 
         var areaId = await CreateProbeAreaAsync(client, suffix, 150m, 42, "Reefer", 3200m);
 
@@ -565,7 +622,7 @@ public class PackageWorkbenchEndpointTests
         preview.GetProperty("areaId").GetInt32().Should().Be(areaId);
         preview.GetProperty("additionalRate").GetDecimal().Should().Be(150.00m);
 
-        // 1000 × 50 = 50 000.00 and 150 × 50 = 7 500.00.
+        // 1000 Ã— 50 = 50 000.00 and 150 Ã— 50 = 7 500.00.
         preview.GetProperty("baseTotal").GetDecimal().Should().Be(50000.00m);
         preview.GetProperty("extendedTotal").GetDecimal().Should().Be(7500.00m);
         preview.GetProperty("effectiveRatePerPax").GetDecimal().Should().Be(1150.00m);
@@ -595,7 +652,7 @@ public class PackageWorkbenchEndpointTests
         (await response.ReadErrorsAsync()).Should().Contain("Pax must be at least 1.");
     }
 
-    // ─────────────────────────── the specification sheet ───────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ the specification sheet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     [Fact]
     public async Task The_spec_sheet_should_return_a_pdf()
@@ -608,7 +665,7 @@ public class PackageWorkbenchEndpointTests
 
         await client.PutAsJsonAsync(
             $"/api/packages/{packageId}/course-rules",
-            new RulesetPayload(new[] { new RulePayload(courseId, 1, null, "One main course", null, null) }));
+            new RulesetPayload(new[] { new RulePayload(courseId, 1, null, "One main course") }));
 
         var response = await client.GetAsync($"/api/packages/{packageId}/spec-sheet");
 
@@ -622,7 +679,7 @@ public class PackageWorkbenchEndpointTests
         bytes.Take(4).Should().Equal((byte)'%', (byte)'P', (byte)'D', (byte)'F');
     }
 
-    // ─────────────────────────── the tier population (DEC-074) ───────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ the tier population (DEC-074) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     [Fact]
     public async Task Every_tier_scoped_endpoint_should_answer_not_found_for_a_soft_deleted_tier()
@@ -636,7 +693,7 @@ public class PackageWorkbenchEndpointTests
 
         await client.PutAsJsonAsync(
             $"/api/packages/{packageId}/course-rules",
-            new RulesetPayload(new[] { new RulePayload(courseId, 1, null, "One main course", null, null) }));
+            new RulesetPayload(new[] { new RulePayload(courseId, 1, null, "One main course") }));
         await client.PostAsJsonAsync($"/api/packages/{packageId}/areas", new AttachPayload(areaId, true));
 
         await SoftDeleteTierAsync(packageId);
@@ -647,7 +704,7 @@ public class PackageWorkbenchEndpointTests
             await client.GetAsync($"/api/packages/{packageId}/course-rules"),
             await client.PutAsJsonAsync(
                 $"/api/packages/{packageId}/course-rules",
-                new RulesetPayload(new[] { new RulePayload(courseId, 1, null, "One main course", null, null) })),
+                new RulesetPayload(new[] { new RulePayload(courseId, 1, null, "One main course") })),
             await client.PostAsJsonAsync(
                 $"/api/packages/{packageId}/course-rules/preview",
                 new PreviewPayload(Array.Empty<SelectionPayload>(), null, null)),
@@ -681,7 +738,7 @@ public class PackageWorkbenchEndpointTests
         liveCoverages.Should().Be(1);
     }
 
-    // ─────────────────────────── helpers ───────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /// <summary>A unique suffix so every probe owns its own rows.</summary>
     private static string NewSuffix() => Guid.NewGuid().ToString("N")[..8];
@@ -694,7 +751,7 @@ public class PackageWorkbenchEndpointTests
     {
         var response = await client.PostAsJsonAsync(
             "/api/packages",
-            new PackagePayload("PW", $"Probe tier {suffix}", rate, minPax));
+            new PackagePayload("PW", $"Probe tier {suffix}", rate, minPax, 4));
 
         response.StatusCode.Should().Be(HttpStatusCode.Created, await response.DescribeAsync());
 
@@ -736,7 +793,7 @@ public class PackageWorkbenchEndpointTests
         return menuId;
     }
 
-    /// <summary>The id of a seeded course category — a system reference row, never business data.</summary>
+    /// <summary>The id of a seeded course category â€” a system reference row, never business data.</summary>
     private static async Task<int> GetCourseIdAsync(HttpClient client, string courseName)
     {
         var courses = await client.GetJsonAsync("/api/menus/courses");
@@ -747,7 +804,7 @@ public class PackageWorkbenchEndpointTests
         return course.GetProperty("courseId").GetInt32();
     }
 
-    /// <summary>Flags the probe tier as soft-deleted — the state the catalogue population excludes.</summary>
+    /// <summary>Flags the probe tier as soft-deleted â€” the state the catalogue population excludes.</summary>
     private async Task SoftDeleteTierAsync(int packageId)
     {
         using var scope = _fixture.CreateScope();
@@ -762,14 +819,15 @@ public class PackageWorkbenchEndpointTests
 /// <summary>The body of <c>PUT /api/packages/{id}/course-rules</c>.</summary>
 internal sealed record RulesetPayload(RulePayload[] Rules);
 
-/// <summary>One submitted course rule.</summary>
+/// <summary>
+/// One submitted course rule. The retired <c>inclusionTag</c> and <c>upgradeAddonId</c> members
+/// are gone (DEC-172); a client that still sends them has them ignored, never rejected.
+/// </summary>
 internal sealed record RulePayload(
     int CourseId,
     int RequiredQuota,
     int? PortionGrams,
-    string RuleDescription,
-    string? InclusionTag,
-    int? UpgradeAddonId);
+    string RuleDescription);
 
 /// <summary>The body of <c>POST /api/packages/{id}/course-rules/preview</c>.</summary>
 internal sealed record PreviewPayload(

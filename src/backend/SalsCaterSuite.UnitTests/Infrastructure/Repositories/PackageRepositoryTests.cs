@@ -28,7 +28,7 @@ public class PackageRepositoryTests : IDisposable
     public async Task AddAsync_And_SaveChangesAsync_ShouldAssignIdentityAndPersist()
     {
         // Arrange
-        var package = new Package { PackageType = "Buffet Premium", Description = "Premium", AmountPax = 650m, MinPax = 100, IsActive = true };
+        var package = new Package { PackageType = "Buffet Premium", Description = "Premium", AmountPax = 650m, MinPax = 100, IsActive = true, NumPaxId = 4 };
 
         // Act
         await _repository.AddAsync(package);
@@ -44,8 +44,8 @@ public class PackageRepositoryTests : IDisposable
     {
         // Arrange
         await _context.Packages.AddRangeAsync(
-            new Package { PackageId = 1, PackageType = "Buffet", Description = "A", IsActive = true },
-            new Package { PackageId = 2, PackageType = "Plated", Description = "B", IsActive = false });
+            new Package { PackageId = 1, PackageType = "Buffet", Description = "A", IsActive = true, NumPaxId = 4 },
+            new Package { PackageId = 2, PackageType = "Plated", Description = "B", IsActive = false, NumPaxId = 4 });
         await _context.SaveChangesAsync();
 
         // Act
@@ -64,6 +64,30 @@ public class PackageRepositoryTests : IDisposable
     }
 
     /// <summary>
+    /// The applicable-pax classification is published by both catalogue read projections
+    /// (REQ-PKG-04, DEC-173). A projection that omitted it would answer the default value and
+    /// the client would render the wrong option.
+    /// </summary>
+    [Fact]
+    public async Task The_read_projections_should_publish_the_applicable_pax_classification()
+    {
+        // Arrange
+        await _context.Packages.AddRangeAsync(
+            new Package { PackageId = 1, PackageType = "Buffet", Description = "A", IsActive = true, NumPaxId = 4 },
+            new Package { PackageId = 2, PackageType = "Plated", Description = "B", IsActive = true, NumPaxId = 2 });
+        await _context.SaveChangesAsync();
+
+        // Act
+        var list = await _repository.GetProjectionListAsync(null);
+        var detail = await _repository.GetProjectionByIdAsync(1);
+
+        // Assert
+        list.Single(p => p.PackageId == 1).NumPaxId.Should().Be(4);
+        list.Single(p => p.PackageId == 2).NumPaxId.Should().Be(2);
+        detail!.NumPaxId.Should().Be(4);
+    }
+
+    /// <summary>
     /// The catalogue's scoped population (DEC-074): the read projections exclude a
     /// soft-deleted tier, while the entity fetch keeps returning it because the booking path
     /// resolves the package's rate per head from it (BR-04).
@@ -73,8 +97,8 @@ public class PackageRepositoryTests : IDisposable
     {
         // Arrange
         await _context.Packages.AddRangeAsync(
-            new Package { PackageId = 1, PackageType = "Buffet", Description = "A", IsActive = true },
-            new Package { PackageId = 2, PackageType = "Ghost", Description = "B", IsActive = true, IsDeleted = true });
+            new Package { PackageId = 1, PackageType = "Buffet", Description = "A", IsActive = true, NumPaxId = 4 },
+            new Package { PackageId = 2, PackageType = "Ghost", Description = "B", IsActive = true, IsDeleted = true, NumPaxId = 4 });
         await _context.SaveChangesAsync();
 
         // Act
@@ -93,7 +117,7 @@ public class PackageRepositoryTests : IDisposable
     public async Task GetByIdAsync_ShouldReturnTrackedEntityForInPlaceUpdates()
     {
         // Arrange
-        await _context.Packages.AddAsync(new Package { PackageId = 5, PackageType = "Buffet", Description = "A", IsActive = true });
+        await _context.Packages.AddAsync(new Package { PackageId = 5, PackageType = "Buffet", Description = "A", IsActive = true, NumPaxId = 4 });
         await _context.SaveChangesAsync();
 
         // Act — mutate then persist, as the toggle-active use case does.
@@ -114,12 +138,12 @@ public class PackageRepositoryTests : IDisposable
     {
         // Arrange — (950 + 1200 + 1450) ÷ 3 = 1 200.00
         await _context.Packages.AddRangeAsync(
-            new Package { PackageId = 1, PackageType = "Buffet", Description = "A", AmountPax = 950m, MinPax = 80, IsActive = true },
-            new Package { PackageId = 2, PackageType = "Buffet", Description = "B", AmountPax = 1200m, MinPax = 100, IsActive = true },
-            new Package { PackageId = 3, PackageType = "Plated", Description = "C", AmountPax = 1450m, MinPax = 150, IsActive = false },
-            new Package { PackageId = 4, PackageType = "Plated", Description = "D", AmountPax = null, MinPax = null, IsActive = true },
+            new Package { PackageId = 1, PackageType = "Buffet", Description = "A", AmountPax = 950m, MinPax = 80, IsActive = true, NumPaxId = 4 },
+            new Package { PackageId = 2, PackageType = "Buffet", Description = "B", AmountPax = 1200m, MinPax = 100, IsActive = true, NumPaxId = 4 },
+            new Package { PackageId = 3, PackageType = "Plated", Description = "C", AmountPax = 1450m, MinPax = 150, IsActive = false, NumPaxId = 4 },
+            new Package { PackageId = 4, PackageType = "Plated", Description = "D", AmountPax = null, MinPax = null, IsActive = true, NumPaxId = 4 },
             // A soft-deleted tier is excluded by the query itself (DEC-045 / DEC-050).
-            new Package { PackageId = 5, PackageType = "Ghost", Description = "E", AmountPax = 9999m, MinPax = 999, IsActive = true, IsDeleted = true });
+            new Package { PackageId = 5, PackageType = "Ghost", Description = "E", AmountPax = 9999m, MinPax = 999, IsActive = true, IsDeleted = true, NumPaxId = 4 });
         await _context.SaveChangesAsync();
 
         // Act
@@ -167,11 +191,11 @@ public class PackageRepositoryTests : IDisposable
         // Arrange — the same population in the database and in the fake's store.
         var population = new[]
         {
-            new Package { PackageId = 1, PackageType = "Buffet", Description = "A", AmountPax = 950m, MinPax = 80, IsActive = true },
-            new Package { PackageId = 2, PackageType = "Buffet", Description = "B", AmountPax = 1200m, MinPax = 100, IsActive = true },
-            new Package { PackageId = 3, PackageType = "Plated", Description = "C", AmountPax = 1450m, MinPax = 150, IsActive = false },
-            new Package { PackageId = 4, PackageType = "Plated", Description = "D", AmountPax = null, MinPax = null, IsActive = true },
-            new Package { PackageId = 5, PackageType = "Ghost", Description = "E", AmountPax = 9999m, MinPax = 999, IsActive = true, IsDeleted = true }
+            new Package { PackageId = 1, PackageType = "Buffet", Description = "A", AmountPax = 950m, MinPax = 80, IsActive = true, NumPaxId = 4 },
+            new Package { PackageId = 2, PackageType = "Buffet", Description = "B", AmountPax = 1200m, MinPax = 100, IsActive = true, NumPaxId = 4 },
+            new Package { PackageId = 3, PackageType = "Plated", Description = "C", AmountPax = 1450m, MinPax = 150, IsActive = false, NumPaxId = 4 },
+            new Package { PackageId = 4, PackageType = "Plated", Description = "D", AmountPax = null, MinPax = null, IsActive = true, NumPaxId = 4 },
+            new Package { PackageId = 5, PackageType = "Ghost", Description = "E", AmountPax = 9999m, MinPax = 999, IsActive = true, IsDeleted = true, NumPaxId = 4 }
         };
 
         await _context.Packages.AddRangeAsync(population);
@@ -186,7 +210,8 @@ public class PackageRepositoryTests : IDisposable
             AmountPax = p.AmountPax,
             MinPax = p.MinPax,
             IsActive = p.IsActive,
-            IsDeleted = p.IsDeleted
+            IsDeleted = p.IsDeleted,
+            NumPaxId = p.NumPaxId
         }));
 
         var fake = new FakePackageRepository(store);
@@ -215,26 +240,26 @@ public class PackageRepositoryTests : IDisposable
     // ─────────────────────────── the workbench projections (REQ-PKG-02) ───────────────────────────
 
     /// <summary>
-    /// The course-rule projection over the seeded population: the live rules, their course names
-    /// and their upgrade add-on's details (contract §13.1).
+    /// The course-rule projection over the seeded population: the live rules and their course
+    /// names (contract §13.1).
+    /// <para>
+    /// The rule no longer resolves an upgrade add-on: DEC-172 retired that coupling, so the
+    /// projection publishes the rule's own fields and the course name alone.
+    /// </para>
     /// </summary>
     [Fact]
-    public async Task The_course_rule_projection_should_resolve_the_course_and_the_upgrade_add_on()
+    public async Task The_course_rule_projection_should_resolve_the_live_rules_and_their_course_names()
     {
         // Arrange
         await _context.CourseCategories.AddRangeAsync(
             new CourseCategory { CourseId = 1, CourseName = "Main Course" },
             new CourseCategory { CourseId = 2, CourseName = "Dessert", IsDeleted = true });
 
-        await _context.AddonDetails.AddRangeAsync(
-            new AddonDetail { AddonId = 7, Description = "Premium seafood", UnitPrice = 250m, Unit = "per head" },
-            new AddonDetail { AddonId = 8, Description = "Retired upgrade", UnitPrice = 100m, Unit = "each", IsDeleted = true });
-
-        await _context.Packages.AddAsync(new Package { PackageId = 1, PackageType = "Buffet", Description = "A", IsActive = true });
+        await _context.Packages.AddAsync(new Package { PackageId = 1, PackageType = "Buffet", Description = "A", IsActive = true, NumPaxId = 4 });
 
         await _context.PackageCourseRules.AddRangeAsync(
-            new PackageCourseRule { PackageCourseRuleId = 1, PackageId = 1, CourseId = 1, RequiredQuota = 1, RuleDescription = "One main course", InclusionTag = "Included", UpgradeAddonId = 7 },
-            new PackageCourseRule { PackageCourseRuleId = 2, PackageId = 1, CourseId = 2, RequiredQuota = 1, RuleDescription = "One dessert", UpgradeAddonId = 8 },
+            new PackageCourseRule { PackageCourseRuleId = 1, PackageId = 1, CourseId = 1, RequiredQuota = 1, RuleDescription = "One main course" },
+            new PackageCourseRule { PackageCourseRuleId = 2, PackageId = 1, CourseId = 2, RequiredQuota = 1, RuleDescription = "One dessert" },
             new PackageCourseRule { PackageCourseRuleId = 3, PackageId = 1, CourseId = 1, RequiredQuota = 2, RuleDescription = "Removed rule", IsDeleted = true });
 
         await _context.SaveChangesAsync();
@@ -252,18 +277,6 @@ public class PackageRepositoryTests : IDisposable
         var rule = live.Single(candidate => candidate.PackageCourseRuleId == 1);
         rule.CourseName.Should().Be("Main Course");
         rule.RequiredQuota.Should().Be(1);
-        rule.InclusionTag.Should().Be("Included");
-        rule.UpgradeAddonId.Should().Be(7);
-        rule.UpgradeAddonDescription.Should().Be("Premium seafood");
-        rule.UpgradeAddonUnitPrice.Should().Be(250m);
-        rule.UpgradeAddonUnit.Should().Be("per head");
-
-        // A soft-deleted upgrade add-on keeps its id and publishes the rest as null.
-        var retired = live.Single(candidate => candidate.PackageCourseRuleId == 2);
-        retired.UpgradeAddonId.Should().Be(8);
-        retired.UpgradeAddonDescription.Should().BeNull();
-        retired.UpgradeAddonUnitPrice.Should().BeNull();
-        retired.UpgradeAddonUnit.Should().BeNull();
     }
 
     /// <summary>
@@ -279,7 +292,7 @@ public class PackageRepositoryTests : IDisposable
             new Area { AreaId = 1, AreaDetails = "Antipolo", AdditionalRate = 150m, DistanceKm = 42, LogisticsNote = "Reefer", LogisticsCost = 3200m },
             new Area { AreaId = 2, AreaDetails = "Retired municipality", IsDeleted = true });
 
-        await _context.Packages.AddAsync(new Package { PackageId = 1, PackageType = "Buffet", Description = "A", IsActive = true });
+        await _context.Packages.AddAsync(new Package { PackageId = 1, PackageType = "Buffet", Description = "A", IsActive = true, NumPaxId = 4 });
 
         await _context.PackageAreaCoverages.AddRangeAsync(
             new PackageAreaCoverage { PackageAreaCoverageId = 1, PackageId = 1, AreaId = 1, IsActive = true },

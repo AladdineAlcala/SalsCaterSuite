@@ -8,8 +8,12 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Configurations;
 /// The mapping of the course-coverage ruleset table (REQ-PKG-02, DEC-077, DEC-088).
 /// <para>
 /// The column names are the data dictionary's: <c>pcr_id</c>, <c>p_id</c>, <c>courseId</c>,
-/// <c>requiredQuota</c>, <c>portionGrams</c>, <c>ruleDescription</c>, <c>inclusionTag</c> and
-/// <c>addonId</c>.
+/// <c>requiredQuota</c>, <c>portionGrams</c> and <c>ruleDescription</c>.
+/// </para>
+/// <para>
+/// The retired <c>inclusionTag</c> and <c>addonId</c> columns (and the add-on foreign key and
+/// index that hung off <c>addonId</c>) are gone as of 2026-10-27 (DEC-172). The rule no longer
+/// references the add-on master.
 /// </para>
 /// <para>
 /// The <b>filtered</b> unique index on (<c>p_id</c>, <c>courseId</c>) is the database-level
@@ -32,8 +36,6 @@ public class PackageCourseRuleConfiguration : IEntityTypeConfiguration<PackageCo
         builder.Property(e => e.RequiredQuota).HasColumnName("requiredQuota");
         builder.Property(e => e.PortionGrams).HasColumnName("portionGrams");
         builder.Property(e => e.RuleDescription).HasColumnName("ruleDescription").HasMaxLength(500);
-        builder.Property(e => e.InclusionTag).HasColumnName("inclusionTag").HasMaxLength(50);
-        builder.Property(e => e.UpgradeAddonId).HasColumnName("addonId");
 
         // DEC-038: BaseEntity audit columns (the documented generic pattern).
         builder.Property(e => e.CreatedDate).HasColumnName("createdDate");
@@ -49,11 +51,6 @@ public class PackageCourseRuleConfiguration : IEntityTypeConfiguration<PackageCo
         builder.HasOne<CourseCategory>()
             .WithMany()
             .HasForeignKey(e => e.CourseId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        builder.HasOne<AddonDetail>()
-            .WithMany()
-            .HasForeignKey(e => e.UpgradeAddonId)
             .OnDelete(DeleteBehavior.Restrict);
 
         // DEC-088: one LIVE rule per (package, course). The filtered predicate keeps the

@@ -10,11 +10,14 @@ namespace SalsCaterSuite.Application.Features.Packages.Validators;
 /// The set validator composes this one, so the two can never drift apart.
 /// </para>
 /// <para>
-/// The existence rules treat a <b>soft-deleted</b> course or add-on as "does not exist", so the
-/// lookups filter <c>IsDeleted</c> (spec §3.6). The limits are the <b>column</b> limits:
-/// <c>ruleDescription</c> is <c>nvarchar(500)</c> and <c>inclusionTag</c> is
-/// <c>nvarchar(50)</c> — a wider limit would accept a payload the database then rejects as an
-/// unhandled <c>500</c>, the defect BR-11 exists to close.
+/// The existence rules treat a <b>soft-deleted</b> course as "does not exist", so the lookup
+/// filters <c>IsDeleted</c> (spec §3.6). The limit is the <b>column</b> limit:
+/// <c>ruleDescription</c> is <c>nvarchar(500)</c> — a wider limit would accept a payload the
+/// database then rejects as an unhandled <c>500</c>, the defect BR-11 exists to close.
+/// </para>
+/// <para>
+/// The retired inclusion-tag and upgrade-add-on rules were removed with the fields themselves
+/// (DEC-172); the rule no longer references the add-on master.
 /// </para>
 /// </summary>
 public class PackageCourseRuleRequestValidator : AbstractValidator<PackageCourseRuleRequestDto>
@@ -43,16 +46,5 @@ public class PackageCourseRuleRequestValidator : AbstractValidator<PackageCourse
             .WithMessage("Rule description is required.")
             .MaximumLength(500)
             .WithMessage("Rule description must not exceed 500 characters.");
-
-        RuleFor(x => x.InclusionTag)
-            .MaximumLength(50)
-            .WithMessage("Inclusion tag must not exceed 50 characters.");
-
-        // A null upgrade means "no upgrade" — only a supplied id must resolve.
-        RuleFor(x => x.UpgradeAddonId)
-            .MustAsync(async (addonId, cancellationToken) =>
-                !addonId.HasValue
-                || await _rules.LiveAddonExistsAsync(addonId.Value, cancellationToken))
-            .WithMessage((rule, addonId) => $"Add-on {addonId} does not exist.");
     }
 }

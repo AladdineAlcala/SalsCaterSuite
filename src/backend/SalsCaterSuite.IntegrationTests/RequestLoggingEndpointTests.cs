@@ -201,20 +201,25 @@ public class RequestLoggingEndpointTests
     public async Task AJsonResponse_IsDeliveredByteForByte()
     {
         var client = await _fixture.CreateAdministratorClientAsync();
-        await CreatePackageAsync(client);
+        var packageId = await CreatePackageAsync(client);
 
-        var before = CountEvents(e => Path(e) == "/api/packages");
+        var before = CountEvents(e => Path(e) == $"/api/packages/{packageId}");
 
-        var response = await client.GetAsync("/api/packages");
+        // The SINGLE-tier detail endpoint is used on purpose: the capture limit is 8 KB, and the
+        // catalogue list grows with every tier the suite creates, so the list response is not a
+        // reliable subject for the "not truncated" assertion. One tier is always small, and the
+        // property under test — the bytes the client receives are the application's bytes — does
+        // not depend on the subject's size.
+        var response = await client.GetAsync($"/api/packages/{packageId}");
         response.StatusCode.Should().Be(HttpStatusCode.OK, await response.DescribeAsync());
 
         var bytes = await response.Content.ReadAsByteArrayAsync();
         bytes.Length.Should().BeGreaterThan(0);
 
-        var events = await WaitForEventsAsync(e => Path(e) == "/api/packages", before + 1);
+        var events = await WaitForEventsAsync(e => Path(e) == $"/api/packages/{packageId}", before + 1);
 
         var jsonEvent = events
-            .Where(e => Path(e) == "/api/packages")
+            .Where(e => Path(e) == $"/api/packages/{packageId}")
             .OrderByDescending(e => Timestamp(e))
             .First();
 
@@ -424,7 +429,8 @@ public class RequestLoggingEndpointTests
             packageType = "Regular",
             description = "Integration Buffet Tier",
             amountPax = 1500m,
-            minPax = 50
+            minPax = 50,
+            numPaxId = 4
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.Created, await response.DescribeAsync());

@@ -3,12 +3,12 @@
 | Field | Value |
 | :--- | :--- |
 | **Requirement** | REQ-PKG-02 (Package Configuration Workbench) |
-| **Specification version** | v1.0 |
-| **Issued** | 2026-10-22 by AGENT 01 (BI Architect) |
+| **Specification version** | v1.1 |
+| **Issued** | 2026-10-22; amended 2026-10-27 by AGENT 01 (DEC-172) |
 | **Status** | Approved for delivery |
 | **Design references** | `d:\Downloads\SalsCaterSuite_Designs\Package_Editor and Course Category Rules\code.html` + `screen.png` (Screen A) · `d:\Downloads\SalsCaterSuite_Designs\Package_Location_AddOn\code.html` + `screen.png` (Screen B) — **references only**, not a specification of data |
 | **API contract** | `architecture/approved-api-contracts.md` section 13 (issued with this specification) |
-| **Decisions** | DEC-077 .. DEC-085 (`governance/decision-log.md`) |
+| **Decisions** | DEC-077 .. DEC-085, DEC-172 (`governance/decision-log.md`) |
 | **KPI additions** | KPI-29 .. KPI-32 (`business/kpi-catalog.md`) |
 | **Tasks** | TASK-PKG-02-BE (backend), TASK-PKG-02-FE (frontend) |
 
@@ -25,7 +25,9 @@ Deliver the two design screens as **real, data-backed configuration workbenches*
 | **A — Course Coverage Rules Workbench** | `/packages/:packageId/rules` | Package_Editor and Course Category Rules |
 | **B — Location & Out-of-Town Add-On Matrix** | `/packages/:packageId/locations` | Package_Location_AddOn |
 
-Screen A lets a coordinator attach an enforced **course-category rule** to each course a tier must satisfy (how many dishes, the standard portion, the rule the client is held to, the allowed tier-1 upgrade), and then **simulate a client's dish selection** against those rules to see the food cost, the effective food-cost percentage against the configured benchmark, the cost-ceiling position and the rule-compliance verdict — all computed on the server.
+Screen A lets a coordinator attach an enforced **course-category rule** to each course a tier must satisfy (how many dishes, the standard portion, and the rule the client is held to), and then **simulate a client's dish selection** against those rules to see the food cost, the effective food-cost percentage against the configured benchmark, the cost-ceiling position and the rule-compliance verdict — all computed on the server.
+
+**v1.1 amendment (2026-10-27, DEC-172):** `PackageCourseRule` has no inclusion tag or upgrade add-on association. The course-rule editor, card, API request/response and derived booking course projections omit those fields. Applying the new migration drops the old nullable columns and their add-on FK/index; existing values are not preserved. The migration is generated and script-reviewed only; it is not applied to the development database or any existing/persistent or production database. All other REQ-PKG-02 behavior is unchanged.
 
 Screen B lets a coordinator attach the **municipalities** a tier can be served in, with each municipality's per-pax out-of-town surcharge, its distance, its dispatch note and its logistics cost, and then **price a booking** for a chosen municipality and headcount: the base contract, the extended total, the effective per-pax rate, the contract value and the gross-profit split.
 
@@ -43,7 +45,7 @@ The owner answered four questions on 2026-10-22 (DEC-077, DEC-079, DEC-080, DEC-
 | Reference block | Approved model (before this cycle) | Decision |
 | :--- | :--- | :--- |
 | Package identity, rate, floor, type | `Package` carries all four | **Implemented** |
-| Six course-category rules with quota, portion, rule text, upgrade | No package→course relation | **Implemented** — new `PackageCourseRule` (DEC-077) |
+| Six course-category rules with quota, portion and rule text | No package→course relation | **Implemented** — new `PackageCourseRule` (DEC-077; v1.1 fields per DEC-172) |
 | "8 Qualified Dishes" per course | `Menu.CourseId` → `CourseCategory`; the non-deleted dishes of a course | **Implemented** — the pool is derived |
 | Per-dish food cost in the simulator | `Menu.FoodCost` (an entered decimal, DEC-062) | **Implemented** |
 | Cost ceiling / effective food cost | `Dashboard:Benchmarks:TargetFoodCostPercentage` (DEC-040) | **Implemented** — the configured benchmark, never a hardcoded band |
@@ -98,8 +100,6 @@ Every endpoint in section 4 requires a bearer token and **no role policy**, exac
 | `RequiredQuota` | `int` | ≥ 1. The number of dishes the client must take from this course. |
 | `PortionGrams` | `int?` | ≥ 0. The standard portion per guest, in grams. `null` = not specified. |
 | `RuleDescription` | `string` | Required, ≤ 500. The rule the client is held to, in plain words. |
-| `InclusionTag` | `string?` | ≤ 50. The operator's label for the category's inclusion status, e.g. `Included`. `null` = no tag. |
-| `UpgradeAddonId` | `int?` | FK → `AddonDetail`. The allowed tier-1 upgrade. `null` = no upgrade. |
 | audit columns | | `BaseEntity` (DEC-038). |
 
 **`PackageAreaCoverage`** — the link between a tier and a municipality.
@@ -209,12 +209,12 @@ The owner ruled (DEC-080) that a cost-ceiling breach **marks the selection non-c
 
 ### 3.6 Validation (BR-11)
 
-The validators are named explicitly here, because the set-level rules and the per-entry rules live in different classes. The limits are the **column** limits. The existence rules treat a **soft-deleted** course, add-on or area as "does not exist", so the lookups filter `IsDeleted` (DEC-087).
+The validators are named explicitly here, because the set-level rules and the per-entry rules live in different classes. The limits are the **column** limits. The existence rules treat a **soft-deleted** course or area as "does not exist", so the lookups filter `IsDeleted` (DEC-087). Course rules no longer reference the add-on master (DEC-172).
 
 | Validator | Scope | Rules and messages |
 | :--- | :--- | :--- |
 | `PackageCourseRulesetRequestValidator` | the **request** (a set of rules) | `Rules` must be present and not null → "At least one rule must be supplied." is **not** the message; a null member is "Rules must be supplied." · no repeated `CourseId` → "Course category {id} is configured more than once." |
-| `PackageCourseRuleRequestValidator` | **one** rule (composed by the set validator) | `CourseId` must exist → "Course category {id} does not exist." · `RequiredQuota` ≥ 1 → "Required quota must be at least 1." · `PortionGrams` ≥ 0 when supplied → "Portion weight must be zero or greater." · `RuleDescription` required, ≤ 500 → "Rule description is required." / "Rule description must not exceed 500 characters." · `InclusionTag` ≤ 50 when supplied → "Inclusion tag must not exceed 50 characters." · `UpgradeAddonId` must exist when supplied → "Add-on {id} does not exist." |
+| `PackageCourseRuleRequestValidator` | **one** rule (composed by the set validator) | `CourseId` must exist → "Course category {id} does not exist." · `RequiredQuota` ≥ 1 → "Required quota must be at least 1." · `PortionGrams` ≥ 0 when supplied → "Portion weight must be zero or greater." · `RuleDescription` required, ≤ 500 → "Rule description is required." / "Rule description must not exceed 500 characters." |
 | `PackageAreaCoverageRequestValidator` | the **request** (a set of coverages) | `Coverages` must be present and not null → "Coverages must be supplied." · no repeated `AreaId` → "Area {id} is covered more than once." |
 | `PackageAreaCoverageEntryValidator` | **one** coverage (composed by the set validator) | `AreaId` must exist → "Area {id} does not exist." |
 | `AreaRequestValidator` | one municipality | `AreaDetails` required, ≤ 150 → "Area name is required." / "Area name must not exceed 150 characters." · `AdditionalRate` ≥ 0 when supplied → "Additional rate must be zero or greater." · `DistanceKm` ≥ 0 when supplied → "Distance must be zero or greater." · `LogisticsNote` ≤ 150 when supplied → "Logistics note must not exceed 150 characters." · `LogisticsCost` ≥ 0 when supplied → "Logistics cost must be zero or greater." |
@@ -223,7 +223,7 @@ The validators are named explicitly here, because the set-level rules and the pe
 
 A **null collection member** is a rejected payload, not an empty set: an absent or explicitly `null` `rules` / `coverages` / `selections` member is a `400` with the message above. It is **never** treated as an empty set, because an empty set has a destructive meaning (§3.7). The request records therefore declare the collection members **nullable** and the validator rejects the null explicitly.
 
-A missing tier is a `404`; a missing course, add-on, area or dish is a `400`; a rejected payload is a `400`. All of them carry `{ "errors": [ ... ] }`.
+A missing tier is a `404`; a missing course, area or dish is a `400`; a rejected payload is a `400`. All of them carry `{ "errors": [ ... ] }`.
 
 ### 3.7 The write semantics — a ruleset is replaced, not patched
 
@@ -264,7 +264,7 @@ Base path `/api`. Every response is JSON unless stated.
 
 **Route safety.** `/packages/summary` remains a literal segment; `/packages/{id:int}` is int-constrained, so `/packages/{id}/course-rules` can never be captured by it. `/packages/{id}/areas/preview` and `/packages/{id}/areas` differ in segment count and cannot collide.
 
-**Additive.** No existing route, DTO shape, status code or test changes. `GET /api/packages`, `GET /api/packages/summary`, `GET /api/packages/{id}`, `POST /api/packages`, `PUT /api/packages/{id}` and `PATCH /api/packages/{id}/toggle-active` are untouched (DEC-084).
+**Route scope.** No route is added, removed or renamed by this amendment. The existing package catalogue routes (`GET /api/packages`, `GET /api/packages/summary`, `GET /api/packages/{id}`, `POST /api/packages`, `PUT /api/packages/{id}` and `PATCH /api/packages/{id}/toggle-active`) remain unchanged (DEC-084). The course-rule DTO shape is intentionally amended by DEC-172; see v1.1 above.
 
 **The tier population (F6).** Every one of the eleven endpoints resolves the tier through the **catalogue population** (`IsDeleted == false`, DEC-074) and answers `404 { "errors": [ "Package not found." ] }` for a soft-deleted tier. The **write** use cases refuse to write onto a soft-deleted tier. This is deliberately stricter than `IPackageRepository.GetByIdAsync`, which stays unfiltered for the booking path (BR-04).
 
@@ -300,12 +300,7 @@ public class PackageCourseRuleDto
     public int RequiredQuota { get; set; }
     public int? PortionGrams { get; set; }
     public string RuleDescription { get; set; } = string.Empty;
-    public string? InclusionTag { get; set; }
-    public int? UpgradeAddonId { get; set; }
-    public string? UpgradeAddonDescription { get; set; }
-    public decimal? UpgradeAddonUnitPrice { get; set; }
-    public string? UpgradeAddonUnit { get; set; }
-    public int PoolSize { get; set; }
+     public int PoolSize { get; set; }
     public int PoolCostedCount { get; set; }
     public decimal? PoolAverageFoodCost { get; set; }
     public List<PackageCoursePoolDishDto> Pool { get; set; } = new();
@@ -474,9 +469,7 @@ public record PackageCourseRuleRequestDto(
     int CourseId,
     int RequiredQuota,
     int? PortionGrams,
-    string RuleDescription,
-    string? InclusionTag,
-    int? UpgradeAddonId);
+    string RuleDescription);
 
 // PUT /api/packages/{id}/areas
 public record PackageAreaCoverageRequest(
@@ -531,7 +524,7 @@ The reference's spec rail is **read-only** here (DEC-082): the reference's own f
 **Column 2 — the course-category rules and quota matrix**
 
 - A header with the rule count and an **"Add course rule"** action.
-- One card per rule: the course name, the quota badge, the standard portion, the rule description, the inclusion tag, the **allowed tier-1 upgrade** (the add-on's description, its unit price and its unit), the **pool size** and the qualified dish names, and a menu (edit / remove).
+- One card per rule: the course name, the quota badge, the standard portion, the rule description, the **pool size** and the qualified dish names, and a menu (edit / remove).
 - A **"Save & apply course rules"** action that `PUT`s the whole ruleset and refreshes the screen.
 - Each card shows its own edit affordance; the screen holds the unsaved state and the save applies all of it at once, because a ruleset is one document (section 3.7).
 
@@ -554,7 +547,7 @@ The reference's spec rail is **read-only** here (DEC-082): the reference's own f
   4. **Gross profit safeguard** — the base gross profit % and the logistics-adjusted range across the active coverage.
 - The **surcharge matrix** — one row per covered municipality: the name, the coverage state, the **rate / pax**, the **extended total at the current headcount**, the distance, the dispatch note and the actions (edit the municipality, activate/deactivate the coverage, remove).
 - The **municipality catalogue panel** — the catalogue of municipalities, with an add/edit form, so a new municipality can be created and then attached.
-- The **course allocation card** — the tier's ruleset as a compact card grid (course, quota, portion, the pool's average food cost) plus the free-inclusion ribbon **only if** the tier has an add-on configured for it (it does not — the ribbon is a capability-gap notice).
+- The **course allocation card** — the tier's ruleset as a compact card grid (course, quota, portion, the pool's average food cost) plus a free-inclusion capability-gap notice. No entity carries free-inclusion records; course rules do not link add-ons (DEC-172).
 - The **simulator** — the municipality selector, the headcount control, the breakdown (base total, extended total, effective rate per pax, the contract value) and the **gross-profit telemetry** (gross profit, food cost, logistics burn, the percentage and the split bar).
 - The **mobile logistics checklist** — a capability-gap notice (no entity).
 - A **save** action for the coverage set and a **revert** action.
@@ -613,7 +606,7 @@ Full definitions are appended to `business/kpi-catalog.md`. They are **planning*
 | AC-P2-15 | The packages feature folder contains no hardcoded peso, thousands separator, decimal, four-digit or percentage literal. |
 | AC-P2-16 | The existing catalogue inspector and tier form are updated: the "course allocations" and "venue coverage" capability-gap notices are **replaced** by the real workbench links, and the "per-tier food cost" notice is narrowed to the figure that is still unavailable (a stored, per-tier food cost). |
 | AC-P2-17 | The spec sheet downloads as a PDF and carries the tier's identity, its ruleset, its coverage and its planning figures. |
-| AC-P2-18 | No migration is applied to an existing or production database; the migration is generated, script-reviewed and applied only by the Development startup and the disposable integration-test databases. |
+| AC-P2-18 | No migration is applied to an existing or production database. For DEC-172, generate and script-review the destructive migration but do not apply it to the development database; execute migrations only on disposable integration-test databases for validation. |
 | AC-P2-19 | Every route renders with zero console errors, and there is no horizontal overflow at 375 / 768 / 1024 / 1440 px. |
 | AC-P2-20 | The reference's duplicate, publish, bulk-edit, amenity, staples and mobile-logistics affordances are absent or are labelled capability-gap notices. |
 | AC-P2-21 | Every new endpoint resolves the tier through the catalogue population: a **soft-deleted** tier answers 404 { "errors": [ "Package not found." ] } on every one of the eleven endpoints, and no write touches it. |
@@ -628,6 +621,7 @@ ull ("not stated") and the money chain treats the absent surcharge as zero (DEC-
 | AC-P2-28 | The preview's headcount figures (gross revenue, food cost total, gross profit and its percentage) are the server's. The browser never multiplies a rate by a headcount. |
 | AC-P2-29 | The coverage matrix's gross-profit range states its inputs: the food cost is the **standard run**, the headcount is the tier's **floor**, and the range is null when MinPax is null, when there is no active coverage, or when no active coverage yields a computable figure. grossProfitCoverageCount says how many rows contributed. |
 | AC-P2-30 | The dead PackageCoverageDto is **deleted**; the real PackageAreaCoverageRowDto replaces it (RSK-032). |
+| AC-P2-31 | Course-rule persistence and API contain only course, quota, portion and description rule data (plus existing identity/audit and derived pool data). The Packages & Buffets add/edit form and rule cards do not expose an inclusion tag or upgrade add-on. Booking quote/menu course projections and the spec sheet do not publish/render those retired fields. The migration drops the columns, FK and index; `Down` restores schema only, not values. Unrelated booking/add-on-master `addonId` behavior is unchanged. |
 
 ---
 
@@ -647,6 +641,12 @@ ull ("not stated") and the money chain treats the absent surcharge as zero (DEC-
 - `PackageAreaCoverageCommandTests` — the same for the coverage set; attaching an unknown area is a `400`.
 - `AreaCommandTests` — a rejected payload persists nothing; an update to a missing area is a `404`.
 - `PackageRepositoryTests` — the new projections over the seeded population.
+
+**DEC-172 amendment tests (TASK-PKG-03-BE / TASK-PKG-03-FE)**
+
+- Assert the package course-rule request/response and booking course projections omit the retired inclusion/upgrade members; old optional request members, if sent, are ignored rather than made strict model-binding failures.
+- Assert the migration-created `PackageCourseRule` schema has no `inclusionTag` or `addonId` column, FK or add-on index, and that `Down` restores the nullable schema without claiming to recover prior values. Run only against the disposable integration-test database; do not apply to the development, existing/persistent or production database (DEC-020).
+- Assert the Packages & Buffets editor/card have no inclusion-tag or upgrade-add-on controls/content, the save payload contains only remaining rule fields, and the booking course board does not render an inclusion badge.
 - Integration: `GET /api/packages/{id}/course-rules` returns `200` with the envelope; `PUT` with a duplicate course returns `400 { "errors": [...] }`; `GET /api/packages/{id}/areas` returns `200`; `POST /api/areas` returns `201 { "areaId" }`; `PUT /api/areas/{id}` returns `204`; the preview returns `200` with the expected figures; the spec sheet returns `200` with a PDF content type; the migration chain still applies to an empty database. **The database refuses a second live row for the same natural key** (the filtered unique index) and **a re-added key does not create a duplicate row**. Every endpoint answers `404` for a soft-deleted tier. The benchmark is the base configuration's `35.0` (the test host runs in the `Testing` environment), so the ceiling and breach assertions are deterministic.
 
 **Frontend (TASK-PKG-02-FE)**

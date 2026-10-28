@@ -441,6 +441,8 @@ describe('PackageLocationsPage', () => {
 
     expect(screen.getByText('Mobile logistics checklist unavailable')).toBeInTheDocument()
     expect(screen.getByText('Complimentary staples unavailable')).toBeInTheDocument()
+    expect(screen.getByText(/course rules do not link add-ons \(DEC-084, DEC-172\)/)).toBeInTheDocument()
+    expect(screen.queryByText(/no add-on is configured against a tier/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Blocked under/)).not.toBeInTheDocument()
   })
 

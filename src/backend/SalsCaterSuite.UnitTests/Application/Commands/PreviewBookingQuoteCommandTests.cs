@@ -87,7 +87,8 @@ public class PreviewBookingQuoteCommandTests
             Description = "2026 Premier Package B",
             AmountPax = rate,
             MinPax = minPax,
-            IsActive = active
+            IsActive = active,
+            NumPaxId = 4,
         });
     }
 

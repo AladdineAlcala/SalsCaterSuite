@@ -79,7 +79,8 @@ public class CreateBookingWorkbenchCommandTests
             PackageType = "Regular",
             Description = "2026 Premier Package B",
             AmountPax = rate,
-            IsActive = active
+            IsActive = active,
+            NumPaxId = 4,
         });
     }
 

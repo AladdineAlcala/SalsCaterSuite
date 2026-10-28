@@ -132,6 +132,7 @@ public sealed class FakePackageRepository : IPackageRepository
         Description = package.Description ?? string.Empty,
         AmountPax = package.AmountPax,
         MinPax = package.MinPax,
+        NumPaxId = package.NumPaxId,
         ExtendedLocationAmount = package.ExtendedLocationAmount,
         IsActive = package.IsActive
     };

@@ -983,6 +983,10 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                         .HasColumnType("int")
                         .HasColumnName("p_min");
 
+                    b.Property<int>("NumPaxId")
+                        .HasColumnType("int")
+                        .HasColumnName("numPaxId");
+
                     b.Property<string>("PackageCode")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -1000,6 +1004,9 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                         .HasColumnName("date_Updated");
 
                     b.HasKey("PackageId");
+
+                    b.HasIndex("NumPaxId")
+                        .HasDatabaseName("IX_Package_numPaxId");
 
                     b.HasIndex("PackageCode")
                         .IsUnique()
@@ -1085,11 +1092,6 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("createdDate");
 
-                    b.Property<string>("InclusionTag")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
-                        .HasColumnName("inclusionTag");
-
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -1118,15 +1120,9 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("updatedDate");
 
-                    b.Property<int?>("UpgradeAddonId")
-                        .HasColumnType("int")
-                        .HasColumnName("addonId");
-
                     b.HasKey("PackageCourseRuleId");
 
                     b.HasIndex("CourseId");
-
-                    b.HasIndex("UpgradeAddonId");
 
                     b.HasIndex("PackageId", "CourseId")
                         .IsUnique()
@@ -1134,6 +1130,79 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                         .HasFilter("[is_deleted] = 0");
 
                     b.ToTable("PackageCourseRule", (string)null);
+                });
+
+            modelBuilder.Entity("SalsCaterSuite.Domain.Entities.PackagePaxApplicable", b =>
+                {
+                    b.Property<int>("NumPaxId")
+                        .HasColumnType("int")
+                        .HasColumnName("numPaxId");
+
+                    b.Property<string>("CreatedByUser")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("createdByUser");
+
+                    b.Property<DateTime?>("CreatedDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("createdDate");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("PackageApplicablePax")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("packageApplicablePax");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("updatedDate");
+
+                    b.HasKey("NumPaxId");
+
+                    b.ToTable("PackagePaxApplicable", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            NumPaxId = 1,
+                            CreatedDate = new DateTime(2026, 10, 28, 12, 13, 57, 440, DateTimeKind.Utc),
+                            IsDeleted = false,
+                            PackageApplicablePax = "15 to 19 Pax"
+                        },
+                        new
+                        {
+                            NumPaxId = 2,
+                            CreatedDate = new DateTime(2026, 10, 28, 12, 13, 57, 440, DateTimeKind.Utc),
+                            IsDeleted = false,
+                            PackageApplicablePax = "20 to 29 Pax"
+                        },
+                        new
+                        {
+                            NumPaxId = 3,
+                            CreatedDate = new DateTime(2026, 10, 28, 12, 13, 57, 440, DateTimeKind.Utc),
+                            IsDeleted = false,
+                            PackageApplicablePax = "30 to 49 Pax"
+                        },
+                        new
+                        {
+                            NumPaxId = 4,
+                            CreatedDate = new DateTime(2026, 10, 28, 12, 13, 57, 440, DateTimeKind.Utc),
+                            IsDeleted = false,
+                            PackageApplicablePax = "80 to 100 Above"
+                        },
+                        new
+                        {
+                            NumPaxId = 5,
+                            CreatedDate = new DateTime(2026, 10, 28, 12, 13, 57, 440, DateTimeKind.Utc),
+                            IsDeleted = false,
+                            PackageApplicablePax = "Not Applicable to PackMeals"
+                        });
                 });
 
             modelBuilder.Entity("SalsCaterSuite.Domain.Entities.Payment", b =>
@@ -1599,6 +1668,17 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                     b.Navigation("Department");
                 });
 
+            modelBuilder.Entity("SalsCaterSuite.Domain.Entities.Package", b =>
+                {
+                    b.HasOne("SalsCaterSuite.Domain.Entities.PackagePaxApplicable", "PaxApplicable")
+                        .WithMany()
+                        .HasForeignKey("NumPaxId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("PaxApplicable");
+                });
+
             modelBuilder.Entity("SalsCaterSuite.Domain.Entities.PackageAreaCoverage", b =>
                 {
                     b.HasOne("SalsCaterSuite.Domain.Entities.Area", null)
@@ -1627,11 +1707,6 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                         .HasForeignKey("PackageId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.HasOne("SalsCaterSuite.Domain.Entities.AddonDetail", null)
-                        .WithMany()
-                        .HasForeignKey("UpgradeAddonId")
-                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("SalsCaterSuite.Domain.Entities.Payment", b =>

@@ -129,7 +129,6 @@ public class BookingMenuCourseSetBuilder
             PortionGrams = rule.PortionGrams,
             BatchMassKg = BatchMassKg(rule.PortionGrams, numberOfHeads),
             RuleDescription = rule.RuleDescription,
-            InclusionTag = rule.InclusionTag,
             Pool = pool
                 .OrderBy(menu => menu.MenuName, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(menu => menu.MenuId, StringComparer.OrdinalIgnoreCase)

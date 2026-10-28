@@ -25,8 +25,8 @@ public class PackageQueryTests
     public async Task GetPackagesQuery_ShouldReturnAllPackages()
     {
         // Arrange
-        _store.Packages.Add(new Package { PackageId = 1, PackageType = "Buffet", Description = "A", IsActive = true });
-        _store.Packages.Add(new Package { PackageId = 2, PackageType = "Plated", Description = "B", IsActive = false });
+        _store.Packages.Add(new Package { PackageId = 1, PackageType = "Buffet", Description = "A", IsActive = true, NumPaxId = 4 });
+        _store.Packages.Add(new Package { PackageId = 2, PackageType = "Plated", Description = "B", IsActive = false, NumPaxId = 4 });
 
         // Act
         var result = await _list.ExecuteAsync(null);
@@ -40,8 +40,8 @@ public class PackageQueryTests
     public async Task GetPackagesQuery_WhenActiveOnly_ShouldExcludeInactivePackages()
     {
         // Arrange
-        _store.Packages.Add(new Package { PackageId = 1, PackageType = "Buffet", Description = "A", IsActive = true });
-        _store.Packages.Add(new Package { PackageId = 2, PackageType = "Plated", Description = "B", IsActive = false });
+        _store.Packages.Add(new Package { PackageId = 1, PackageType = "Buffet", Description = "A", IsActive = true, NumPaxId = 4 });
+        _store.Packages.Add(new Package { PackageId = 2, PackageType = "Plated", Description = "B", IsActive = false, NumPaxId = 4 });
 
         // Act
         var result = await _list.ExecuteAsync(activeOnly: true);
@@ -59,8 +59,8 @@ public class PackageQueryTests
     public async Task GetPackagesQuery_ShouldExcludeASoftDeletedTier()
     {
         // Arrange
-        _store.Packages.Add(new Package { PackageId = 1, PackageType = "Buffet", Description = "A", IsActive = true });
-        _store.Packages.Add(new Package { PackageId = 2, PackageType = "Ghost", Description = "B", IsActive = true, IsDeleted = true });
+        _store.Packages.Add(new Package { PackageId = 1, PackageType = "Buffet", Description = "A", IsActive = true, NumPaxId = 4 });
+        _store.Packages.Add(new Package { PackageId = 2, PackageType = "Ghost", Description = "B", IsActive = true, IsDeleted = true, NumPaxId = 4 });
 
         // Act
         var result = await _list.ExecuteAsync(null);
@@ -74,7 +74,7 @@ public class PackageQueryTests
     public async Task GetPackageByIdQuery_WhenPackageExists_ShouldReturnProjection()
     {
         // Arrange
-        _store.Packages.Add(new Package { PackageId = 7, PackageType = "Silver Buffet", Description = "Silver", AmountPax = 500m, MinPax = 50, IsActive = true });
+        _store.Packages.Add(new Package { PackageId = 7, PackageType = "Silver Buffet", Description = "Silver", AmountPax = 500m, MinPax = 50, IsActive = true, NumPaxId = 4 });
 
         // Act
         var result = await _byId.ExecuteAsync(7);

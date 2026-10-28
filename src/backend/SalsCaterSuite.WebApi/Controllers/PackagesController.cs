@@ -17,6 +17,7 @@ public class PackagesController : ControllerBase
     private readonly GetPackagesQuery _getPackages;
     private readonly GetPackageByIdQuery _getPackageById;
     private readonly GetPackageCatalogueSummaryQuery _getCatalogueSummary;
+    private readonly GetPackagePaxApplicablesQuery _getPaxApplicables;
     private readonly CreatePackageCommand _createPackage;
     private readonly UpdatePackageCommand _updatePackage;
     private readonly TogglePackageActiveCommand _toggleActive;
@@ -35,6 +36,7 @@ public class PackagesController : ControllerBase
         GetPackagesQuery getPackages,
         GetPackageByIdQuery getPackageById,
         GetPackageCatalogueSummaryQuery getCatalogueSummary,
+        GetPackagePaxApplicablesQuery getPaxApplicables,
         CreatePackageCommand createPackage,
         UpdatePackageCommand updatePackage,
         TogglePackageActiveCommand toggleActive,
@@ -50,6 +52,7 @@ public class PackagesController : ControllerBase
         _getPackages = getPackages;
         _getPackageById = getPackageById;
         _getCatalogueSummary = getCatalogueSummary;
+        _getPaxApplicables = getPaxApplicables;
         _createPackage = createPackage;
         _updatePackage = updatePackage;
         _toggleActive = toggleActive;
@@ -90,6 +93,23 @@ public class PackagesController : ControllerBase
     public async Task<IActionResult> GetSummary(CancellationToken cancellationToken)
     {
         var result = await _getCatalogueSummary.ExecuteAsync(cancellationToken);
+        return Ok(result.Data);
+    }
+
+    /// <summary>
+    /// GET /api/packages/pax-applicables — the five fixed applicable-pax classification options
+    /// (REQ-PKG-04, contract §12.8, DEC-173).
+    /// <para>
+    /// The route is a literal segment, so it can never be captured by
+    /// <c>GET /api/packages/{id:int}</c> — exactly like the <c>summary</c> route above. The
+    /// endpoint is read-only and carries no role policy, consistent with the package catalogue.
+    /// </para>
+    /// </summary>
+    [HttpGet("pax-applicables")]
+    [ProducesResponseType(typeof(List<PackagePaxApplicableDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetPaxApplicables(CancellationToken cancellationToken)
+    {
+        var result = await _getPaxApplicables.ExecuteAsync(cancellationToken);
         return Ok(result.Data);
     }
 

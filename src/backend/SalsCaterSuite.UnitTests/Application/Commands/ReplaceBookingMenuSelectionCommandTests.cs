@@ -71,7 +71,8 @@ public class ReplaceBookingMenuSelectionCommandTests
             PackageType = "Regular",
             Description = "2026 Premier Package B",
             AmountPax = 500m,
-            IsActive = true
+            IsActive = true,
+            NumPaxId = 4,
         });
 
         // The tier's ruleset: exactly one appetizer and exactly two main courses.

@@ -58,6 +58,33 @@ public sealed class FakeSalsCaterSuiteDataStore
     public List<PackageAreaCoverage> PackageAreaCoverages { get; } = new();
 
     /// <summary>
+    /// The applicable-pax classification lookup (REQ-PKG-04, DEC-173). The five fixed rows are
+    /// seeded by the schema migration, so the fake store carries them too — a fake that started
+    /// empty would reject every valid package write.
+    /// </summary>
+    public List<PackagePaxApplicable> PackagePaxApplicables { get; } = new();
+
+    /// <summary>
+    /// Seeds the five fixed applicable-pax classifications, exactly as the schema migration
+    /// seeds them (REQ-PKG-04, DEC-173). The labels are stored verbatim.
+    /// <para>
+    /// A test that needs a lookup row to be <b>absent</b> must not call this; a test that needs
+    /// a soft-deleted row calls it and then sets <c>IsDeleted</c> on the row it removes.
+    /// </para>
+    /// </summary>
+    public void SeedPackagePaxApplicables()
+    {
+        PackagePaxApplicables.AddRange(new[]
+        {
+            new PackagePaxApplicable { NumPaxId = 1, PackageApplicablePax = "15 to 19 Pax" },
+            new PackagePaxApplicable { NumPaxId = 2, PackageApplicablePax = "20 to 29 Pax" },
+            new PackagePaxApplicable { NumPaxId = 3, PackageApplicablePax = "30 to 49 Pax" },
+            new PackagePaxApplicable { NumPaxId = 4, PackageApplicablePax = "80 to 100 Above" },
+            new PackagePaxApplicable { NumPaxId = 5, PackageApplicablePax = "Not Applicable to PackMeals" }
+        });
+    }
+
+    /// <summary>
     /// When true the store never assigns an IDENTITY <c>TransactionId</c>, so the
     /// post-INSERT step behaves like a persistence failure. Used to exercise the
     /// compensating-delete path of <c>CreateBookingCommand</c>.

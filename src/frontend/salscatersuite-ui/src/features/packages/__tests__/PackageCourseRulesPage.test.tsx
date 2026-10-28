@@ -160,7 +160,6 @@ describe('PackageCourseRulesPage', () => {
     expect(within(beefCard).getByText('120 g')).toBeInTheDocument()
     expect(within(beefCard).getByText('5 dishes · 4 costed')).toBeInTheDocument()
     expect(within(beefCard).getByText('₱275.00')).toBeInTheDocument()
-    expect(within(beefCard).getByText('Premium Carving Station')).toBeInTheDocument()
     expect(within(beefCard).getByText('Beef Royale')).toBeInTheDocument()
 
     // The compliance verdict region.
@@ -361,20 +360,60 @@ describe('PackageCourseRulesPage', () => {
             requiredQuota: 2,
             portionGrams: 120,
             ruleDescription: 'Enforce exactly 2 Beef selections',
-            inclusionTag: 'Included',
-            upgradeAddonId: 3,
           },
           {
             courseId: 5,
             requiredQuota: 1,
             portionGrams: 80,
             ruleDescription: 'One seasonal salad is served',
-            inclusionTag: 'Included',
-            upgradeAddonId: null,
           },
         ],
       })
+      // The retired rule members never reach the API (DEC-172) — the request
+      // body carries only the surviving members of contract §13.2.
+      const body = (putSpy.mock.calls[putSpy.mock.calls.length - 1]?.[1] ?? null) as {
+        rules: Record<string, unknown>[]
+      } | null
+      expect(body?.rules[0]).toEqual({
+        courseId: 4,
+        requiredQuota: 2,
+        portionGrams: 120,
+        ruleDescription: 'Enforce exactly 2 Beef selections',
+      })
     })
+  })
+
+  it('carries the retired rule members nowhere (DEC-172)', async () => {
+    const ruleset = structuredClone(packageCourseRulesetFixture) as unknown as {
+      rules: Array<Record<string, unknown>>
+    }
+    // The frontend contract fixture contains only the fields the server now
+    // publishes; assert the retired members are absent from that wire shape.
+    expect(Object.keys(ruleset.rules[0])).toEqual(
+      expect.not.arrayContaining([
+        'inclusionTag',
+        'upgradeAddonId',
+        'upgradeAddonDescription',
+        'upgradeAddonUnitPrice',
+        'upgradeAddonUnit',
+      ]),
+    )
+
+    renderRulesPage()
+
+    // The card shows no inclusion tag and no "Allowed tier-1 upgrade" content.
+    const beefCard = await screen.findByTestId('package-course-rule-4')
+    expect(within(beefCard).queryByText('Included')).not.toBeInTheDocument()
+    expect(within(beefCard).queryByText('Allowed tier-1 upgrade')).not.toBeInTheDocument()
+    expect(
+      within(beefCard).queryByText('Premium Carving Station'),
+    ).not.toBeInTheDocument()
+
+    // The editor shows no inclusion-tag input and no tier-1-upgrade input.
+    await userEvent.click(within(beefCard).getByRole('button', { name: 'Edit rule' }))
+    await screen.findByTestId('package-course-rule-editor')
+    expect(screen.queryByLabelText('Inclusion tag')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Tier-1 upgrade add-on')).not.toBeInTheDocument()
   })
 
   it('renders the server’s errors verbatim and keeps the operator’s typed input', async () => {

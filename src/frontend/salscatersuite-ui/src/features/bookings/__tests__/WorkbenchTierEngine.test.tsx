@@ -32,6 +32,7 @@ describe('WorkbenchTierEngine', () => {
     description: 'Regular Feast Buffet',
     amountPax: 950,
     minPax: 80,
+    numPaxId: 2,
     extendedLocationAmount: null,
     isActive: true,
     ...overrides,

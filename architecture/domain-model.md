@@ -45,11 +45,19 @@ classDiagram
 
     class Package {
         +int PackageId
+        +string PackageCode
         +string PackageType
         +string Description
         +decimal AmountPax
         +int MinPax
+        +int NumPaxId
+        +decimal ExtendedLocationAmount
         +bool IsActive
+    }
+
+    class PackagePaxApplicable {
+        +int NumPaxId
+        +string PackageApplicablePax
     }
 
     class Payment {
@@ -103,8 +111,6 @@ classDiagram
         +int RequiredQuota
         +int PortionGrams
         +string RuleDescription
-        +string InclusionTag
-        +int UpgradeAddonId
     }
 
     class PackageAreaCoverage {
@@ -138,9 +144,9 @@ classDiagram
     Area "1" ..> "*" Booking : extended delivery
     Package "1" --> "*" PackageCourseRule : constrains
     CourseCategory "1" --> "*" PackageCourseRule : governs
-    AddonDetail "1" ..> "*" PackageCourseRule : tier-1 upgrade
     Package "1" --> "*" PackageAreaCoverage : covers
     Area "1" --> "*" PackageAreaCoverage : municipality
+    PackagePaxApplicable "1" --> "*" Package : classifies
     Discount "*" ..> "*" Booking : applied to (Gaps Identified)
     AddonDetail "*" ..> "*" Booking : included in (Gaps Identified)
 ```
@@ -159,7 +165,7 @@ audit fields once for the whole model (entities must never redeclare them):
 
 Entities inheriting `BaseEntity`: `Booking`, `Customer`, `Menu`, `Package`, `Payment`, `Refund`,
 `Reservation`, `Area`, `CourseCategory`, `AddonDetail`, `Discount`, `PackageCourseRule`,
-`PackageAreaCoverage`.
+`PackageAreaCoverage`, and `PackagePaxApplicable` (DEC-173).
 
 Column names preserve each table's existing audit convention where one exists
 (`Booking` → `b_createdbyUser` / `b_createdDate` / `b_updatedDate`, `Payment` → `p_*`,
@@ -239,12 +245,12 @@ real data instead of fabricated figures.
 | `RequiredQuota` | `int` | no | >= 1. The dishes the client must take from the course. |
 | `PortionGrams` | `int?` | yes | The standard portion per guest. |
 | `RuleDescription` | `string` | no | The rule in plain words. |
-| `InclusionTag` | `string?` | yes | The operator's inclusion label. |
-| `UpgradeAddonId` | `int?` | yes | FK to `AddonDetail`. The allowed tier-1 upgrade. |
 | audit | `BaseEntity` | | DEC-038. |
 
 **Invariants.** A live ruleset holds **at most one** rule per course. `RequiredQuota >= 1`. A rule
 removed from a submitted set is **soft-deleted**, never destroyed (DEC-085).
+
+The rule does not carry an inclusion label or an add-on association (DEC-172). `AddonDetail` remains independent of course rules; booking add-on lines retain their separate approved relationship and semantics.
 
 **Derived, not stored.** The rule's *qualified pool* is every non-soft-deleted `Menu` whose
 `CourseId` matches the rule's course. The pool is a query, not a relationship: the menu catalogue
@@ -283,3 +289,15 @@ gross-profit split rather than reporting a zero (DEC-081).
 - **No per-package rate override** and **no guest ceiling** on `Package` (open questions 1 and 5
   in the specification).
 - **No seeded rule, coverage row or municipality** (BR-13).
+
+## 2.5 Package applicable-pax classification (REQ-PKG-04, DEC-173)
+
+`Package` has a required `NumPaxId` foreign key to `PackagePaxApplicable`. The lookup key and
+label are fixed reference data; its five IDs and labels are specified in
+`business/packages-catalogue-feature-spec.md` §3.1.1 and are seeded by the migration. The lookup
+entity inherits `BaseEntity` and carries the standard DEC-038 audit columns.
+
+This relationship classifies a tier only. The label is not parsed as a numeric interval and does
+not constrain `PackageType`, `MinPax`, booking headcount, booking eligibility or pricing. Existing
+tiers are backfilled only by the owner-approved `p_id` mapping recorded in DEC-173; an unmapped
+row makes the migration fail rather than receive an inferred classification.

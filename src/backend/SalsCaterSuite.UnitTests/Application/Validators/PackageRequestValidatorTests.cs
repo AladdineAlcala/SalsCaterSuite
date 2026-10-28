@@ -17,7 +17,7 @@ public class PackageRequestValidatorTests
     private readonly PackageRequestValidator _validator = new();
 
     private static CreatePackageRequestDto Valid() =>
-        new("Buffet Premium", "Premium buffet package", 650m, 100);
+        new("Buffet Premium", "Premium buffet package", 650m, 100, 4);
 
     [Fact]
     public async Task A_valid_payload_should_pass()
@@ -209,7 +209,7 @@ public class PackageRequestValidatorTests
     [Fact]
     public async Task Every_broken_rule_should_be_reported_at_once()
     {
-        var request = new CreatePackageRequestDto(string.Empty, string.Empty, -1m, 0);
+        var request = new CreatePackageRequestDto(string.Empty, string.Empty, -1m, 0, 0);
 
         var result = await _validator.ValidateAsync(request);
 
@@ -218,5 +218,80 @@ public class PackageRequestValidatorTests
         result.Errors.Should().Contain(e => e.ErrorMessage == "Package description is required.");
         result.Errors.Should().Contain(e => e.ErrorMessage == "Rate per guest must be zero or greater.");
         result.Errors.Should().Contain(e => e.ErrorMessage == "Minimum pax must be at least 1.");
+        result.Errors.Should().Contain(e => e.ErrorMessage == "Applicable pax classification is required.");
+    }
+
+    // ─────────────────── the applicable-pax classification (REQ-PKG-04, DEC-173) ───────────────────
+
+    [Fact]
+    public async Task The_applicable_pax_classification_should_be_required()
+    {
+        // The identifier is omitted, so it binds the C# default of zero.
+        var request = Valid() with { NumPaxId = 0 };
+
+        var result = await _validator.ValidateAsync(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage == "Applicable pax classification is required.");
+    }
+
+    [Fact]
+    public async Task A_negative_applicable_pax_classification_should_be_rejected()
+    {
+        var request = Valid() with { NumPaxId = -1 };
+
+        var result = await _validator.ValidateAsync(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage == "Applicable pax classification is required.");
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    public async Task Any_of_the_five_known_classifications_should_pass(int numPaxId)
+    {
+        // The validator is SYNCHRONOUS and PARAMETERLESS (DEC-173): it checks the SHAPE of the
+        // identifier, never whether a lookup row exists. The referential half lives in the
+        // commands, which answer "Applicable pax classification was not found.".
+        var request = Valid() with { NumPaxId = numPaxId };
+
+        (await _validator.ValidateAsync(request)).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task An_unknown_classification_should_pass_the_shape_check()
+    {
+        // The identifier is well-formed but references no lookup row — the referential half
+        // rejects it in the command, not here.
+        var request = Valid() with { NumPaxId = 999 };
+
+        (await _validator.ValidateAsync(request)).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task The_validator_should_not_tie_the_classification_to_the_package_type()
+    {
+        // AC-P19 / DEC-173: the classification is informational. It is never coupled to the
+        // tier type — option 5 is not tied to PackageType.Pm, and no type forbids any option.
+        foreach (var packageType in new[] { "Regular", "Premier", "Wedding", "Vip", "Pm", "Sd" })
+        {
+            var request = Valid() with { PackageType = packageType, NumPaxId = 5 };
+
+            (await _validator.ValidateAsync(request)).IsValid.Should().BeTrue(
+                $"the classification must not constrain the tier type '{packageType}'");
+        }
+    }
+
+    [Fact]
+    public async Task The_validator_should_not_tie_the_classification_to_the_minimum_pax()
+    {
+        // AC-P19: the classification never becomes a headcount rule.
+        var request = Valid() with { MinPax = 1, NumPaxId = 1 };
+
+        (await _validator.ValidateAsync(request)).IsValid.Should().BeTrue();
     }
 }

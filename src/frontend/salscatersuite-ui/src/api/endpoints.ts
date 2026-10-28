@@ -87,6 +87,8 @@ export const API_ENDPOINTS = {
     root: '/packages',
     /** The server-computed catalogue aggregate — the only source of the KPI figures. */
     summary: '/packages/summary',
+    /** The read-only applicable-pax lookup (DEC-173, contract §12.8). */
+    paxApplicables: '/packages/pax-applicables',
     /** A single buffet tier. */
     detail: (packageId: number) => `/packages/${packageId}`,
     /** Creates a tier — `201 { packageId }`. */

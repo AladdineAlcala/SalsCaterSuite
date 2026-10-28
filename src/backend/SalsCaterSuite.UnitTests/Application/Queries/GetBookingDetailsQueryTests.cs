@@ -68,7 +68,8 @@ public class GetBookingDetailsQueryTests
             PackageType = "Premier Buffet",
             Description = "Premier Buffet Tier",
             AmountPax = pricePerHead,
-            IsActive = true
+            IsActive = true,
+            NumPaxId = 4,
         });
 
         var eventDate = Today.AddDays(30);

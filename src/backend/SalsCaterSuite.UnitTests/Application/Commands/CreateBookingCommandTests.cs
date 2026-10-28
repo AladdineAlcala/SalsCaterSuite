@@ -140,7 +140,7 @@ public class CreateBookingCommandTests
     {
         // Arrange
         SeedCustomer(2);
-        _store.Packages.Add(new Package { PackageId = 5, PackageType = "Buffet Premium", AmountPax = 650m });
+        _store.Packages.Add(new Package { PackageId = 5, PackageType = "Buffet Premium", AmountPax = 650m, NumPaxId = 4 });
 
         var request = ValidRequest(customerId: 2, packageId: 5);
         request.NoOfPerson = 120;

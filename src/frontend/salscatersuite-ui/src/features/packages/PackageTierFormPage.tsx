@@ -8,9 +8,9 @@ import { SpinnerLoader } from '@/components/feedback/SpinnerLoader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
-import type { PackageDto, PackageUpsertRequest } from '@/types/package.types'
+import type { PackageDto, PackagePaxApplicable, PackageUpsertRequest } from '@/types/package.types'
 import { parseCurrencyInput } from '@/utils/currencyInput'
-import { usePackageDetail } from './hooks/usePackageCatalogue'
+import { usePackageDetail, usePackagePaxApplicables } from './hooks/usePackageCatalogue'
 import { useCreatePackage, useUpdatePackage } from './hooks/usePackageMutations'
 import { isExtendedLocationEligible, KNOWN_PACKAGE_TYPES } from './packageTypes'
 
@@ -24,6 +24,8 @@ export interface PackageFormValues {
   amountPax: string
   /** `Package.MinPax` — the minimum headcount, typed as a plain number. */
   minPax: string
+  /** `Package.NumPaxId` — the applicable-pax classification, as the select's string ID (DEC-173). */
+  numPaxId: string
   /** `Package.ExtendedLocationAmount` — the tier's per-guest extended charge. */
   extendedLocationAmount: string
 }
@@ -33,6 +35,7 @@ export const EMPTY_PACKAGE_FORM_VALUES: PackageFormValues = {
   description: '',
   amountPax: '',
   minPax: '',
+  numPaxId: '',
   extendedLocationAmount: '',
 }
 
@@ -42,6 +45,7 @@ export interface PackageFormErrors {
   description?: string
   amountPax?: string
   minPax?: string
+  numPaxId?: string
   extendedLocationAmount?: string
 }
 
@@ -52,6 +56,7 @@ export function packageFormValuesFromTier(tier: PackageDto): PackageFormValues {
     description: tier.description,
     amountPax: tier.amountPax === null ? '' : String(tier.amountPax),
     minPax: tier.minPax === null ? '' : String(tier.minPax),
+    numPaxId: String(tier.numPaxId),
     extendedLocationAmount:
       tier.extendedLocationAmount == null ? '' : String(tier.extendedLocationAmount),
   }
@@ -105,6 +110,13 @@ export function validatePackageForm(values: PackageFormValues): PackageFormError
     }
   }
 
+  // The classification is required (DEC-173). The select offers only the
+  // lookup's IDs, so the single failure the client can see is "nothing chose
+  // yet" — an unknown positive ID is the server's validation alone.
+  if (values.numPaxId.trim().length === 0) {
+    errors.numPaxId = 'Applicable pax classification is required.'
+  }
+
   if (values.extendedLocationAmount.trim().length > 0) {
     if (!isExtendedLocationEligible(values.packageType)) {
       errors.extendedLocationAmount =
@@ -131,10 +143,12 @@ export function validatePackageForm(values: PackageFormValues): PackageFormError
 export function toPackageRequest(values: PackageFormValues): PackageUpsertRequest | null {
   const amountPax = parsePackageNumber(values.amountPax)
   const minPax = parsePackageNumber(values.minPax)
+  const numPaxId = parsePackageNumber(values.numPaxId)
   const extendedLocationAmount = parseCurrencyInput(values.extendedLocationAmount)
 
   if (values.amountPax.trim().length > 0 && amountPax === null) return null
   if (values.minPax.trim().length > 0 && minPax === null) return null
+  if (numPaxId === null || !Number.isInteger(numPaxId)) return null
   if (
     values.extendedLocationAmount.trim().length > 0 &&
     extendedLocationAmount === null
@@ -147,6 +161,7 @@ export function toPackageRequest(values: PackageFormValues): PackageUpsertReques
     description: values.description.trim(),
     amountPax,
     minPax,
+    numPaxId,
     extendedLocationAmount: isExtendedLocationEligible(values.packageType)
       ? extendedLocationAmount
       : null,
@@ -189,6 +204,33 @@ export function PackageTierFormPage() {
 
   const { data: tier, isPending: isLoadingTier, isError: isTierError, error: tierError, refetch } =
     usePackageDetail(isEdit ? packageId : null)
+
+  /*
+   * The applicable-pax classifications come from the read-only lookup
+   * (DEC-173, contract §12.8) — never from a hardcoded list. While the lookup
+   * is pending, failed or empty, a valid submission is impossible, so the
+   * selector and the save are both blocked and the field says why.
+   */
+  const paxApplicablesQuery = usePackagePaxApplicables()
+  const paxApplicables: PackagePaxApplicable[] = paxApplicablesQuery.data ?? []
+  const isPaxLookupPending = paxApplicablesQuery.isPending
+  const isPaxLookupError = paxApplicablesQuery.isError
+  const isPaxLookupEmpty =
+    !isPaxLookupPending && !isPaxLookupError && paxApplicables.length === 0
+  const isPaxLookupUnavailable = isPaxLookupPending || isPaxLookupError || isPaxLookupEmpty
+
+  /*
+   * The select's description must reference a node that actually renders.
+   * On a lookup failure the hint paragraph is replaced by the lookup-error
+   * block, so the description points there instead of dangling on an absent
+   * hint ID.
+   */
+  const numPaxDescriptionId = isPaxLookupError
+    ? 'package-num-pax-id-lookup-error'
+    : 'package-num-pax-id-hint'
+  const numPaxDescribedBy = fieldErrors.numPaxId
+    ? `${numPaxDescriptionId} package-num-pax-id-error`
+    : numPaxDescriptionId
 
   const createPackage = useCreatePackage()
   const updatePackage = useUpdatePackage()
@@ -323,7 +365,8 @@ export function PackageTierFormPage() {
           </h1>
           <p className="font-body-md text-body-md text-espresso-600 max-w-3xl">
             The buffet tier record: its type, its display name, its per-guest rate, its
-            minimum headcount and — for Regular and Premier — its extended location amount.
+            minimum headcount, its applicable-pax classification and — for Regular and
+            Premier — its extended location amount.
           </p>
         </div>
 
@@ -570,6 +613,101 @@ export function PackageTierFormPage() {
                 ) : null}
               </div>
 
+              {/* Applicable pax classification — required, fed by the lookup (DEC-173, contract §12.8) */}
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-1">
+                  <label
+                    htmlFor="package-num-pax-id"
+                    className="font-caption text-caption text-espresso-600 font-semibold uppercase tracking-wider"
+                  >
+                    Applicable pax classification
+                  </label>
+                  <span className="text-error text-caption" aria-hidden="true">
+                    *
+                  </span>
+                </div>
+                <select
+                  id="package-num-pax-id"
+                  name="numPaxId"
+                  value={values.numPaxId}
+                  onChange={(event) => handleChange('numPaxId', event.target.value)}
+                  disabled={isPaxLookupUnavailable}
+                  required
+                  aria-required="true"
+                  aria-invalid={fieldErrors.numPaxId ? true : undefined}
+                  aria-describedby={numPaxDescribedBy}
+                  className={INPUT_CLASSES}
+                >
+                  <option value="">Select an applicable-pax classification</option>
+                  {paxApplicables.map((option) => (
+                    <option key={option.numPaxId} value={String(option.numPaxId)}>
+                      {option.packageApplicablePax}
+                    </option>
+                  ))}
+                </select>
+                {isPaxLookupPending ? (
+                  <p
+                    id="package-num-pax-id-hint"
+                    aria-live="polite"
+                    className="font-caption text-caption text-espresso-600"
+                  >
+                    Loading the applicable-pax classifications…
+                  </p>
+                ) : null}
+                {isPaxLookupError ? (
+                  <div
+                    id="package-num-pax-id-lookup-error"
+                    role="alert"
+                    className="flex flex-col items-start gap-1"
+                  >
+                    {readErrorMessages(paxApplicablesQuery.error).map((message) => (
+                      <p
+                        key={message}
+                        className="font-caption text-caption text-error"
+                      >
+                        {message}
+                      </p>
+                    ))}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={RefreshCw}
+                      onClick={() => void paxApplicablesQuery.refetch()}
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                ) : null}
+                {isPaxLookupEmpty ? (
+                  <p
+                    id="package-num-pax-id-hint"
+                    role="status"
+                    className="font-caption text-caption text-espresso-600"
+                  >
+                    No applicable-pax classifications are defined. The tier cannot be
+                    saved without one.
+                  </p>
+                ) : null}
+                {!isPaxLookupPending && !isPaxLookupError && !isPaxLookupEmpty ? (
+                  <p
+                    id="package-num-pax-id-hint"
+                    className="font-caption text-caption text-espresso-600"
+                  >
+                    The tier&apos;s classification from the catalogue. It describes the
+                    tier; it is not a headcount rule.
+                  </p>
+                ) : null}
+                {fieldErrors.numPaxId ? (
+                  <p
+                    id="package-num-pax-id-error"
+                    role="alert"
+                    className="font-caption text-caption text-error"
+                  >
+                    {fieldErrors.numPaxId}
+                  </p>
+                ) : null}
+              </div>
+
               {/* Extended location amount — Regular/Premier only (owner request 2026-10-24) */}
               {isExtendedLocationEligible(values.packageType) ? (
                 <div className="flex flex-col gap-1">
@@ -669,8 +807,9 @@ export function PackageTierFormPage() {
       >
         <p className="font-body-sm text-body-sm text-espresso-600">
           The rate, the headcount and the extended location amount are the tier&apos;s
-          commercial terms. Every other commercial figure the reference shows has no approved
-          source and is not stored.
+          commercial terms. The applicable-pax classification describes the tier and
+          sets no commercial rule. Every other commercial figure the reference shows
+          has no approved source and is not stored.
         </p>
         <div className="flex items-center gap-2 shrink-0">
           <Button variant="secondary" onClick={handleCancel}>
@@ -679,7 +818,7 @@ export function PackageTierFormPage() {
           <Button
             variant="primary"
             onClick={handleSave}
-            disabled={isSaving}
+            disabled={isSaving || isPaxLookupUnavailable}
           >
             {isSaving ? 'Saving…' : isEdit ? 'Save Changes' : 'Save Package'}
           </Button>

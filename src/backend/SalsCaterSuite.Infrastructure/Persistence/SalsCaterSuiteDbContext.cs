@@ -17,6 +17,7 @@ public class SalsCaterSuiteDbContext : IdentityDbContext<ApplicationUser, Applic
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Menu> Menus => Set<Menu>();
     public DbSet<Package> Packages => Set<Package>();
+    public DbSet<PackagePaxApplicable> PackagePaxApplicables => Set<PackagePaxApplicable>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<Refund> Refunds => Set<Refund>();
     public DbSet<Reservation> Reservations => Set<Reservation>();
@@ -202,6 +203,9 @@ public class SalsCaterSuiteDbContext : IdentityDbContext<ApplicationUser, Applic
         builder.ApplyConfiguration(new CustomerConfiguration());
         builder.ApplyConfiguration(new PackageConfiguration());
         builder.ApplyConfiguration(new AreaConfiguration());
+
+        // REQ-PKG-04 (DEC-173): the read-only applicable-pax classification lookup.
+        builder.ApplyConfiguration(new PackagePaxApplicableConfiguration());
 
         // REQ-PKG-02 (DEC-077): the course-coverage ruleset and the coverage matrix, with their
         // filtered unique indexes (DEC-088).

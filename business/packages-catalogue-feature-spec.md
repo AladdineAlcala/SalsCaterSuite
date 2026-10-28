@@ -2,15 +2,15 @@
 
 | Field | Value |
 | :--- | :--- |
-| **Requirement** | REQ-PKG-01 (Packages - Catering Packages Catalog) |
-| **Specification version** | v1.0 |
-| **Issued** | 2026-10-21 by AGENT 01 (BI Architect) |
-| **Status** | Approved for delivery |
+| **Requirement** | REQ-PKG-01 (Packages - Catering Packages Catalog); REQ-PKG-04 (Package Applicable Pax Classification) |
+| **Specification version** | v1.1 |
+| **Issued** | 2026-10-21; amended 2026-10-28 by AGENT 01 (BI Architect) |
+| **Status** | REQ-PKG-01 and REQ-PKG-04 delivered |
 | **Design reference** | `d:\Downloads\SalsCaterSuite_Designs\Package_Main\code.html` + `screen.png` - **reference only**, not a specification of data |
 | **API contract** | `architecture/approved-api-contracts.md` section 12 (issued with this specification) |
-| **Decisions** | DEC-067 .. DEC-072 (`governance/decision-log.md`) |
+| **Decisions** | DEC-067 .. DEC-072, DEC-162 .. DEC-167, DEC-173 (`governance/decision-log.md`) |
 | **KPI additions** | KPI-25 .. KPI-28 (`business/kpi-catalog.md`) |
-| **Tasks** | TASK-PKG-01-BE (backend), TASK-PKG-01-FE (frontend) |
+| **Tasks** | TASK-PKG-01-BE / FE (delivered); TASK-PKG-04-BE / FE (applicable-pax enhancement) |
 
 ---
 
@@ -66,20 +66,39 @@ Every capability gap renders as an explicit, labelled **capability-gap notice** 
 
 ## 3. Domain and Data
 
-### 3.1 The entity as it is
+### 3.1 Package tier and applicable-pax classification (DEC-173)
 
 `Package` (`Domain/Entities/Package.cs`):
 
 | Field | Type | Notes |
 | :--- | :--- | :--- |
-| `PackageId` | `int` | Identity key. **There is no package code column.** |
+| `PackageId` | `int` | Identity key. |
+| `PackageCode` | `string` | The frozen business code `PKG-{TYPE}-{NN}` (DEC-162). |
 | `PackageType` | `string` | Free text. The `PackageType` enum (`Regular`, `Wedding`, `Vip`, `Premier`, `Pm`, `Sd`) documents the intended vocabulary but the column is not typed to it. |
 | `Description` | `string` | The tier's display name. |
 | `AmountPax` | `decimal?` | The per-guest rate. `null` = not priced. |
 | `MinPax` | `int?` | The minimum headcount. `null` = not set. |
+| `NumPaxId` | `int` | Required FK to `PackagePaxApplicable`; a descriptive classification only, not a numeric booking rule. |
+| `ExtendedLocationAmount` | `decimal?` | Per-guest extended-location amount for eligible types only (DEC-163). |
 | `IsActive` | `bool` | Whether the tier is selectable. |
 
 Plus the four `BaseEntity` audit columns (DEC-038).
+
+#### 3.1.1 `PackagePaxApplicable` lookup
+
+The read-only lookup has the fixed ID/label pairs below. These labels are stored and returned verbatim; the missing intervals and option-4 wording are intentional. Do not parse numeric bounds from the text or relate option 5 to `PackageType.Pm`.
+
+| `NumPaxId` | `PackageApplicablePax` |
+| :---: | :--- |
+| 1 | `15 to 19 Pax` |
+| 2 | `20 to 29 Pax` |
+| 3 | `30 to 49 Pax` |
+| 4 | `80 to 100 Above` |
+| 5 | `Not Applicable to PackMeals` |
+
+`PackagePaxApplicable` follows the project `BaseEntity`/DEC-038 audit-column convention. The five values are seeded by the schema migration, use their stated IDs, and have no create/update/delete API. Existing package rows are backfilled only with the owner-approved mapping: `p_id=1 → 4`; `p_id=2 → 2`. The migration must fail rather than infer a value for any other unmapped row.
+
+The required selector is classification metadata only. It does not replace or validate `MinPax`, establish booking headcount limits, change `PackageType`, or affect booking eligibility, quotes, or pricing.
 
 ### 3.2 The catalogue aggregate (new, server-computed)
 
@@ -110,6 +129,7 @@ The write commands currently accept anything: a blank type, a blank description,
 | :--- | :--- |
 | `PackageType` required, max **50** characters | "Package type is required." / "Package type must not exceed 50 characters." |
 | `Description` required, max **250** characters | "Package description is required." / "Package description must not exceed 250 characters." |
+| `NumPaxId` required and must reference a live `PackagePaxApplicable` row (DEC-173) | "Applicable pax classification is required." / "Applicable pax classification was not found." |
 | `AmountPax` zero or greater when supplied | "Rate per guest must be zero or greater." |
 | `MinPax` at least 1 when supplied | "Minimum pax must be at least 1." |
 
@@ -179,7 +199,7 @@ Follows the delivered anatomy of the Menu & Food Costing Master: a banner, a fou
 
 ### 5.3 The tier form (`/packages/new`, `/packages/:packageId/edit`)
 
-Four fields, each with an explicit label, a hint, and an inline validation message:
+The fields below each have an explicit label, a hint, and an inline validation message where applicable:
 
 | Field | Control | Required | Notes |
 | :--- | :--- | :--- | :--- |
@@ -187,6 +207,8 @@ Four fields, each with an explicit label, a hint, and an inline validation messa
 | Tier name / description | text input | yes | What the coordinator calls the tier |
 | Rate per guest | number input | no | A plain number. An **empty** field is submitted as `null` ("not priced"), never as `0`. |
 | Minimum pax | number input | no | A plain number. An **empty** field is submitted as `null` ("not set"), never as `0`. |
+| Applicable pax classification | API-fed select | yes | Options come from `GET /api/packages/pax-applicables`; the selected lookup ID is sent as `numPaxId`. The label is not interpreted as a numeric range. |
+| Extended location amount | currency input | conditional | Existing DEC-163 behavior: shown only for `Regular`/`Premier`; nullable and per guest. |
 
 - The form validates on the client for the obvious cases, using **the server's own wording** ("Package type is required.", "Package description is required.", "Rate per guest must be zero or greater.", "Minimum pax must be at least 1."), so the operator reads one message wherever the request is rejected.
 - The form always renders the server's `errors[]` verbatim (contract section 7), keeping the typed input after a rejected save.
@@ -231,11 +253,15 @@ Full definitions are appended to `business/kpi-catalog.md`. They are catalogue s
 | AC-P08 | A failed load renders the error banner with the server's message and a Retry action; nothing is invented while the catalogue is unavailable. |
 | AC-P09 | "Deactivate Tier" calls `PATCH /api/packages/{id}/toggle-active` and the catalogue is refreshed; the button label follows the tier's current state. |
 | AC-P10 | "Edit Tier" opens `/packages/:packageId/edit` pre-filled from `GET /api/packages/{id}`; "New Package" opens `/packages/new`. |
-| AC-P11 | The form rejects a blank type, a blank name, a negative rate and a minimum pax below 1, and the server's `errors[]` are rendered verbatim while the typed input is preserved. |
+| AC-P11 | The form rejects a blank type, a blank name, a negative rate, a minimum pax below 1, and a missing applicable-pax classification; the server's `errors[]` are rendered verbatim while the typed input is preserved. |
 | AC-P12 | A successful create returns `201` and the catalogue shows the new tier; a successful update returns `204`. |
 | AC-P13 | The packages feature folder contains no hardcoded peso, thousands separator, decimal, four-digit or percentage literal. |
 | AC-P14 | Every route renders with zero console errors, and there is no horizontal overflow at 375 / 768 / 1024 / 1440 px. The overflow check is performed in a live browser at those four widths (the same headless-Chrome method used for the dashboard, the Customer Master and the Menu Master); Playwright is not installed in this repository, so no automated end-to-end suite is claimed. |
 | AC-P15 | The reference's export, duplicate, SignalR and QuestPDF telemetry affordances are absent. |
+| AC-P16 | The form loads the five fixed applicable-pax choices from the authenticated lookup endpoint; edit mode preselects the saved `numPaxId`; loading/error states are explicit; the browser does not duplicate the option labels. |
+| AC-P17 | The API returns the fixed choices in ID order. Missing/zero `numPaxId` on create/update returns `400 { errors: ["Applicable pax classification is required."] }`; an unknown ID returns `400 { errors: ["Applicable pax classification was not found."] }`; neither persists or changes anything. |
+| AC-P18 | The migration inserts the five approved lookup rows and applies only `p_id=1 → 4` and `p_id=2 → 2`; an unexpected unmapped package row causes a safe failure. The migration is script-reviewed only and never applied to a persistent database in this cycle. |
+| AC-P19 | The applicable-pax classification has no effect on package type, `MinPax`, booking eligibility, quote payloads, or pricing. |
 
 ---
 
@@ -249,11 +275,19 @@ Full definitions are appended to `business/kpi-catalog.md`. They are catalogue s
 - `PackageRepositoryTests` (extended) - the aggregate over the seeded population.
 - Integration: `GET /api/packages/summary` returns `200` with the envelope; `POST` with an invalid payload returns `400 { "errors": [...] }`.
 
+**Additional backend coverage (REQ-PKG-04 / DEC-173)**
+
+- Lookup query/repository tests prove the five fixed IDs and labels are returned in ID order.
+- Validator/command tests cover missing, zero, and unknown `numPaxId` for both create and update, proving rejected writes persist nothing.
+- Integration tests cover authenticated lookup access, DTO projections, write validation, and the migration mapping/guard on a disposable database.
+- Review generated SQL and model-snapshot parity; do not apply the migration to a persistent database.
+
 **Frontend (TASK-PKG-01-FE)**
 
 - `PackageCataloguePage.test.tsx` - the KPI cards, the type tabs, the card list, the inspector, the capability-gap notices, both empty states, the error state with retry, the toggle action and the navigation to the form.
 - `PackageTierFormPage.test.tsx` - the pre-filled edit form, the client-side rejection messages, the server's verbatim `errors[]`, and the successful save.
 - `noHardcodedFigures.test.ts` - the feature scan.
+- `PackageTierFormPage.test.tsx` additionally covers the required API-fed applicable-pax selector, edit preselection, loading/error behavior, and payload inclusion of `numPaxId`.
 
 ---
 

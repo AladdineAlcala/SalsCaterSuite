@@ -44,6 +44,9 @@ public class BookingsRegisterEndpointTests
             PackageType = "Regular",
             Description = $"{label} Tier",
             AmountPax = rate,
+            // The applicable-pax classification is a REQUIRED foreign key (REQ-PKG-04, DEC-173),
+            // so a fixture that bypasses the create command must supply a valid identifier.
+            NumPaxId = 4,
             IsActive = active,
             CreatedDate = DateTime.UtcNow
         };

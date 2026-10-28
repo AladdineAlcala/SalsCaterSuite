@@ -6,7 +6,12 @@ namespace SalsCaterSuite.Domain.Entities;
 /// The enforced course-category rule a buffet tier holds (REQ-PKG-02, DEC-077).
 /// <para>
 /// A rule is one row per course: the number of dishes the client must take from that course,
-/// the standard portion, the rule the client is held to and the allowed tier-1 upgrade.
+/// the standard portion and the rule the client is held to.
+/// </para>
+/// <para>
+/// The operator's inclusion label and the tier-1 upgrade were retired on 2026-10-27
+/// (DEC-172): <c>inclusionTag</c> and <c>addonId</c> no longer exist on the table, and the
+/// add-on master is no longer referenced from a course rule.
 /// </para>
 /// <para>
 /// The rule's <b>qualified pool</b> is not stored. It is derived on every read from the live
@@ -37,10 +42,4 @@ public class PackageCourseRule : BaseEntity
 
     /// <summary>The rule the client is held to, in plain words. ≤ 500 characters.</summary>
     public string RuleDescription { get; set; } = string.Empty;
-
-    /// <summary>≤ 50. The operator's label for the category's inclusion status. <c>null</c> = no tag.</summary>
-    public string? InclusionTag { get; set; }
-
-    /// <summary>FK → <see cref="AddonDetail"/>. The allowed tier-1 upgrade. <c>null</c> = no upgrade.</summary>
-    public int? UpgradeAddonId { get; set; }
 }

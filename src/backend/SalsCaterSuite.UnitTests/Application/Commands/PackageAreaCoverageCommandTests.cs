@@ -31,7 +31,8 @@ public class PackageAreaCoverageCommandTests
             Description = "Wedding Grand Tier",
             AmountPax = 1450m,
             MinPax = 150,
-            IsActive = true
+            IsActive = true,
+            NumPaxId = 4,
         });
 
         _store.Areas.Add(new Area { AreaId = 1, AreaDetails = "Antipolo", AdditionalRate = 150m, LogisticsCost = 3200m });

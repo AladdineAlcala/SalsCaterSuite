@@ -101,7 +101,7 @@ The plan review of 2026-10-22 returned twelve blocking findings. **All twelve ar
 
 | Piece | State | Verdict |
 | :--- | :--- | :--- |
-| The tier's **course-coverage ruleset** — one rule per course, with `RequiredQuota`, the portion, the rule text and the inclusion tag | **Exists** — `PackageCourseRule` (REQ-PKG-02, DEC-077) | **Reused unchanged.** |
+| The tier's **course-coverage ruleset** — one rule per course, with `RequiredQuota`, the portion and the rule text | **Exists** — `PackageCourseRule` (REQ-PKG-02, DEC-077; amended by DEC-172) | **Reused unchanged for selection/quota behavior.** It carries no inclusion tag or upgrade add-on. |
 | The **qualified pool** of a course — the live, non-soft-deleted dishes of that course | **Exists** — derived on every read, never stored (BR-19, DEC-083) | **Reused unchanged.** |
 | The **quota compliance** engine — "exactly `requiredQuota` dishes per course, and no dish from a course the tier has no rule for" | **Exists** — BR-15, implemented and tested in the packages workbench | **Reused unchanged.** |
 | The selection's **food cost** and **gross profit** | **Exists** — the packages' selection preview (contract §13.3) | **Reused unchanged.** |
@@ -420,7 +420,7 @@ The screen follows the `Booking_Menu_Selection` reference: a **two-column workbe
 **The course list.** One card per course rule, in the tier's order, each carrying:
 
 - the **index** and the **course category**;
-- the rule's **`InclusionTag`** ("Standard Package Included", "Premium Main Dish") and the rule's **description**;
+- the rule's **description**;
 - the **chosen dish** - its name, the **`Menu.Note`** (its ingredients), and the rule's **portion** ("125g / pax");
 - a **"Change dish"** action that opens the pool for that course;
 - the dish's **food cost** per pax (`Menu.FoodCost`, the manually entered cost - a planning figure);

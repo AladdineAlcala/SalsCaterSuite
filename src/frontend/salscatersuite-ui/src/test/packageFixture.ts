@@ -8,7 +8,11 @@
  *
  * This file lives under `src/test/` and is never imported by application code.
  */
-import type { PackageCatalogueSummary, PackageDto } from '@/types/package.types'
+import type {
+  PackageCatalogueSummary,
+  PackageDto,
+  PackagePaxApplicable,
+} from '@/types/package.types'
 
 /**
  * The catalogue the server published.
@@ -25,6 +29,7 @@ export const packageTiersFixture: PackageDto[] = [
     description: 'Wedding Grand Tier',
     amountPax: 1450,
     minPax: 150,
+    numPaxId: 4,
     extendedLocationAmount: null,
     isActive: true,
   },
@@ -35,6 +40,7 @@ export const packageTiersFixture: PackageDto[] = [
     description: 'VIP Degustation & Special Service',
     amountPax: 1850,
     minPax: 50,
+    numPaxId: 3,
     extendedLocationAmount: null,
     isActive: true,
   },
@@ -45,6 +51,7 @@ export const packageTiersFixture: PackageDto[] = [
     description: 'Premier Corporate Buffet',
     amountPax: 1250,
     minPax: 100,
+    numPaxId: 4,
     extendedLocationAmount: 150,
     isActive: true,
   },
@@ -55,6 +62,7 @@ export const packageTiersFixture: PackageDto[] = [
     description: 'Regular Feast Buffet',
     amountPax: 950,
     minPax: 80,
+    numPaxId: 2,
     extendedLocationAmount: 100,
     isActive: true,
   },
@@ -65,6 +73,7 @@ export const packageTiersFixture: PackageDto[] = [
     description: 'PM Merienda Buffet',
     amountPax: 500,
     minPax: 50,
+    numPaxId: 1,
     extendedLocationAmount: null,
     isActive: true,
   },
@@ -75,6 +84,7 @@ export const packageTiersFixture: PackageDto[] = [
     description: 'Special Diet / SD Tailored',
     amountPax: 1350,
     minPax: 40,
+    numPaxId: 2,
     extendedLocationAmount: null,
     isActive: true,
   },
@@ -85,6 +95,7 @@ export const packageTiersFixture: PackageDto[] = [
     description: 'Morning Briefing Tier',
     amountPax: null,
     minPax: null,
+    numPaxId: 5,
     extendedLocationAmount: null,
     isActive: false,
   },
@@ -135,6 +146,7 @@ export const unpricedPackageTiersFixture: PackageDto[] = [
     description: 'Morning Briefing Tier',
     amountPax: null,
     minPax: null,
+    numPaxId: 5,
     extendedLocationAmount: null,
     isActive: false,
   },
@@ -161,3 +173,19 @@ export const unpricedPackageSummaryFixture: PackageCatalogueSummary = {
 
 /** One tier, used by the tier-form tests. */
 export const packageTierFixture: PackageDto = packageTiersFixture[0]
+
+/**
+ * The read-only applicable-pax lookup the server publishes (contract §12.8,
+ * DEC-173) — the five fixed rows in ID order, labels verbatim.
+ *
+ * The tier form's options come from the endpoint alone; this fixture exists so
+ * the component tests can assert against exactly what the API would return.
+ * It is test data, never a production option source.
+ */
+export const packagePaxApplicablesFixture: PackagePaxApplicable[] = [
+  { numPaxId: 1, packageApplicablePax: '15 to 19 Pax' },
+  { numPaxId: 2, packageApplicablePax: '20 to 29 Pax' },
+  { numPaxId: 3, packageApplicablePax: '30 to 49 Pax' },
+  { numPaxId: 4, packageApplicablePax: '80 to 100 Above' },
+  { numPaxId: 5, packageApplicablePax: 'Not Applicable to PackMeals' },
+]

@@ -26,6 +26,18 @@ public class PackageConfiguration : IEntityTypeConfiguration<Package>
         builder.Property(e => e.Description).HasColumnName("p_descripton").HasMaxLength(250);
         builder.Property(e => e.AmountPax).HasColumnName("p_amountPax").HasPrecision(18, 2);
         builder.Property(e => e.MinPax).HasColumnName("p_min");
+
+        // REQ-PKG-04 / DEC-173: the required applicable-pax classification. It is a descriptive
+        // classification only — it establishes no booking headcount bound and constrains no
+        // package type. The lookup row is read-only, so a tier can never delete its own
+        // classification out from under it: the delete behaviour is Restrict.
+        builder.Property(e => e.NumPaxId).HasColumnName("numPaxId").IsRequired();
+        builder.HasOne(e => e.PaxApplicable)
+            .WithMany()
+            .HasForeignKey(e => e.NumPaxId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(e => e.NumPaxId).HasDatabaseName("IX_Package_numPaxId");
+
         builder.Property(e => e.ExtendedLocationAmount)
             .HasColumnName("p_extendedLocationAmount")
             .HasPrecision(18, 2);

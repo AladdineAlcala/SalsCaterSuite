@@ -116,7 +116,6 @@ public class BookingMenuCourseDto
     public decimal? BatchMassKg { get; set; }
 
     public string? RuleDescription { get; set; }
-    public string? InclusionTag { get; set; }
     public List<BookingMenuCourseDishDto> Pool { get; set; } = new();
     public List<string> ChosenMenuIds { get; set; } = new();
 }

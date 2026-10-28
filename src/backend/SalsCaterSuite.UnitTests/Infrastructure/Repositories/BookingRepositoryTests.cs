@@ -68,7 +68,7 @@ public class BookingRepositoryTests : IDisposable
     {
         // Arrange
         var customer = new Customer { CustomerId = 10, FirstName = "Sarah", LastName = "Connor" };
-        var package = new Package { PackageId = 20, PackageType = "Silver Buffet" };
+        var package = new Package { PackageId = 20, PackageType = "Silver Buffet", NumPaxId = 4 };
         var booking = CreateTestBooking(customerId: 10, occasion: "Family Reunion");
         booking.Customer = customer;
         booking.Package = package;

@@ -8,9 +8,8 @@ using SalsCaterSuite.Domain.Entities;
 /// Hand-written fake of <see cref="IPackageCourseRuleRepository"/> (DEC-037). No EF Core is
 /// involved; in-place updates are visible through the shared reference-tracking store.
 /// <para>
-/// The projection mirrors the EF implementation exactly, including the soft-deleted add-on rule:
-/// the rule keeps its id and the add-on's description, price and unit are published as
-/// <c>null</c> (contract §13.4).
+/// The projection mirrors the EF implementation exactly. The retired upgrade add-on resolution
+/// was removed with the field itself (DEC-172): a rule no longer references the add-on master.
 /// </para>
 /// </summary>
 public sealed class FakePackageCourseRuleRepository : IPackageCourseRuleRepository
@@ -57,13 +56,6 @@ public sealed class FakePackageCourseRuleRepository : IPackageCourseRuleReposito
         return Task.FromResult(exists);
     }
 
-    public Task<bool> LiveAddonExistsAsync(int addonId, CancellationToken cancellationToken = default)
-    {
-        var exists = _store.AddonDetails.Any(addon => addon.AddonId == addonId && !addon.IsDeleted);
-
-        return Task.FromResult(exists);
-    }
-
     public Task AddAsync(PackageCourseRule rule, CancellationToken cancellationToken = default)
     {
         _store.PackageCourseRules.Add(rule);
@@ -84,12 +76,6 @@ public sealed class FakePackageCourseRuleRepository : IPackageCourseRuleReposito
 
     private PackageCourseRuleProjection Map(PackageCourseRule rule)
     {
-        var addon = rule.UpgradeAddonId.HasValue
-            ? _store.AddonDetails.FirstOrDefault(candidate => candidate.AddonId == rule.UpgradeAddonId.Value)
-            : null;
-
-        var addonIsLive = addon is not null && !addon.IsDeleted;
-
         return new PackageCourseRuleProjection
         {
             PackageCourseRuleId = rule.PackageCourseRuleId,
@@ -99,12 +85,7 @@ public sealed class FakePackageCourseRuleRepository : IPackageCourseRuleReposito
                 .FirstOrDefault(course => course.CourseId == rule.CourseId)?.CourseName ?? string.Empty,
             RequiredQuota = rule.RequiredQuota,
             PortionGrams = rule.PortionGrams,
-            RuleDescription = rule.RuleDescription,
-            InclusionTag = rule.InclusionTag,
-            UpgradeAddonId = rule.UpgradeAddonId,
-            UpgradeAddonDescription = addonIsLive ? addon!.Description : null,
-            UpgradeAddonUnitPrice = addonIsLive ? addon!.UnitPrice : null,
-            UpgradeAddonUnit = addonIsLive ? addon!.Unit : null
+            RuleDescription = rule.RuleDescription
         };
     }
 }

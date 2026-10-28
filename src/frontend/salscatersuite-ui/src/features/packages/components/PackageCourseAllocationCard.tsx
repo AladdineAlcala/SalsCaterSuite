@@ -19,8 +19,8 @@ export interface PackageCourseAllocationCardProps {
  * see what the tier offers without leaving the location workbench.
  *
  * The reference's **free-inclusion ribbon** is a capability-gap notice: no
- * add-on is configured for the tier, and no entity carries the free
- * inclusions (DEC-084).
+ * entity carries free-inclusion records (DEC-084), and course rules do not
+ * link add-ons (DEC-172).
  */
 export function PackageCourseAllocationCard({ ruleset }: PackageCourseAllocationCardProps) {
   const rules = ruleset?.rules ?? []
@@ -74,8 +74,8 @@ export function PackageCourseAllocationCard({ ruleset }: PackageCourseAllocation
 
       <CapabilityGapNotice
         title="Complimentary staples unavailable"
-        missing="The reference shows a free-inclusion ribbon beside the course profile, but no add-on is configured against a tier and no entity carries the free inclusions."
-        footnote="Deliberately excluded by DEC-084 — no entity carries this data."
+        missing="The reference shows a free-inclusion ribbon beside the course profile, but no entity carries free-inclusion records."
+        footnote="Free-inclusion records are not modeled, and course rules do not link add-ons (DEC-084, DEC-172)."
       />
     </Card>
   )

@@ -23,7 +23,8 @@ public class PackageCourseRulesetQueryTests
             Description = "Wedding Grand Tier",
             AmountPax = 1450m,
             MinPax = 150,
-            IsActive = true
+            IsActive = true,
+            NumPaxId = 4,
         });
 
         _store.CourseCategories.Add(new CourseCategory { CourseId = 1, CourseName = "Main Course" });
@@ -40,8 +41,7 @@ public class PackageCourseRulesetQueryTests
             PackageId = 1,
             CourseId = 1,
             RequiredQuota = 1,
-            RuleDescription = "One beef selection",
-            InclusionTag = "Included"
+            RuleDescription = "One beef selection"
         });
 
         _query = new GetPackageCourseRulesetQuery(
@@ -168,20 +168,5 @@ public class PackageCourseRulesetQueryTests
         var ruleset = (await _query.ExecuteAsync(1)).Data!;
 
         ruleset.Rules.Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task A_rule_whose_upgrade_add_on_is_soft_deleted_should_publish_the_add_on_as_null()
-    {
-        _store.AddonDetails.Add(new AddonDetail { AddonId = 7, Description = "Retired", UnitPrice = 100m, Unit = "per head", IsDeleted = true });
-        _store.PackageCourseRules[0].UpgradeAddonId = 7;
-
-        var ruleset = (await _query.ExecuteAsync(1)).Data!;
-
-        var rule = ruleset.Rules.Should().ContainSingle().Subject;
-        rule.UpgradeAddonId.Should().Be(7);
-        rule.UpgradeAddonDescription.Should().BeNull();
-        rule.UpgradeAddonUnitPrice.Should().BeNull();
-        rule.UpgradeAddonUnit.Should().BeNull();
     }
 }

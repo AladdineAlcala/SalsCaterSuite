@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using FluentAssertions;
 using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs;
 using Xunit;
 
 /// <summary>
@@ -28,9 +29,19 @@ public class DtoProjectionGuardTests
 {
     private const string ApplicationRoot = "src/backend/SalsCaterSuite.Application/Features/Bookings";
 
+    private const string PackagesRoot = "src/backend/SalsCaterSuite.Application/Features/Packages";
+
     private const string DetailsProjection = ApplicationRoot + "/Queries/GetBookingDetailsQuery.cs";
     private const string RegisterProjection = ApplicationRoot + "/Queries/GetBookingRegisterQuery.cs";
     private const string QuoteProjection = ApplicationRoot + "/Commands/PreviewBookingQuoteCommand.cs";
+
+    /// <summary>
+    /// The package catalogue's list and detail projections (REQ-PKG-01, REQ-PKG-04). They live
+    /// in the Infrastructure repository — the only layer that touches EF Core — so the guard
+    /// points at it directly.
+    /// </summary>
+    private const string PackagesRepository =
+        "src/backend/SalsCaterSuite.Infrastructure/Persistence/Repositories/PackageRepository.cs";
 
     [Fact]
     public void Every_booking_details_member_should_be_projected_by_the_details_query()
@@ -51,6 +62,21 @@ public class DtoProjectionGuardTests
     }
 
     /// <summary>
+    /// The package catalogue's read DTO (REQ-PKG-01, REQ-PKG-04 / DEC-173).
+    /// <para>
+    /// The DTO is projected in <b>two</b> places — the catalogue list and the tier detail — so
+    /// both initializers must assign every member. A member added to the DTO and projected in
+    /// only one of them would leave the other endpoint answering a default value: a silent wrong
+    /// answer, which is exactly the defect class this guard exists to catch.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Every_package_member_should_be_projected_by_both_package_projections()
+    {
+        AssertEveryMemberIsProjected(typeof(PackageDto), PackagesRepository, expectedInitializerCount: 2);
+    }
+
+    /// <summary>
     /// The guard proves it would catch the defect: a member that the initializer does not
     /// assign is reported.
     /// </summary>
@@ -66,20 +92,26 @@ public class DtoProjectionGuardTests
 
     // ─────────────────────────── the guard ───────────────────────────
 
-    private static void AssertEveryMemberIsProjected(Type dtoType, string relativeSourcePath)
+    private static void AssertEveryMemberIsProjected(
+        Type dtoType,
+        string relativeSourcePath,
+        int expectedInitializerCount = 1)
     {
         var source = ReadProjectionSource(relativeSourcePath);
-        var initializer = ExtractObjectInitializer(source, dtoType.Name);
+        var initializers = ExtractObjectInitializers(source, dtoType.Name, expectedInitializerCount);
 
-        initializer.Should().NotBeNullOrEmpty(
+        initializers.Should().NotBeEmpty(
             $"{relativeSourcePath} must construct a {dtoType.Name} — the guard cannot check it otherwise");
 
-        var unprojected = FindUnprojectedMembers(dtoType, initializer!);
+        foreach (var initializer in initializers)
+        {
+            var unprojected = FindUnprojectedMembers(dtoType, initializer);
 
-        unprojected.Should().BeEmpty(
-            $"every public property of {dtoType.Name} must be assigned by {relativeSourcePath}: " +
-            $"'{string.Join("', '", unprojected)}' is declared but never projected. " +
-            "A declared-but-never-populated field is a silent wrong answer.");
+            unprojected.Should().BeEmpty(
+                $"every public property of {dtoType.Name} must be assigned by {relativeSourcePath}: " +
+                $"'{string.Join("', '", unprojected)}' is declared but never projected. " +
+                "A declared-but-never-populated field is a silent wrong answer.");
+        }
     }
 
     /// <summary>
@@ -105,17 +137,50 @@ public class DtoProjectionGuardTests
     /// The object initializer of the DTO inside the projection source: the balanced-brace block
     /// that follows the <c>new {TypeName}</c>.
     /// </summary>
-    private static string? ExtractObjectInitializer(string source, string typeName)
+    private static IReadOnlyList<string> ExtractObjectInitializers(
+        string source,
+        string typeName,
+        int expectedInitializerCount)
     {
         var marker = $"new {typeName}";
-        var index = source.IndexOf(marker, StringComparison.Ordinal);
+        var initializers = new List<string>();
+        var searchFrom = 0;
 
-        if (index < 0)
+        while (true)
         {
-            return null;
+            var index = source.IndexOf(marker, searchFrom, StringComparison.Ordinal);
+
+            if (index < 0)
+            {
+                break;
+            }
+
+            searchFrom = index + marker.Length;
+
+            var initializer = ExtractObjectInitializerAt(source, index, typeName);
+
+            if (initializer is not null)
+            {
+                initializers.Add(initializer);
+            }
         }
 
-        var brace = source.IndexOf('{', index);
+        initializers.Count.Should().Be(
+            expectedInitializerCount,
+            $"{typeName} must be constructed {expectedInitializerCount} time(s) in the projection source — " +
+            "the guard checks every one of them, because a member projected in only one of them " +
+            "leaves the other endpoint answering a default value.");
+
+        return initializers;
+    }
+
+    /// <summary>
+    /// The object initializer of the DTO at the given <c>new {TypeName}</c> position: the
+    /// balanced-brace block that follows it.
+    /// </summary>
+    private static string? ExtractObjectInitializerAt(string source, int markerIndex, string typeName)
+    {
+        var brace = source.IndexOf('{', markerIndex);
 
         if (brace < 0)
         {

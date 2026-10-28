@@ -1774,4 +1774,75 @@ Feature: Reservation Workbench tier cascade (REQ-BKG-01, AC-BKG-92..97)
     And the create payload contains no packageType or areaFilterId member
     And the event Municipality control remains independent and obeys AC-BKG-72
 ```
+
+### Scenario 112: Course Rules No Longer Carry Inclusion Or Upgrade Add-On Fields
+```gherkin
+Feature: Package course-rule field retirement (REQ-PKG-02, DEC-172)
+  Scenario: Save and read only the remaining course-rule fields
+    Given a tier with a configured course rule
+    When I open /packages/{id}/rules and edit that rule
+    Then the editor has no Inclusion tag or Tier-1 upgrade add-on field
+    And the course-rule card has no inclusion label or upgrade add-on content
+    When I save the ruleset
+    Then the request rule contains only courseId, requiredQuota, portionGrams and ruleDescription
+    And GET /api/packages/{id}/course-rules does not publish inclusionTag or upgrade add-on members
+    And the package spec sheet does not print the retired fields
+  Scenario: Booking projections use the same retired course-rule shape
+    When I read the booking quote or GET /api/bookings/{id}/menus
+    Then the course rules do not include inclusionTag
+    And the booking course board does not show an inclusion badge
+    And booking add-on line addonId remains available and unchanged
+  Scenario: Migration drops only course-rule add-on references and the retired columns
+    Given the full migration chain is applied to a disposable integration database
+    Then PackageCourseRule has no inclusionTag or addonId column
+    And it has no FK_PackageCourseRule_AddonDetail_addonId or IX_PackageCourseRule_addonId
+    And AddonDetail.addonId and BookingAddOn.addonId remain in the schema
+    When the retirement migration is rolled back on that disposable database
+    Then the nullable columns, FK and index schema are restored
+    And previously dropped values are not represented as recoverable
+    When I request the migration SQL for review
+    Then it is not applied to the development or production database
+```
+
+### Scenario 113: Package Applicable-Pax Classification Is Required and Informational
+```gherkin
+Feature: Package applicable-pax classification (REQ-PKG-04, DEC-173)
+  Scenario: Read the fixed lookup and select an option when creating a tier
+    Given I am an authenticated user
+    When I GET /api/packages/pax-applicables
+    Then the API returns the five fixed ID/label pairs in ascending ID order
+    And the labels are exactly "15 to 19 Pax", "20 to 29 Pax", "30 to 49 Pax", "80 to 100 Above", and "Not Applicable to PackMeals"
+    When I open /packages/new
+    Then the applicable-pax selector is required and populated from that API response
+    And the option labels are not duplicated as client-authored values
+  Scenario: Create and edit preserve the selected classification
+    Given a valid package request with numPaxId 4
+    When I POST /api/packages
+    Then the new tier is returned with numPaxId 4
+    When I open that tier in /packages/{id}/edit
+    Then the selector preselects "80 to 100 Above"
+    When I save the tier with numPaxId 2
+    Then the API stores and returns numPaxId 2
+  Scenario: Missing and unknown classifications are rejected
+    When I POST /api/packages without numPaxId
+    Then the API returns 400 with the standard errors envelope and persists nothing
+    When I PUT /api/packages/{id} with numPaxId 0 or an unknown ID
+    Then the API returns 400 with the standard errors envelope and changes nothing
+  Scenario: Migration applies only the owner-approved existing-row mapping
+    Given the database is at the migration immediately before DEC-173 on a disposable SQL Server database
+    And the existing package rows are p_id 1 and p_id 2
+    When I apply the DEC-173 migration
+    Then p_id 1 has numPaxId 4 and p_id 2 has numPaxId 2
+    And the five fixed lookup rows exist with is_deleted false and valid audit columns
+    And Package.numPaxId is non-null with a restrictive foreign key
+  Scenario: Migration refuses an unmapped existing package
+    Given a disposable pre-DEC-173 database contains a package row outside the owner-approved mapping
+    When I request the DEC-173 migration
+    Then it fails explicitly instead of assigning an inferred/default classification
+    And the migration is never applied to a persistent database in this cycle
+  Scenario: Classification does not become booking policy
+    Given a package has any valid applicable-pax classification
+    When I create or quote a booking for that package
+    Then the package type, MinPax, booking headcount eligibility, quote and price behavior remain unchanged
+```
 ---

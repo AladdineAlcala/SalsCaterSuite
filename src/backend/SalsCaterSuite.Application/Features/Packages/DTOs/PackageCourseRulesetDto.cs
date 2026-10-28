@@ -84,21 +84,6 @@ public class PackageCourseRuleDto
 
     public string RuleDescription { get; set; } = string.Empty;
 
-    /// <summary>The operator's inclusion label. <c>null</c> = no tag.</summary>
-    public string? InclusionTag { get; set; }
-
-    /// <summary>The allowed tier-1 upgrade. <c>null</c> = no upgrade.</summary>
-    public int? UpgradeAddonId { get; set; }
-
-    /// <summary>The add-on's description. <c>null</c> when the add-on is soft-deleted or absent.</summary>
-    public string? UpgradeAddonDescription { get; set; }
-
-    /// <summary>The add-on's unit price. <c>null</c> when the add-on is soft-deleted or absent.</summary>
-    public decimal? UpgradeAddonUnitPrice { get; set; }
-
-    /// <summary>The add-on's unit. <c>null</c> when the add-on is soft-deleted or absent.</summary>
-    public string? UpgradeAddonUnit { get; set; }
-
     /// <summary>The non-soft-deleted dishes of the course.</summary>
     public int PoolSize { get; set; }
 
@@ -137,10 +122,13 @@ public record PackageCourseRulesetRequest(
     IReadOnlyList<PackageCourseRuleRequestDto>? Rules = null);
 
 /// <summary>One submitted rule (contract §13.2).</summary>
+/// <para>
+/// The retired <c>inclusionTag</c> and <c>upgradeAddonId</c> members are gone (DEC-172). A
+/// client that still sends them is <b>ignored</b>, never rejected — the default
+/// <c>System.Text.Json</c> behaviour for an unmapped member.
+/// </para>
 public record PackageCourseRuleRequestDto(
     int CourseId = 0,
     int RequiredQuota = 0,
     int? PortionGrams = null,
-    string RuleDescription = "",
-    string? InclusionTag = null,
-    int? UpgradeAddonId = null);
+    string RuleDescription = "");

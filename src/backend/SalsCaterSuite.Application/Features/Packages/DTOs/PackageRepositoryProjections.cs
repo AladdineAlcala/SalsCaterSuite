@@ -1,11 +1,12 @@
 namespace SalsCaterSuite.Application.Features.Packages.DTOs;
 
 /// <summary>
-/// The rule rows of a tier, with the course name and the upgrade add-on's details resolved
-/// (DEC-037 — the repository contract never leaks an EF Core type).
+/// The rule rows of a tier, with the course name resolved (DEC-037 — the repository contract
+/// never leaks an EF Core type).
 /// <para>
-/// A soft-deleted upgrade add-on keeps its <see cref="UpgradeAddonId"/> and publishes the
-/// description, the unit price and the unit as <c>null</c> (contract §13.4).
+/// The retired upgrade add-on and its derived description, unit price and unit are gone
+/// (DEC-172): a rule no longer references the add-on master, so the projection no longer
+/// resolves one.
 /// </para>
 /// </summary>
 public class PackageCourseRuleProjection
@@ -23,16 +24,6 @@ public class PackageCourseRuleProjection
     public int? PortionGrams { get; set; }
 
     public string RuleDescription { get; set; } = string.Empty;
-
-    public string? InclusionTag { get; set; }
-
-    public int? UpgradeAddonId { get; set; }
-
-    public string? UpgradeAddonDescription { get; set; }
-
-    public decimal? UpgradeAddonUnitPrice { get; set; }
-
-    public string? UpgradeAddonUnit { get; set; }
 }
 
 /// <summary>

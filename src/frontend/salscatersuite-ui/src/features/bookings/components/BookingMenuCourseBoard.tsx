@@ -1,5 +1,4 @@
 import { Utensils } from 'lucide-react'
-import { Badge } from '@/components/ui/Badge'
 import { CapabilityGapNotice } from '@/components/feedback/CapabilityGapNotice'
 import { EmptyState } from '@/components/feedback/EmptyState'
 import { formatCurrency, formatDecimal } from '@/utils/currencyFormatter'
@@ -118,9 +117,6 @@ export function BookingMenuCourseBoard({
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                {course.inclusionTag ? (
-                  <Badge tone="info">{course.inclusionTag}</Badge>
-                ) : null}
                 <span className="font-caption text-caption text-espresso-600">
                   {quota
                     ? `${quota.selectedCount} of ${quota.requiredQuota} selected`

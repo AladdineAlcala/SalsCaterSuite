@@ -135,11 +135,6 @@ public class GetPackageCourseRulesetQuery
             RequiredQuota = projection.RequiredQuota,
             PortionGrams = projection.PortionGrams,
             RuleDescription = projection.RuleDescription,
-            InclusionTag = projection.InclusionTag,
-            UpgradeAddonId = projection.UpgradeAddonId,
-            UpgradeAddonDescription = projection.UpgradeAddonDescription,
-            UpgradeAddonUnitPrice = projection.UpgradeAddonUnitPrice,
-            UpgradeAddonUnit = projection.UpgradeAddonUnit,
             PoolSize = poolDtos.Count,
             // A dish is costed when its food cost is greater than zero (DEC-087).
             PoolCostedCount = poolDtos.Count(dish => dish.FoodCost.HasValue && dish.FoodCost.Value > 0m),

@@ -30,11 +30,11 @@ public class PackageCatalogueSummaryTests
 
     private void SeedTheKnownPopulation()
     {
-        _store.Packages.Add(new Package { PackageId = 1, PackageType = "Buffet", Description = "A", AmountPax = 950m, MinPax = 80, IsActive = true });
-        _store.Packages.Add(new Package { PackageId = 2, PackageType = "Buffet", Description = "B", AmountPax = 1200m, MinPax = 100, IsActive = true });
-        _store.Packages.Add(new Package { PackageId = 3, PackageType = "Plated", Description = "C", AmountPax = 1450m, MinPax = 150, IsActive = false });
+        _store.Packages.Add(new Package { PackageId = 1, PackageType = "Buffet", Description = "A", AmountPax = 950m, MinPax = 80, IsActive = true, NumPaxId = 4 });
+        _store.Packages.Add(new Package { PackageId = 2, PackageType = "Buffet", Description = "B", AmountPax = 1200m, MinPax = 100, IsActive = true, NumPaxId = 4 });
+        _store.Packages.Add(new Package { PackageId = 3, PackageType = "Plated", Description = "C", AmountPax = 1450m, MinPax = 150, IsActive = false, NumPaxId = 4 });
         // Priced, but without a headcount floor.
-        _store.Packages.Add(new Package { PackageId = 4, PackageType = "Plated", Description = "D", AmountPax = null, MinPax = null, IsActive = true });
+        _store.Packages.Add(new Package { PackageId = 4, PackageType = "Plated", Description = "D", AmountPax = null, MinPax = null, IsActive = true, NumPaxId = 4 });
     }
 
     [Fact]
@@ -98,7 +98,7 @@ public class PackageCatalogueSummaryTests
     {
         // Arrange
         SeedTheKnownPopulation();
-        _store.Packages.Add(new Package { PackageId = 5, PackageType = "Ghost", Description = "E", AmountPax = 9999m, MinPax = 999, IsActive = true, IsDeleted = true });
+        _store.Packages.Add(new Package { PackageId = 5, PackageType = "Ghost", Description = "E", AmountPax = 9999m, MinPax = 999, IsActive = true, IsDeleted = true, NumPaxId = 4 });
 
         // Act
         var result = await _summary.ExecuteAsync();
@@ -114,8 +114,8 @@ public class PackageCatalogueSummaryTests
     public async Task A_catalogue_without_a_priced_tier_should_publish_nulls_and_not_zeros()
     {
         // Arrange
-        _store.Packages.Add(new Package { PackageId = 1, PackageType = "Buffet", Description = "A", AmountPax = null, MinPax = 80, IsActive = true });
-        _store.Packages.Add(new Package { PackageId = 2, PackageType = "Buffet", Description = "B", AmountPax = null, MinPax = 100, IsActive = true });
+        _store.Packages.Add(new Package { PackageId = 1, PackageType = "Buffet", Description = "A", AmountPax = null, MinPax = 80, IsActive = true, NumPaxId = 4 });
+        _store.Packages.Add(new Package { PackageId = 2, PackageType = "Buffet", Description = "B", AmountPax = null, MinPax = 100, IsActive = true, NumPaxId = 4 });
 
         // Act
         var result = await _summary.ExecuteAsync();
@@ -136,7 +136,7 @@ public class PackageCatalogueSummaryTests
     public async Task A_catalogue_without_a_headcount_floor_should_publish_nulls()
     {
         // Arrange
-        _store.Packages.Add(new Package { PackageId = 1, PackageType = "Buffet", Description = "A", AmountPax = 950m, MinPax = null, IsActive = true });
+        _store.Packages.Add(new Package { PackageId = 1, PackageType = "Buffet", Description = "A", AmountPax = 950m, MinPax = null, IsActive = true, NumPaxId = 4 });
 
         // Act
         var result = await _summary.ExecuteAsync();
@@ -175,8 +175,8 @@ public class PackageCatalogueSummaryTests
     public async Task The_average_should_be_rounded_away_from_the_midpoint()
     {
         // Arrange
-        _store.Packages.Add(new Package { PackageId = 1, PackageType = "Buffet", Description = "A", AmountPax = 1000.00m, IsActive = true });
-        _store.Packages.Add(new Package { PackageId = 2, PackageType = "Buffet", Description = "B", AmountPax = 1000.01m, IsActive = true });
+        _store.Packages.Add(new Package { PackageId = 1, PackageType = "Buffet", Description = "A", AmountPax = 1000.00m, IsActive = true, NumPaxId = 4 });
+        _store.Packages.Add(new Package { PackageId = 2, PackageType = "Buffet", Description = "B", AmountPax = 1000.01m, IsActive = true, NumPaxId = 4 });
 
         // Act
         var result = await _summary.ExecuteAsync();
@@ -189,7 +189,7 @@ public class PackageCatalogueSummaryTests
     public async Task A_catalogue_of_one_tier_should_publish_that_tier_s_own_figures()
     {
         // Arrange
-        _store.Packages.Add(new Package { PackageId = 1, PackageType = "Buffet", Description = "A", AmountPax = 777.77m, MinPax = 50, IsActive = false });
+        _store.Packages.Add(new Package { PackageId = 1, PackageType = "Buffet", Description = "A", AmountPax = 777.77m, MinPax = 50, IsActive = false, NumPaxId = 4 });
 
         // Act
         var result = await _summary.ExecuteAsync();

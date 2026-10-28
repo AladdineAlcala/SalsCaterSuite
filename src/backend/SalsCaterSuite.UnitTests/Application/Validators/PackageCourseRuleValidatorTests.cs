@@ -27,12 +27,10 @@ public class PackageCourseRuleValidatorTests
 
         _store.CourseCategories.Add(new CourseCategory { CourseId = 5, CourseName = "Main Course" });
         _store.CourseCategories.Add(new CourseCategory { CourseId = 6, CourseName = "Dessert", IsDeleted = true });
-        _store.AddonDetails.Add(new AddonDetail { AddonId = 7, Description = "Premium seafood", UnitPrice = 250m, Unit = "per head" });
-        _store.AddonDetails.Add(new AddonDetail { AddonId = 8, Description = "Retired upgrade", UnitPrice = 100m, IsDeleted = true });
     }
 
     private static PackageCourseRuleRequestDto ValidRule(int courseId = 5) =>
-        new(courseId, 1, 120, "One beef selection", "Included", null);
+        new(courseId, 1, 120, "One beef selection");
 
     [Fact]
     public async Task A_valid_ruleset_should_pass()
@@ -149,51 +147,43 @@ public class PackageCourseRuleValidatorTests
     }
 
     [Fact]
-    public async Task An_over_long_inclusion_tag_should_be_refused()
+    public async Task A_null_portion_should_pass_because_no_portion_is_a_valid_state()
     {
-        var rule = ValidRule() with { InclusionTag = new string('x', 51) };
-
-        var result = await _ruleValidator.ValidateAsync(rule);
-
-        result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(error => error.ErrorMessage == "Inclusion tag must not exceed 50 characters.");
-    }
-
-    [Fact]
-    public async Task An_unknown_add_on_should_be_refused()
-    {
-        var rule = ValidRule() with { UpgradeAddonId = 99 };
-
-        var result = await _ruleValidator.ValidateAsync(rule);
-
-        result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(error => error.ErrorMessage == "Add-on 99 does not exist.");
-    }
-
-    [Fact]
-    public async Task A_soft_deleted_add_on_should_not_exist_for_the_workbench()
-    {
-        var rule = ValidRule() with { UpgradeAddonId = 8 };
-
-        var result = await _ruleValidator.ValidateAsync(rule);
-
-        result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(error => error.ErrorMessage == "Add-on 8 does not exist.");
-    }
-
-    [Fact]
-    public async Task A_live_add_on_should_pass()
-    {
-        var rule = ValidRule() with { UpgradeAddonId = 7 };
+        var rule = ValidRule() with { PortionGrams = null };
 
         (await _ruleValidator.ValidateAsync(rule)).IsValid.Should().BeTrue();
     }
 
+    /// <summary>
+    /// The retired inclusion tag and upgrade add-on are gone from the submitted rule
+    /// (DEC-172): the request record no longer declares them, so a client that still sends
+    /// them has them ignored rather than rejected.
+    /// </summary>
     [Fact]
-    public async Task A_null_upgrade_should_pass_because_no_upgrade_is_a_valid_state()
+    public void The_retired_inclusion_tag_and_upgrade_add_on_should_not_be_declared_on_the_request()
     {
-        var rule = ValidRule() with { UpgradeAddonId = null, PortionGrams = null, InclusionTag = null };
+        var members = typeof(PackageCourseRuleRequestDto)
+            .GetProperties()
+            .Select(property => property.Name)
+            .ToList();
 
-        (await _ruleValidator.ValidateAsync(rule)).IsValid.Should().BeTrue();
+        members.Should().NotContain("InclusionTag");
+        members.Should().NotContain("UpgradeAddonId");
+    }
+
+    /// <summary>
+    /// The retired fields are gone from the domain entity too, so nothing can persist them
+    /// again (DEC-172).
+    /// </summary>
+    [Fact]
+    public void The_retired_inclusion_tag_and_upgrade_add_on_should_not_be_declared_on_the_entity()
+    {
+        var members = typeof(PackageCourseRule)
+            .GetProperties()
+            .Select(property => property.Name)
+            .ToList();
+
+        members.Should().NotContain("InclusionTag");
+        members.Should().NotContain("UpgradeAddonId");
     }
 }

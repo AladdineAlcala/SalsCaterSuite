@@ -87,9 +87,7 @@ public class ReplacePackageCourseRulesCommand
                     CourseId = entry.CourseId,
                     RequiredQuota = entry.RequiredQuota,
                     PortionGrams = entry.PortionGrams,
-                    RuleDescription = entry.RuleDescription,
-                    InclusionTag = entry.InclusionTag,
-                    UpgradeAddonId = entry.UpgradeAddonId
+                    RuleDescription = entry.RuleDescription
                 }, cancellationToken);
 
                 continue;
@@ -98,8 +96,6 @@ public class ReplacePackageCourseRulesCommand
             match.RequiredQuota = entry.RequiredQuota;
             match.PortionGrams = entry.PortionGrams;
             match.RuleDescription = entry.RuleDescription;
-            match.InclusionTag = entry.InclusionTag;
-            match.UpgradeAddonId = entry.UpgradeAddonId;
 
             // The resurrect: a re-added natural key revives its soft-deleted row.
             match.IsDeleted = false;

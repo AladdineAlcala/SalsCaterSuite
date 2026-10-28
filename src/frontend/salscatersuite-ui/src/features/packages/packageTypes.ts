@@ -271,10 +271,6 @@ export interface PackageCourseRuleDraft {
   portionGrams: string
   /** The enforced rule, in plain words. */
   ruleDescription: string
-  /** The operator's inclusion label. */
-  inclusionTag: string
-  /** The allowed tier-1 upgrade. */
-  upgradeAddonId: string
 }
 
 /** The per-field client validation messages of the course-rule editor. */
@@ -283,13 +279,10 @@ export interface PackageCourseRuleDraftErrors {
   requiredQuota?: string
   portionGrams?: string
   ruleDescription?: string
-  inclusionTag?: string
-  upgradeAddonId?: string
 }
 
 /** The column limits the server enforces (contract §13.2). */
 export const RULE_DESCRIPTION_MAX_LENGTH = 500
-export const INCLUSION_TAG_MAX_LENGTH = 50
 
 /**
  * Seeds the editor from a rule the server published.
@@ -303,8 +296,6 @@ export function courseRuleDraftFromRule(rule: {
   requiredQuota: number
   portionGrams: number | null
   ruleDescription: string
-  inclusionTag: string | null
-  upgradeAddonId: number | null
 }): PackageCourseRuleDraft {
   return {
     courseId: String(rule.courseId),
@@ -312,8 +303,6 @@ export function courseRuleDraftFromRule(rule: {
     requiredQuota: String(rule.requiredQuota),
     portionGrams: rule.portionGrams === null ? '' : String(rule.portionGrams),
     ruleDescription: rule.ruleDescription,
-    inclusionTag: rule.inclusionTag ?? '',
-    upgradeAddonId: rule.upgradeAddonId === null ? '' : String(rule.upgradeAddonId),
   }
 }
 
@@ -325,8 +314,6 @@ export function emptyCourseRuleDraft(): PackageCourseRuleDraft {
     requiredQuota: '1',
     portionGrams: '',
     ruleDescription: '',
-    inclusionTag: '',
-    upgradeAddonId: '',
   }
 }
 
@@ -385,17 +372,6 @@ export function validateCourseRuleDraft(
     errors.ruleDescription = 'Rule description must not exceed 500 characters.'
   }
 
-  if (draft.inclusionTag.trim().length > INCLUSION_TAG_MAX_LENGTH) {
-    errors.inclusionTag = 'Inclusion tag must not exceed 50 characters.'
-  }
-
-  if (draft.upgradeAddonId.trim().length > 0) {
-    const addon = parseOptionalNumber(draft.upgradeAddonId)
-    if (addon === null || !Number.isInteger(addon) || addon < 1) {
-      errors.upgradeAddonId = 'The upgrade add-on must be a positive whole number.'
-    }
-  }
-
   return errors
 }
 
@@ -411,22 +387,16 @@ export function toCourseRuleRequest(
   const quota = parseOptionalNumber(draft.requiredQuota)
   const courseId = parseOptionalNumber(draft.courseId)
   const portion = parseOptionalNumber(draft.portionGrams)
-  const addon = parseOptionalNumber(draft.upgradeAddonId)
 
   if (courseId === null || !Number.isInteger(courseId)) return null
   if (quota === null || !Number.isInteger(quota)) return null
   if (draft.portionGrams.trim().length > 0 && portion === null) return null
-  if (draft.upgradeAddonId.trim().length > 0 && (addon === null || !Number.isInteger(addon))) {
-    return null
-  }
 
   return {
     courseId,
     requiredQuota: quota,
     portionGrams: portion === null ? null : Math.trunc(portion),
     ruleDescription: draft.ruleDescription.trim(),
-    inclusionTag: draft.inclusionTag.trim().length === 0 ? null : draft.inclusionTag.trim(),
-    upgradeAddonId: addon === null ? null : addon,
   }
 }
 
@@ -445,7 +415,6 @@ export function courseRuleView(
 ): PackageCourseRule {
   const quota = parseOptionalNumber(draft.requiredQuota)
   const portion = parseOptionalNumber(draft.portionGrams)
-  const addon = parseOptionalNumber(draft.upgradeAddonId)
   const courseId = parseOptionalNumber(draft.courseId)
 
   return {
@@ -456,11 +425,6 @@ export function courseRuleView(
       quota !== null && Number.isInteger(quota) ? quota : (serverRule?.requiredQuota ?? 0),
     portionGrams: portion !== null ? Math.trunc(portion) : null,
     ruleDescription: draft.ruleDescription,
-    inclusionTag: draft.inclusionTag.trim().length === 0 ? null : draft.inclusionTag,
-    upgradeAddonId: addon !== null && Number.isInteger(addon) ? addon : null,
-    upgradeAddonDescription: serverRule?.upgradeAddonDescription ?? null,
-    upgradeAddonUnitPrice: serverRule?.upgradeAddonUnitPrice ?? null,
-    upgradeAddonUnit: serverRule?.upgradeAddonUnit ?? null,
     poolSize: serverRule?.poolSize ?? 0,
     poolCostedCount: serverRule?.poolCostedCount ?? 0,
     poolAverageFoodCost: serverRule?.poolAverageFoodCost ?? null,

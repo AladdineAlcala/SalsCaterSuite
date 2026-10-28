@@ -10,7 +10,7 @@ import {
   PACKAGE_LIST_QUERY_KEY,
   PACKAGE_SUMMARY_QUERY_KEY,
 } from '@/features/packages/hooks/usePackageCatalogue'
-import { packageTierFixture } from '@/test/packageFixture'
+import { packagePaxApplicablesFixture, packageTierFixture } from '@/test/packageFixture'
 import { createTestQueryClient } from '@/test/testHelpers'
 
 function axiosResponse(data: unknown, status = 200): AxiosResponse {
@@ -49,6 +49,10 @@ function renderTierForm(route: string) {
 function mockApi() {
   vi.spyOn(apiClient, 'get').mockImplementation(
     async (url: string): Promise<AxiosResponse> => {
+      // The literal segment must be routed before the `/{id}` capture.
+      if (url.includes('/packages/pax-applicables')) {
+        return axiosResponse(packagePaxApplicablesFixture)
+      }
       if (url.includes('/packages/')) return axiosResponse(packageTierFixture)
       return axiosResponse({})
     },
@@ -72,6 +76,156 @@ describe('PackageTierFormPage', () => {
     expect(screen.getByLabelText('Rate per guest')).toHaveValue('1,450.00')
     expect(screen.getByLabelText('Minimum pax')).toHaveValue(150)
     expect(screen.getByRole('button', { name: 'Save Changes' })).toBeInTheDocument()
+  })
+
+  it('loads the five classifications from the lookup endpoint in ID order', async () => {
+    renderTierForm('/packages/new')
+
+    // The options arrive with the lookup query; wait for the first of them.
+    await screen.findByRole('option', { name: '15 to 19 Pax' })
+
+    const select = screen.getByLabelText('Applicable pax classification')
+    const options = Array.from(select.querySelectorAll('option')).filter(
+      (option) => option.value !== '',
+    )
+
+    expect(options.map((option) => option.textContent)).toEqual([
+      '15 to 19 Pax',
+      '20 to 29 Pax',
+      '30 to 49 Pax',
+      '80 to 100 Above',
+      'Not Applicable to PackMeals',
+    ])
+    expect(options.map((option) => option.value)).toEqual(['1', '2', '3', '4', '5'])
+    expect(apiClient.get).toHaveBeenCalledWith('/packages/pax-applicables')
+  })
+
+  it('preselects the saved classification in edit mode', async () => {
+    renderTierForm('/packages/12/edit')
+
+    // The tier fixture carries numPaxId 4 — "80 to 100 Above".
+    await waitFor(() => {
+      expect(screen.getByLabelText('Applicable pax classification')).toHaveValue('4')
+    })
+  })
+
+  it('disables the selector and the save while the classifications load', async () => {
+    let resolveLookup: ((response: AxiosResponse) => void) | undefined
+    vi.spyOn(apiClient, 'get').mockImplementation(
+      async (url: string): Promise<AxiosResponse> => {
+        if (url.includes('/packages/pax-applicables')) {
+          return new Promise<AxiosResponse>((resolve) => {
+            resolveLookup = resolve
+          })
+        }
+        if (url.includes('/packages/')) return axiosResponse(packageTierFixture)
+        return axiosResponse({})
+      },
+    )
+
+    renderTierForm('/packages/new')
+
+    const select = await screen.findByLabelText('Applicable pax classification')
+    expect(select).toBeDisabled()
+    expect(
+      screen.getByText('Loading the applicable-pax classifications…'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save Package' })).toBeDisabled()
+
+    resolveLookup?.(axiosResponse(packagePaxApplicablesFixture))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Applicable pax classification')).toBeEnabled()
+    })
+    expect(screen.getByRole('button', { name: 'Save Package' })).toBeEnabled()
+  })
+
+  it('renders an explicit lookup failure with a retry that recovers', async () => {
+    vi.spyOn(apiClient, 'get').mockImplementation(
+      async (url: string): Promise<AxiosResponse> => {
+        if (url.includes('/packages/pax-applicables')) {
+          throw new ApiError(500, ['The applicable-pax lookup could not be loaded.'])
+        }
+        if (url.includes('/packages/')) return axiosResponse(packageTierFixture)
+        return axiosResponse({})
+      },
+    )
+
+    renderTierForm('/packages/new')
+
+    const select = await screen.findByLabelText('Applicable pax classification')
+    expect(select).toBeDisabled()
+    expect(
+      await screen.findByText('The applicable-pax lookup could not be loaded.', undefined, {
+        timeout: 8000,
+      }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save Package' })).toBeDisabled()
+
+    // The select's description references the rendered lookup-error block,
+    // never a hint node the failure removed (a11y review correction).
+    expect(select).toHaveAttribute(
+      'aria-describedby',
+      'package-num-pax-id-lookup-error',
+    )
+
+    // The next lookup attempt succeeds and unblocks the form.
+    vi.spyOn(apiClient, 'get').mockImplementation(
+      async (url: string): Promise<AxiosResponse> => {
+        if (url.includes('/packages/pax-applicables')) {
+          return axiosResponse(packagePaxApplicablesFixture)
+        }
+        if (url.includes('/packages/')) return axiosResponse(packageTierFixture)
+        return axiosResponse({})
+      },
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Applicable pax classification')).toBeEnabled()
+    })
+    expect(screen.getByRole('button', { name: 'Save Package' })).toBeEnabled()
+
+    // Recovered, the description points back at the rendered hint.
+    expect(select).toHaveAttribute('aria-describedby', 'package-num-pax-id-hint')
+  })
+
+  it('explains an empty classification list and keeps the save blocked', async () => {
+    vi.spyOn(apiClient, 'get').mockImplementation(
+      async (url: string): Promise<AxiosResponse> => {
+        if (url.includes('/packages/pax-applicables')) return axiosResponse([])
+        if (url.includes('/packages/')) return axiosResponse(packageTierFixture)
+        return axiosResponse({})
+      },
+    )
+
+    renderTierForm('/packages/new')
+
+    const select = await screen.findByLabelText('Applicable pax classification')
+    expect(
+      await screen.findByText(
+        'No applicable-pax classifications are defined. The tier cannot be saved without one.',
+      ),
+    ).toBeInTheDocument()
+    expect(select).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Save Package' })).toBeDisabled()
+  })
+
+  it('blocks the save with the required message when no classification is chosen', async () => {
+    const postSpy = vi.spyOn(apiClient, 'post')
+
+    renderTierForm('/packages/new')
+
+    await screen.findByLabelText('Applicable pax classification')
+    await userEvent.type(screen.getByLabelText('Tier type'), 'Wedding')
+    await userEvent.type(screen.getByLabelText('Tier name'), 'Wedding Grand Tier')
+    await userEvent.click(screen.getByRole('button', { name: 'Save Package' }))
+
+    expect(
+      await screen.findByText('Applicable pax classification is required.'),
+    ).toBeInTheDocument()
+    expect(postSpy).not.toHaveBeenCalled()
   })
 
   it('offers the known tier names as suggestions without imposing them', async () => {
@@ -165,6 +319,10 @@ describe('PackageTierFormPage', () => {
     await userEvent.type(screen.getByLabelText('Tier type'), 'Wedding')
     await userEvent.type(screen.getByLabelText('Tier name'), 'Wedding Grand Tier')
     await userEvent.type(screen.getByLabelText('Rate per guest'), '1450')
+    await userEvent.selectOptions(
+      screen.getByLabelText('Applicable pax classification'),
+      '4',
+    )
     await userEvent.click(screen.getByRole('button', { name: 'Save Package' }))
 
     expect(await screen.findByText('Package description is required.')).toBeInTheDocument()
@@ -184,6 +342,10 @@ describe('PackageTierFormPage', () => {
     await userEvent.type(screen.getByLabelText('Tier name'), 'Wedding Grand Tier')
     await userEvent.type(screen.getByLabelText('Rate per guest'), '1450')
     await userEvent.type(screen.getByLabelText('Minimum pax'), '150')
+    await userEvent.selectOptions(
+      screen.getByLabelText('Applicable pax classification'),
+      '4',
+    )
     await userEvent.click(screen.getByRole('button', { name: 'Save Package' }))
 
     await waitFor(() => {
@@ -192,6 +354,7 @@ describe('PackageTierFormPage', () => {
         description: 'Wedding Grand Tier',
         amountPax: 1450,
         minPax: 150,
+        numPaxId: 4,
         extendedLocationAmount: null,
       })
     })
@@ -219,6 +382,7 @@ describe('PackageTierFormPage', () => {
         description: 'Wedding Grand Tier',
         amountPax: 1450,
         minPax: 150,
+        numPaxId: 4,
         extendedLocationAmount: null,
       })
     })
@@ -237,6 +401,10 @@ describe('PackageTierFormPage', () => {
 
     await userEvent.type(screen.getByLabelText('Tier type'), 'Sd')
     await userEvent.type(screen.getByLabelText('Tier name'), 'Special Diet Tailored')
+    await userEvent.selectOptions(
+      screen.getByLabelText('Applicable pax classification'),
+      '2',
+    )
     await userEvent.click(screen.getByRole('button', { name: 'Save Package' }))
 
     await waitFor(() => {
@@ -245,6 +413,7 @@ describe('PackageTierFormPage', () => {
         description: 'Special Diet Tailored',
         amountPax: null,
         minPax: null,
+        numPaxId: 2,
         extendedLocationAmount: null,
       })
     })
@@ -265,8 +434,15 @@ describe('PackageTierFormPage', () => {
   })
 
   it('renders the error state when the tier cannot be loaded', async () => {
-    vi.spyOn(apiClient, 'get').mockRejectedValue(
-      new ApiError(404, ['No package tier was found for that reference.']),
+    // Only the tier load fails here; the lookup endpoint is beside the point
+    // of this test and keeps serving its rows.
+    vi.spyOn(apiClient, 'get').mockImplementation(
+      async (url: string): Promise<AxiosResponse> => {
+        if (url.includes('/packages/pax-applicables')) {
+          return axiosResponse(packagePaxApplicablesFixture)
+        }
+        throw new ApiError(404, ['No package tier was found for that reference.'])
+      },
     )
 
     renderTierForm('/packages/404/edit')
@@ -362,6 +538,10 @@ describe('PackageTierFormPage', () => {
       screen.getByLabelText('Extended location amount (per guest)'),
       '125',
     )
+    await userEvent.selectOptions(
+      screen.getByLabelText('Applicable pax classification'),
+      '4',
+    )
     await userEvent.click(screen.getByRole('button', { name: 'Save Package' }))
 
     await waitFor(() => {
@@ -370,6 +550,7 @@ describe('PackageTierFormPage', () => {
         description: 'Regular Feast',
         amountPax: 1000,
         minPax: 50,
+        numPaxId: 4,
         extendedLocationAmount: 125,
       })
     })
@@ -386,6 +567,10 @@ describe('PackageTierFormPage', () => {
       screen.getByLabelText('Extended location amount (per guest)'),
       '125',
     )
+    await userEvent.selectOptions(
+      screen.getByLabelText('Applicable pax classification'),
+      '2',
+    )
 
     await userEvent.clear(type)
     await userEvent.type(type, 'Wedding')
@@ -398,6 +583,7 @@ describe('PackageTierFormPage', () => {
         description: 'Regular Feast',
         amountPax: null,
         minPax: null,
+        numPaxId: 2,
         extendedLocationAmount: null,
       })
     })

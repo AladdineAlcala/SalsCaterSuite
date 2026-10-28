@@ -76,6 +76,7 @@ public class PackageRepository : IPackageRepository
                 Description = p.Description ?? string.Empty,
                 AmountPax = p.AmountPax,
                 MinPax = p.MinPax,
+                NumPaxId = p.NumPaxId,
                 ExtendedLocationAmount = p.ExtendedLocationAmount,
                 IsActive = p.IsActive
             })
@@ -97,6 +98,7 @@ public class PackageRepository : IPackageRepository
                 Description = p.Description ?? string.Empty,
                 AmountPax = p.AmountPax,
                 MinPax = p.MinPax,
+                NumPaxId = p.NumPaxId,
                 ExtendedLocationAmount = p.ExtendedLocationAmount,
                 IsActive = p.IsActive
             })

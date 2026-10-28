@@ -123,6 +123,8 @@ public class RepositoryRegistrationTests
             .Should().BeOfType<SalsCaterSuite.Infrastructure.Persistence.Repositories.AuthenticationRepository>();
         scope.ServiceProvider.GetRequiredService<IDatabaseMigrator>()
             .Should().BeOfType<SalsCaterSuite.Infrastructure.Persistence.Repositories.DatabaseMigrator>();
+        scope.ServiceProvider.GetRequiredService<IPackagePaxApplicableRepository>()
+            .Should().BeOfType<SalsCaterSuite.Infrastructure.Persistence.Repositories.PackagePaxApplicableRepository>();
     }
 
     /// <summary>

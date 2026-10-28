@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import type { MenuCourse } from '@/types/menu.types'
 import type { PackageCourseRuleDraft, PackageCourseRuleDraftErrors } from '../packageTypes'
-import { INCLUSION_TAG_MAX_LENGTH, RULE_DESCRIPTION_MAX_LENGTH } from '../packageTypes'
+import { RULE_DESCRIPTION_MAX_LENGTH } from '../packageTypes'
 
 export interface PackageCourseRuleEditorProps {
   /** The draft the editor holds. */
@@ -39,9 +39,10 @@ const LABEL_CLASSES =
  * once, because a ruleset is read as one document (DEC-085). Each field has an
  * explicit label and its error is linked with `aria-describedby`.
  *
- * The **upgrade add-on** is entered by its identifier: the approved model
- * publishes the add-on's description, price and unit on the rule, but no
- * add-on catalogue endpoint exists, so the client never invents one.
+ * The retired inclusion-tag and tier-1-upgrade fields were removed from the
+ * course-rule model (DEC-172); the editor carries only the surviving rule
+ * members. The server ignores extra request members from older clients, so no
+ * legacy handling is needed here either.
  */
 export function PackageCourseRuleEditor({
   draft,
@@ -227,73 +228,6 @@ export function PackageCourseRuleEditor({
             {errors.ruleDescription}
           </p>
         ) : null}
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="package-rule-inclusion" className={LABEL_CLASSES}>
-            Inclusion tag
-          </label>
-          <input
-            id="package-rule-inclusion"
-            name="inclusionTag"
-            type="text"
-            value={draft.inclusionTag}
-            onChange={(event) => handleField('inclusionTag', event.target.value)}
-            maxLength={INCLUSION_TAG_MAX_LENGTH}
-            aria-invalid={errors.inclusionTag ? true : undefined}
-            aria-describedby={
-              errors.inclusionTag ? 'package-rule-inclusion-error' : 'package-rule-inclusion-hint'
-            }
-            className={INPUT_CLASSES}
-          />
-          <p id="package-rule-inclusion-hint" className="font-caption text-caption text-espresso-600">
-            Your own label for the category&apos;s inclusion status. Leave empty for no tag.
-          </p>
-          {errors.inclusionTag ? (
-            <p
-              id="package-rule-inclusion-error"
-              role="alert"
-              className="font-caption text-caption text-error"
-            >
-              {errors.inclusionTag}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label htmlFor="package-rule-upgrade" className={LABEL_CLASSES}>
-            Tier-1 upgrade add-on
-          </label>
-          <input
-            id="package-rule-upgrade"
-            name="upgradeAddonId"
-            type="number"
-            inputMode="numeric"
-            step="1"
-            min="1"
-            value={draft.upgradeAddonId}
-            onChange={(event) => handleField('upgradeAddonId', event.target.value)}
-            aria-invalid={errors.upgradeAddonId ? true : undefined}
-            aria-describedby={
-              errors.upgradeAddonId ? 'package-rule-upgrade-error' : 'package-rule-upgrade-hint'
-            }
-            className={INPUT_CLASSES}
-          />
-          <p id="package-rule-upgrade-hint" className="font-caption text-caption text-espresso-600">
-            The add-on identifier. The server publishes its description, price and unit on
-            the rule. Leave empty when the course has no upgrade.
-          </p>
-          {errors.upgradeAddonId ? (
-            <p
-              id="package-rule-upgrade-error"
-              role="alert"
-              className="font-caption text-caption text-error"
-            >
-              {errors.upgradeAddonId}
-            </p>
-        ) : null}
-        </div>
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">

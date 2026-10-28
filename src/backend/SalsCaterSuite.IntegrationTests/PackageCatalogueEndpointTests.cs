@@ -132,7 +132,7 @@ public class PackageCatalogueEndpointTests
 
         var response = await client.PostAsJsonAsync(
             "/api/packages",
-            new PackagePayload(probeType, "   ", 100m, 10));
+            new PackagePayload(probeType, "   ", 100m, 10, 4));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await response.ReadErrorsAsync()).Should().Contain("Package description is required.");
@@ -152,7 +152,7 @@ public class PackageCatalogueEndpointTests
 
         var response = await client.PostAsJsonAsync(
             "/api/packages",
-            new PackagePayload(probeType, "Negative rate", -1m, 10));
+            new PackagePayload(probeType, "Negative rate", -1m, 10, 4));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await response.ReadErrorsAsync()).Should().Contain("Rate per guest must be zero or greater.");
@@ -170,7 +170,7 @@ public class PackageCatalogueEndpointTests
 
         var response = await client.PostAsJsonAsync(
             "/api/packages",
-            new PackagePayload($"{TierTypePrefix}OK", "Probe tier OK", 1200m, 100));
+            new PackagePayload($"{TierTypePrefix}OK", "Probe tier OK", 1200m, 100, 4));
 
         response.StatusCode.Should().Be(HttpStatusCode.Created, await response.DescribeAsync());
 
@@ -197,7 +197,7 @@ public class PackageCatalogueEndpointTests
 
         var response = await client.PutAsJsonAsync(
             "/api/packages/99999999",
-            new PackagePayload($"{TierTypePrefix}UPD", "Unknown tier", 100m, 10));
+            new PackagePayload($"{TierTypePrefix}UPD", "Unknown tier", 100m, 10, 4));
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         (await response.ReadErrorsAsync()).Should().ContainSingle();
@@ -212,7 +212,7 @@ public class PackageCatalogueEndpointTests
 
         var response = await client.PutAsJsonAsync(
             $"/api/packages/{packageId}",
-            new PackagePayload($"{TierTypePrefix}UPD2", string.Empty, -5m, 10));
+            new PackagePayload($"{TierTypePrefix}UPD2", string.Empty, -5m, 10, 4));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var errors = await response.ReadErrorsAsync();
@@ -232,8 +232,7 @@ public class PackageCatalogueEndpointTests
 
         var response = await client.PostAsJsonAsync(
             "/api/packages",
-            new PackagePayload("Premier", "Probe Premier extended", 1250m, 100, 150m));
-
+            new PackagePayload("Premier", "Probe Premier extended", 1250m, 100, 4, 150m));
         response.StatusCode.Should().Be(HttpStatusCode.Created, await response.DescribeAsync());
 
         var created = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -252,7 +251,7 @@ public class PackageCatalogueEndpointTests
 
         var response = await client.PostAsJsonAsync(
             "/api/packages",
-            new PackagePayload(probeType, "Probe ineligible", 100m, 10, 50m));
+            new PackagePayload(probeType, "Probe ineligible", 100m, 10, 4, 50m));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await response.ReadErrorsAsync()).Should().Contain(
@@ -272,7 +271,7 @@ public class PackageCatalogueEndpointTests
         // A Regular tier that carries the amount.
         var create = await client.PostAsJsonAsync(
             "/api/packages",
-            new PackagePayload("Regular", "Probe Regular extended", 950m, 80, 125m));
+            new PackagePayload("Regular", "Probe Regular extended", 950m, 80, 4, 125m));
         create.StatusCode.Should().Be(HttpStatusCode.Created, await create.DescribeAsync());
         var packageId = (await create.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("packageId").GetInt32();
@@ -282,7 +281,7 @@ public class PackageCatalogueEndpointTests
         // Change the type to Wedding and send no amount.
         var update = await client.PutAsJsonAsync(
             $"/api/packages/{packageId}",
-            new PackagePayload("Wedding", "Probe Regular extended", 950m, 80, null));
+            new PackagePayload("Wedding", "Probe Regular extended", 950m, 80, 4, null));
         update.StatusCode.Should().Be(HttpStatusCode.NoContent, await update.DescribeAsync());
 
         var tier = await client.GetJsonAsync($"/api/packages/{packageId}");
@@ -304,7 +303,7 @@ public class PackageCatalogueEndpointTests
     {
         var response = await client.PostAsJsonAsync(
             "/api/packages",
-            new PackagePayload($"{TierTypePrefix}{suffix}", $"Probe tier {suffix}", rate, minPax));
+            new PackagePayload($"{TierTypePrefix}{suffix}", $"Probe tier {suffix}", rate, minPax, 4));
 
         response.StatusCode.Should().Be(HttpStatusCode.Created, await response.DescribeAsync());
 
@@ -313,10 +312,23 @@ public class PackageCatalogueEndpointTests
     }
 }
 
-/// <summary>The payload of <c>POST /api/packages</c> and <c>PUT /api/packages/{id}</c> (spec §3.3).</summary>
+/// <summary>
+/// The payload of <c>POST /api/packages</c> and <c>PUT /api/packages/{id}</c> (spec §3.3).
+/// </summary>
+/// <param name="PackageType">The tier's type.</param>
+/// <param name="Description">The tier's display name.</param>
+/// <param name="AmountPax">The per-guest rate. <c>null</c> = not priced.</param>
+/// <param name="MinPax">The minimum headcount. <c>null</c> = not set.</param>
+/// <param name="NumPaxId">
+/// The required applicable-pax classification identifier (REQ-PKG-04, DEC-173).
+/// </param>
+/// <param name="ExtendedLocationAmount">
+/// The tier's own per-guest extended-location amount. <c>null</c> = not stated.
+/// </param>
 internal sealed record PackagePayload(
     string PackageType,
     string Description,
     decimal? AmountPax,
     int? MinPax,
+    int NumPaxId,
     decimal? ExtendedLocationAmount = null);

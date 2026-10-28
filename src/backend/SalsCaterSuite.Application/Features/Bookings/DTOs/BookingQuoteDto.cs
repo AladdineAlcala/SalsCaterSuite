@@ -187,7 +187,6 @@ public class BookingQuoteCourseDto
     public decimal? BatchMassKg { get; set; }
 
     public string? RuleDescription { get; set; }
-    public string? InclusionTag { get; set; }
 
     /// <summary>The number of live dishes in the rule's qualified pool.</summary>
     public int QualifiedPool { get; set; }

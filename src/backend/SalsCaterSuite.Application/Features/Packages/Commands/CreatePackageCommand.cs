@@ -13,15 +13,26 @@ namespace SalsCaterSuite.Application.Features.Packages.Commands;
 /// rejected payload returns the validation messages, which the API renders as
 /// <c>400 { "errors": [ ... ] }</c>, and nothing is written.
 /// </para>
+/// <para>
+/// The applicable-pax classification is validated in two halves (REQ-PKG-04, DEC-173). The
+/// <b>syntactic</b> half runs in <see cref="PackageRequestValidator"/> — the identifier must
+/// be present and positive. The <b>referential</b> half runs here: the identifier must
+/// reference a live lookup row, which the synchronous validator cannot check without I/O.
+/// </para>
 /// </summary>
 public class CreatePackageCommand
 {
     private readonly IPackageRepository _packages;
+    private readonly IPackagePaxApplicableRepository _paxApplicables;
     private readonly IValidator<CreatePackageRequestDto> _validator;
 
-    public CreatePackageCommand(IPackageRepository packages, IValidator<CreatePackageRequestDto> validator)
+    public CreatePackageCommand(
+        IPackageRepository packages,
+        IPackagePaxApplicableRepository paxApplicables,
+        IValidator<CreatePackageRequestDto> validator)
     {
         _packages = packages;
+        _paxApplicables = paxApplicables;
         _validator = validator;
     }
 
@@ -34,12 +45,20 @@ public class CreatePackageCommand
             return Result<int>.Failure(validationResult.Errors.Select(e => e.ErrorMessage).ToArray());
         }
 
+        // The referential half of the applicable-pax validation (DEC-173). It runs before any
+        // write, so an unknown or removed classification persists nothing.
+        if (!await _paxApplicables.ExistsAsync(request.NumPaxId, cancellationToken))
+        {
+            return Result<int>.Failure("Applicable pax classification was not found.");
+        }
+
         var package = new Package
         {
             PackageType = request.PackageType,
             Description = request.Description,
             AmountPax = request.AmountPax,
             MinPax = request.MinPax,
+            NumPaxId = request.NumPaxId,
             ExtendedLocationAmount = request.ExtendedLocationAmount,
             IsActive = true
         };

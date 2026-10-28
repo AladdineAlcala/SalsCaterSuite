@@ -18,15 +18,25 @@ namespace SalsCaterSuite.Application.Features.Packages.Commands;
 /// as an ordinary failure, so the API distinguishes the two <b>by result type</b> — a 404 and a
 /// 400 — and never by the message text.
 /// </para>
+/// <para>
+/// The applicable-pax classification is validated in two halves (REQ-PKG-04, DEC-173): the
+/// <b>syntactic</b> half in the validator and the <b>referential</b> half here, because the
+/// synchronous validator performs no I/O.
+/// </para>
 /// </summary>
 public class UpdatePackageCommand
 {
     private readonly IPackageRepository _packages;
+    private readonly IPackagePaxApplicableRepository _paxApplicables;
     private readonly IValidator<CreatePackageRequestDto> _validator;
 
-    public UpdatePackageCommand(IPackageRepository packages, IValidator<CreatePackageRequestDto> validator)
+    public UpdatePackageCommand(
+        IPackageRepository packages,
+        IPackagePaxApplicableRepository paxApplicables,
+        IValidator<CreatePackageRequestDto> validator)
     {
         _packages = packages;
+        _paxApplicables = paxApplicables;
         _validator = validator;
     }
 
@@ -40,6 +50,13 @@ public class UpdatePackageCommand
             return Result.Failure(validationResult.Errors.Select(e => e.ErrorMessage).ToArray());
         }
 
+        // The referential half of the applicable-pax validation (DEC-173). It runs before the
+        // write, so an unknown or removed classification changes nothing.
+        if (!await _paxApplicables.ExistsAsync(request.NumPaxId, cancellationToken))
+        {
+            return Result.Failure("Applicable pax classification was not found.");
+        }
+
         var package = await _packages.GetByIdAsync(id, cancellationToken);
         if (package is null)
         {
@@ -50,6 +67,7 @@ public class UpdatePackageCommand
         package.Description = request.Description;
         package.AmountPax = request.AmountPax;
         package.MinPax = request.MinPax;
+        package.NumPaxId = request.NumPaxId;
 
         // The code is frozen at create and is never touched here. The extended-location amount
         // follows the type: a tier that leaves Regular/Premier loses it (the owner's ruling).

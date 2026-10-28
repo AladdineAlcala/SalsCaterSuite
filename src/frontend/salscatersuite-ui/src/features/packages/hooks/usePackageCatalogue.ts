@@ -4,11 +4,13 @@ import { API_ENDPOINTS } from '@/api/endpoints'
 import type {
   PackageCatalogueSummary,
   PackageDto,
+  PackagePaxApplicable,
 } from '@/types/package.types'
 
 export const PACKAGE_LIST_QUERY_KEY = 'packages-list' as const
 export const PACKAGE_SUMMARY_QUERY_KEY = 'packages-summary' as const
 export const PACKAGE_DETAIL_QUERY_KEY = 'package-detail' as const
+export const PACKAGE_PAX_APPLICABLES_QUERY_KEY = 'package-pax-applicables' as const
 
 /**
  * `GET /api/packages` (spec §4).
@@ -88,6 +90,34 @@ export function usePackageDetail(packageId: number | null) {
     },
     enabled: packageId !== null,
     staleTime: 30_000,
+    retry: (failureCount, error) => {
+      if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+        return false
+      }
+      return failureCount < 1
+    },
+  })
+}
+
+/**
+ * `GET /api/packages/pax-applicables` (DEC-173, contract §12.8).
+ *
+ * The read-only applicable-pax lookup. Its five fixed rows are the tier
+ * form's **only** option source — the client never hardcodes the options or
+ * their labels. Like the municipality catalogue, this is reference data, so
+ * it caches for five minutes; a 4xx is a business answer and will not improve
+ * on retry.
+ */
+export function usePackagePaxApplicables() {
+  return useQuery({
+    queryKey: [PACKAGE_PAX_APPLICABLES_QUERY_KEY],
+    queryFn: async (): Promise<PackagePaxApplicable[]> => {
+      const response = await apiClient.get<PackagePaxApplicable[]>(
+        API_ENDPOINTS.packages.paxApplicables,
+      )
+      return response.data
+    },
+    staleTime: 300_000,
     retry: (failureCount, error) => {
       if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
         return false

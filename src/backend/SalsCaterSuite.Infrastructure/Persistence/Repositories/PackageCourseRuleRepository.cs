@@ -7,8 +7,7 @@ using SalsCaterSuite.Domain.Entities;
 
 /// <summary>
 /// EF Core implementation of the course-rule repository (DEC-037). The projection resolves the
-/// course name and the upgrade add-on's details in one round trip, so the ruleset read is a
-/// single statement.
+/// course name in one round trip, so the ruleset read is a single statement.
 /// </summary>
 public class PackageCourseRuleRepository : IPackageCourseRuleRepository
 {
@@ -20,11 +19,11 @@ public class PackageCourseRuleRepository : IPackageCourseRuleRepository
     }
 
     /// <summary>
-    /// The tier's live rules, with the course name and the upgrade add-on's details resolved.
+    /// The tier's live rules, with the course name resolved.
     /// <para>
-    /// A soft-deleted upgrade add-on keeps its id and publishes the description, the unit price
-    /// and the unit as <c>null</c> (contract §13.4) — the left join keeps the rule and the
-    /// conditional nulls the add-on's fields.
+    /// The course join is a left join, so a soft-deleted course still yields the rule with an
+    /// empty course name. The retired upgrade add-on join was removed with the field itself
+    /// (DEC-172) — a rule no longer references the add-on master.
     /// </para>
     /// </summary>
     public async Task<IReadOnlyList<PackageCourseRuleProjection>> GetLiveRulesAsync(
@@ -36,8 +35,6 @@ public class PackageCourseRuleRepository : IPackageCourseRuleRepository
             where rule.PackageId == packageId && !rule.IsDeleted
             join course in _context.CourseCategories on rule.CourseId equals course.CourseId into courses
             from course in courses.DefaultIfEmpty()
-            join addon in _context.AddonDetails on rule.UpgradeAddonId equals addon.AddonId into addons
-            from addon in addons.DefaultIfEmpty()
             select new PackageCourseRuleProjection
             {
                 PackageCourseRuleId = rule.PackageCourseRuleId,
@@ -46,12 +43,7 @@ public class PackageCourseRuleRepository : IPackageCourseRuleRepository
                 CourseName = course != null ? course.CourseName : string.Empty,
                 RequiredQuota = rule.RequiredQuota,
                 PortionGrams = rule.PortionGrams,
-                RuleDescription = rule.RuleDescription,
-                InclusionTag = rule.InclusionTag,
-                UpgradeAddonId = rule.UpgradeAddonId,
-                UpgradeAddonDescription = addon != null && !addon.IsDeleted ? addon.Description : null,
-                UpgradeAddonUnitPrice = addon != null && !addon.IsDeleted ? addon.UnitPrice : null,
-                UpgradeAddonUnit = addon != null && !addon.IsDeleted ? addon.Unit : null
+                RuleDescription = rule.RuleDescription
             };
 
         var result = await query.ToListAsync(cancellationToken);
@@ -80,16 +72,6 @@ public class PackageCourseRuleRepository : IPackageCourseRuleRepository
     {
         return await _context.CourseCategories
             .AnyAsync(course => course.CourseId == courseId && !course.IsDeleted, cancellationToken);
-    }
-
-    /// <summary>
-    /// True when a <b>live</b> add-on with this id exists. A soft-deleted add-on does not exist
-    /// for the workbench's validation (spec §3.6).
-    /// </summary>
-    public async Task<bool> LiveAddonExistsAsync(int addonId, CancellationToken cancellationToken = default)
-    {
-        return await _context.AddonDetails
-            .AnyAsync(addon => addon.AddonId == addonId && !addon.IsDeleted, cancellationToken);
     }
 
     public async Task AddAsync(PackageCourseRule rule, CancellationToken cancellationToken = default)

@@ -37,6 +37,12 @@ export interface PackageDto {
   /** The minimum headcount. `null` = not set. */
   minPax: number | null
   /**
+   * The required applicable-pax classification ID (DEC-173). It is
+   * **informational** — the lookup's label is never parsed as a numeric range,
+   * and the member sets no booking headcount bound, no `MinPax` and no price.
+   */
+  numPaxId: number
+  /**
    * The tier's own per-guest extended-location amount. Available only for Regular/Premier;
    * `null` = not stated.
    */
@@ -80,6 +86,12 @@ export interface PackageUpsertRequest {
   description: string
   amountPax: number | null
   minPax: number | null
+  /**
+   * The required applicable-pax classification ID (DEC-173, contract §12.4/§12.5).
+   * Missing, zero, or unknown IDs are rejected by the server; the member is
+   * classification metadata only and prices nothing.
+   */
+  numPaxId: number
   /** Only valid for Regular/Premier; `null` for every other type. */
   extendedLocationAmount: number | null
 }
@@ -87,6 +99,23 @@ export interface PackageUpsertRequest {
 /** The `201` body of `POST /api/packages`. */
 export interface PackageCreatedResponse {
   packageId: number
+}
+
+/**
+ * One applicable-pax classification of the read-only lookup (contract §12.8,
+ * DEC-173).
+ *
+ * The API publishes exactly five fixed rows in ID order with their labels
+ * verbatim — `15 to 19 Pax`, `20 to 29 Pax`, `30 to 49 Pax`, `80 to 100 Above`
+ * and `Not Applicable to PackMeals`. The labels are never parsed as bounds and
+ * option 5 is not coupled to the `Pm` tier type. The client renders whatever
+ * the endpoint returned; it never hardcodes the options.
+ */
+export interface PackagePaxApplicable {
+  /** The lookup identity the tier's `numPaxId` references. */
+  numPaxId: number
+  /** The classification label, stored and returned verbatim. */
+  packageApplicablePax: string
 }
 
 /* ------------------------------------------------------------------------- *
@@ -131,16 +160,6 @@ export interface PackageCourseRule {
   portionGrams: number | null
   /** The enforced rule, in plain words. */
   ruleDescription: string
-  /** The operator's inclusion label. `null` = no tag. */
-  inclusionTag: string | null
-  /** The allowed tier-1 upgrade. `null` = no upgrade. */
-  upgradeAddonId: number | null
-  /** The add-on's description. `null` when the add-on was soft-deleted. */
-  upgradeAddonDescription: string | null
-  /** The add-on's unit price. `null` when it is not published. */
-  upgradeAddonUnitPrice: number | null
-  /** The add-on's unit. `null` when it is not published. */
-  upgradeAddonUnit: string | null
   /** The non-soft-deleted dishes of the course. */
   poolSize: number
   /** The pool's dishes whose food cost is greater than zero (DEC-087). */
@@ -348,8 +367,6 @@ export interface PackageCourseRuleRequest {
   requiredQuota: number
   portionGrams: number | null
   ruleDescription: string
-  inclusionTag: string | null
-  upgradeAddonId: number | null
 }
 
 /** The body of `PUT /api/packages/{id}/course-rules`. */

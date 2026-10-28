@@ -74,6 +74,11 @@ public static class DependencyInjection
         // in this cycle (BR-13).
         services.AddScoped<IDepartmentRepository, Persistence.Repositories.DepartmentRepository>();
 
+        // The read-only applicable-pax classification lookup (REQ-PKG-04, DEC-173). It shares
+        // the request-scoped context; the five rows are fixed reference data and the lookup has
+        // no write surface.
+        services.AddScoped<IPackagePaxApplicableRepository, Persistence.Repositories.PackagePaxApplicableRepository>();
+
         // Identity credential lookup (DEC-037). The WebApi login endpoint resolves this
         // neutral Application contract; UserManager/SignInManager stay inside the
         // repositories layer.

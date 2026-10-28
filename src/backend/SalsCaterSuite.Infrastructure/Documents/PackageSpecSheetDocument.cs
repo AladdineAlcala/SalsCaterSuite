@@ -145,10 +145,7 @@ public class PackageSpecSheetDocument : IDocument
                     {
                         col.Item().PaddingTop(4).Text($"{rule.CourseName} - required {rule.RequiredQuota}").Bold();
                         col.Item().Text($"Rule: {rule.RuleDescription}");
-                        col.Item().Text(
-                            $"Portion: {(rule.PortionGrams.HasValue ? $"{rule.PortionGrams.Value} g" : EmDash)}   " +
-                            $"Inclusion: {rule.InclusionTag ?? EmDash}   " +
-                            $"Upgrade: {rule.UpgradeAddonDescription ?? EmDash}");
+                        col.Item().Text($"Portion: {(rule.PortionGrams.HasValue ? $"{rule.PortionGrams.Value} g" : EmDash)}");
                         col.Item().Text(
                             $"Qualified pool: {rule.PoolSize} dish(es), {rule.PoolCostedCount} costed   " +
                             $"Pool average food cost: {Money(rule.PoolAverageFoodCost)}");

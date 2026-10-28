@@ -55,7 +55,6 @@ export function PackageCourseRuleCard({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Badge tone="info">Quota {rule.requiredQuota}</Badge>
-          {rule.inclusionTag ? <Badge tone="neutral">{rule.inclusionTag}</Badge> : null}
         </div>
       </div>
 
@@ -85,30 +84,6 @@ export function PackageCourseRuleCard({
           </dd>
         </div>
       </dl>
-
-      <div className="flex flex-col gap-1">
-        <span className="font-caption text-caption text-espresso-400 uppercase font-semibold">
-          Allowed tier-1 upgrade
-        </span>
-        {rule.upgradeAddonId === null ? (
-          <p className="font-body-sm text-body-sm text-espresso-600">
-            No tier-1 upgrade is configured for this course.
-          </p>
-        ) : (
-          <p className="font-body-sm text-body-sm text-espresso-700 break-words">
-            {rule.upgradeAddonDescription ?? `Add-on ${rule.upgradeAddonId}`}
-            {rule.upgradeAddonUnitPrice === null ? (
-              <span className="text-espresso-600"> · {EM_DASH}</span>
-            ) : (
-              <span className="text-espresso-600">
-                {' '}
-                · {formatCurrency(rule.upgradeAddonUnitPrice)}
-                {rule.upgradeAddonUnit ? ` per ${rule.upgradeAddonUnit}` : ''}
-              </span>
-            )}
-          </p>
-        )}
-      </div>
 
       <div className="flex flex-col gap-1.5">
         <span className="font-caption text-caption text-espresso-400 uppercase font-semibold flex items-center gap-1">

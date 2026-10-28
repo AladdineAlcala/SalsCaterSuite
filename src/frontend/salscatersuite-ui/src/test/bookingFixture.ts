@@ -390,7 +390,6 @@ export const bookingQuoteFixture: BookingQuote = {
       portionGrams: 120,
       batchMassKg: 30,
       ruleDescription: 'Enforce exactly 2 Beef selections',
-      inclusionTag: 'Included',
       qualifiedPool: 5,
     },
     {
@@ -400,7 +399,6 @@ export const bookingQuoteFixture: BookingQuote = {
       portionGrams: 80,
       batchMassKg: 20,
       ruleDescription: 'One seasonal salad is served',
-      inclusionTag: 'Included',
       qualifiedPool: 3,
     },
   ],
@@ -546,7 +544,6 @@ export const bookingMenuSelectionFixture: BookingMenuSelectionDto = {
       portionGrams: 120,
       batchMassKg: 30,
       ruleDescription: 'Enforce exactly 2 Beef selections',
-      inclusionTag: 'Included',
       pool: [
         {
           menuId: 'DS-201',
@@ -593,7 +590,6 @@ export const bookingMenuSelectionFixture: BookingMenuSelectionDto = {
       portionGrams: 80,
       batchMassKg: 20,
       ruleDescription: 'One seasonal salad is served',
-      inclusionTag: null,
       pool: [
         {
           menuId: 'DS-301',

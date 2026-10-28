@@ -435,8 +435,6 @@ export interface BookingMenuCourse {
   /** The rule's derived batch mass. `null` when no portion is stated. */
   batchMassKg: number | null
   ruleDescription: string
-  /** The operator's inclusion label. `null` = no tag. */
-  inclusionTag: string | null
   /** The live dishes of the course. */
   pool: BookingMenuPoolDish[]
   /** The dishes the booking currently carries for this course. */
@@ -701,7 +699,6 @@ export interface BookingQuoteCourseRule {
   /** The rule's derived batch mass. `null` when no portion is stated. */
   batchMassKg: number | null
   ruleDescription: string
-  inclusionTag: string | null
   /** The **count** of live dishes in the rule's qualified pool. */
   qualifiedPool: number
 }

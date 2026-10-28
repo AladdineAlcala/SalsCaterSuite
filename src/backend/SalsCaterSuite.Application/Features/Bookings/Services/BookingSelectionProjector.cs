@@ -32,7 +32,6 @@ public static class BookingSelectionProjector
                 PortionGrams = course.PortionGrams,
                 BatchMassKg = course.BatchMassKg,
                 RuleDescription = course.RuleDescription,
-                InclusionTag = course.InclusionTag,
                 QualifiedPool = course.Pool.Count
             })
             .ToList();
@@ -98,7 +97,6 @@ public static class BookingSelectionProjector
                 PortionGrams = course.PortionGrams,
                 BatchMassKg = course.BatchMassKg,
                 RuleDescription = course.RuleDescription,
-                InclusionTag = course.InclusionTag,
                 Pool = course.Pool,
                 ChosenMenuIds = course.Pool
                     .Where(dish => chosenMenuIds.Contains(dish.MenuId))

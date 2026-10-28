@@ -20,6 +20,21 @@ public class Package : BaseEntity
     public int? MinPax { get; set; }
 
     /// <summary>
+    /// The tier's applicable-pax classification (REQ-PKG-04, DEC-173).
+    /// <para>
+    /// A <b>required</b> reference to the read-only <see cref="PackagePaxApplicable"/> lookup.
+    /// It is descriptive classification metadata only: it does not establish a booking headcount
+    /// limit, does not constrain <see cref="PackageType"/>, and has no effect on pricing.
+    /// </para>
+    /// </summary>
+    public int NumPaxId { get; set; }
+
+    /// <summary>
+    /// The classification this tier points at. See <see cref="NumPaxId"/>.
+    /// </summary>
+    public PackagePaxApplicable? PaxApplicable { get; set; }
+
+    /// <summary>
     /// The tier's own per-guest extended-location amount (the owner's 2026-10-24 request).
     /// <para>
     /// It is available <b>only</b> for the <c>Regular</c> and <c>Premier</c> tier types and is

@@ -33,7 +33,8 @@ public class PackageCourseRuleCommandTests
             Description = "Wedding Grand Tier",
             AmountPax = 1450m,
             MinPax = 150,
-            IsActive = true
+            IsActive = true,
+            NumPaxId = 4,
         });
 
         _store.CourseCategories.Add(new CourseCategory { CourseId = 1, CourseName = "Main Course" });
@@ -57,12 +58,12 @@ public class PackageCourseRuleCommandTests
         new(rules);
 
     private static PackageCourseRuleRequestDto Rule(int courseId) =>
-        new(courseId, 1, 120, "One selection", "Included", null);
+        new(courseId, 1, 120, "One selection");
 
     [Fact]
     public async Task A_rejected_payload_should_persist_nothing()
     {
-        var result = await _command.ExecuteAsync(1, Request(new PackageCourseRuleRequestDto(99, 1, null, "Unknown course", null, null)));
+        var result = await _command.ExecuteAsync(1, Request(new PackageCourseRuleRequestDto(99, 1, null, "Unknown course")));
 
         result.Succeeded.Should().BeFalse();
         result.Errors.Should().Contain("Course category 99 does not exist.");

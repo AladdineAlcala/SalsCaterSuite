@@ -121,6 +121,9 @@ public static class DependencyInjection
         services.AddScoped<UpdatePackageCommand>();
         services.AddScoped<TogglePackageActiveCommand>();
 
+        // The read-only applicable-pax classification lookup (REQ-PKG-04, DEC-173).
+        services.AddScoped<GetPackagePaxApplicablesQuery>();
+
         // The Package Configuration Workbench (REQ-PKG-02). The validators are picked up by
         // AddValidatorsFromAssembly above; the use cases are registered by hand.
         services.AddScoped<GetPackageCourseRulesetQuery>();
