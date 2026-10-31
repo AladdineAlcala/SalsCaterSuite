@@ -4,10 +4,10 @@
 | :--- | :--- |
 | **Feature** | Operations Dashboard (KPI + Operations Matrix) |
 | **Requirement** | REQ-DSH-01 |
-| **Specification version** | 1.0 |
+| **Specification version** | 1.1 (DEC-177 lifecycle/payment status amendment) |
 | **Status** | **APPROVED for implementation** |
 | **Approved by** | BI Architect (Agent 01) |
-| **Owner rulings incorporated** | DEC-040, DEC-041, DEC-042, DEC-043, DEC-044 (2026-10-19) |
+| **Owner rulings incorporated** | DEC-040, DEC-041, DEC-042, DEC-043, DEC-044 (2026-10-19); DEC-177 (2026-10-31) |
 | **Design reference** | `stitch_catersuite_dashboard_design` (Stitch export: `code.html`, `screen.png`, `DESIGN.md`) — visual/structural reference only |
 | **Applies to** | `src/backend` (.NET 10 Clean Architecture) and `src/frontend/salscatersuite-ui` (React 19 + Vite + Tailwind) |
 
@@ -67,7 +67,7 @@ authorizes nothing that the frontend merely hides (BR-12).
 
 | Gap | Why it is out of scope | Consequence for the screen |
 | :--- | :--- | :--- |
-| **BEO production states** (`BEO Ready` / `Prep Pending` / `Finalized`) | There is no BEO entity, no BEO status field, and no BEO workflow in the domain model. | The status chip in "Upcoming Banquet Schedule" shows the **BR-10 booking lifecycle status** (`Confirmed`, `DepositPaid`, `FullyPaid`, `Pending`, …) instead. A BEO readiness badge is deferred to the BEO feature (REQ-REP-02 follow-on). |
+| **BEO production states** (`BEO Ready` / `Prep Pending` / `Finalized`) | There is no BEO entity, no BEO status field, and no BEO workflow in the domain model. | The schedule shows the **booking lifecycle status** and the separate **payment status** (DEC-177); it never presents a BEO readiness badge, which is deferred to the BEO feature (REQ-REP-02 follow-on). |
 | **Banquet-level (booking) margin** | A booking's food cost cannot be computed: there is no `BookingMenu` junction and no recipe / ingredient / yield model. `Menu.FoodCost` is a manually entered decimal. | The margin card shows the **catalogue gross margin** (point-in-time, across the costed menu catalogue), explicitly labelled *Catalogue Margin*. True banquet margin requires the `BookingMenu` junction + recipe costing — a new backlog requirement. |
 | **`+X% vs last month` on the margin card** | The menu catalogue has no costing history, so no prior-period margin exists. | The delta shown is **vs the configured benchmark** (percentage points), which is derivable. |
 | **`QuestPDF Receipts Issued — Compliant`** | No document-compliance engine exists. | The tile shows **Official Receipts Issued** (count of `Payment` rows in the period) with the receipt-series label `OR-…`. The word "Compliant" is removed. |
@@ -134,15 +134,14 @@ financial figure (DEC-002).
 
 - **Population:** bookings with `EventDate` in the active period, `Status ∉ {Cancelled, Expired}`.
 - **Total count** = |population|.
-- **Committed** = `Status ∈ {Confirmed, DepositPaid, FullyPaid}` (a signed/committed contract).
+- **Committed** = `Status == Confirmed` (a signed/committed contract). Legacy DepositPaid/FullyPaid lifecycle values are mapped to Confirmed; payment progress is reported separately.
 - **Tentative** = `Status ∈ {Pending}` (created, not yet confirmed). *New glossary term — see §11.*
 - **Other** = `Status ∈ {InProgress, Completed, NoShow, Rescheduled}` (executed or exceptional events
   inside the period). Shown only when the count is greater than zero.
 - **Contracted pipeline value** = `Σ NetAmountDue` over the population.
 - **Total pax** = `Σ NumberOfHeads` over the population.
 
-> The card must never label `Pending` bookings as "Confirmed" or hide the Other bucket. If the
-> approved BR-10 status set changes, this KPI is re-specified.
+> The card must never label `Pending` bookings as "Confirmed" or hide the Other bucket. Lifecycle statuses and payment status remain separate; payment progress does not move a booking between these lifecycle groups.
 
 ### 6.2 KPI-01 / KPI-08 — Net Contracted Catering Revenue *(extended to the dashboard)*
 
@@ -227,7 +226,7 @@ financial figure (DEC-002).
   `DateOfPayment ∈ [today − 6 days, today]` (inclusive, 7 calendar days). Also returns the receipt count.
 - **KPI-18 — Bookings Awaiting Deposit:** bookings with `Status ≠ Cancelled` and `Σ payments = 0`;
   reports `bookingCount` and `awaitingDepositAmount = Σ NetAmountDue` for that population.
-  **No deposit percentage is assumed** (DEC-009 remains open; DEC-043).
+  **No deposit percentage is assumed** (DEC-009 remains open; DEC-043). This remains a zero-payment-recorded measure; it is not replaced by the `PendingPayment` classifier, whose zero-due case is `FullyPaid` (DEC-177).
 - **KPI-19 — Official Receipts Issued (period):** count of `Payment` rows whose `DateOfPayment`
   falls in the active period. Every row carries an `OR-YYYYMMDD-XXXX` receipt number (BR-05).
 
@@ -350,8 +349,8 @@ Rules:
    route to the future modules; where the target module is not built, the button is rendered
    **disabled with an explanatory tooltip** rather than a dead link.
 5. **Operations matrix** — three columns:
-   - **Upcoming Banquet Schedule** — next 5 events: customer + occasion, event date + pax, lifecycle
-     status chip, package name, net amount due, and the balance. The customer name **wraps** rather
+   - **Upcoming Banquet Schedule** — next 5 events: customer + occasion, event date + pax, separate lifecycle
+     status and payment-state chips, package name, net amount due, and the balance. The customer name **wraps** rather
      than truncating, so the booking stays identifiable in the narrow matrix columns.
    - **Food Cost by Category** — horizontal bars, one per course, share % and amount. The panel chip
      states **"Catalogue Cost Mix"** — the mockup's "Price Volatility" is not rendered, because the
@@ -439,7 +438,7 @@ Rules:
 | AC-F3 | The screen reproduces the design's structure: app shell, header + telemetry pill, 4 KPI cards, operational hub, 3-column matrix, footer. |
 | AC-F4 | **No figure in the UI is hardcoded.** Every number, percentage, currency value, date and label comes from the API payload. A repo-wide check must find no literal peso amount or metric in the dashboard feature folder. |
 | AC-F5 | All monetary readouts use `JetBrains Mono` and the ₱ format with full precision. |
-| AC-F6 | The status chip shows the BR-10 lifecycle status; no BEO production state is rendered. |
+| AC-F6 | The schedule shows the BR-10 lifecycle status and separate BR-28 payment state; no BEO production state is rendered. |
 | AC-F7 | The margin card is labelled "Catalogue Margin" and shows the server-supplied benchmark; a `null` benchmark renders "Not configured". |
 | AC-F8 | The overdue figure is derived from the server's aging buckets; the frontend does not compute days-overdue. |
 | AC-F9 | The deposit tile is labelled "Bookings Awaiting Deposit" and shows no percentage. |
@@ -461,7 +460,7 @@ the same population must be **equal to the cent**. Any divergence is a release b
 
 | Term | Definition |
 | :--- | :--- |
-| **Committed booking** | A booking in `Confirmed`, `DepositPaid` or `FullyPaid` status — a contract that is in force. |
+| **Committed booking** | A booking in `Confirmed` lifecycle status — a contract that is in force. Payment progress is a separate status. |
 | **Tentative booking** | A booking in `Pending` status — created but not yet confirmed. *(Distinct from `Reservation`, which is a pre-contract expression of interest.)* |
 | **Other / executed booking** | A booking in `InProgress`, `Completed`, `NoShow` or `Rescheduled` status. |
 | **Contracted pipeline value** | `Σ NetAmountDue` over a defined booking population. |

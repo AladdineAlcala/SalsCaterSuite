@@ -13,6 +13,8 @@
     "build:web": "npm --prefix src/frontend/salscatersuite-ui run build",
     "test": "npm run test:api && npm run test:web",
     "test:api": "dotnet test src/backend/SalsCaterSuite.slnx && dotnet test src/backend/SalsCaterSuite.IntegrationTests/SalsCaterSuite.IntegrationTests.csproj",
-    "test:web": "npm --prefix src/frontend/salscatersuite-ui run test"
+    "test:web": "npm --prefix src/frontend/salscatersuite-ui run test",
+    "deploy:local": "node scripts/deploy.mjs",
+    "deploy:reset": "node scripts/deploy.mjs --reset"
   }
 }

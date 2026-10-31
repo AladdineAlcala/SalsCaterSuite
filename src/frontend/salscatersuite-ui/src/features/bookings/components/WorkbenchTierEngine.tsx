@@ -6,7 +6,12 @@ import { CapabilityGapNotice } from '@/components/feedback/CapabilityGapNotice'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/feedback/EmptyState'
 import { EM_DASH, formatCount, formatCurrency, formatPercentage } from '@/utils/currencyFormatter'
-import type { AreaDto, PackageCourseRuleset, PackageDto } from '@/types/package.types'
+import type {
+  AreaDto,
+  PackageCourseRuleset,
+  PackageDto,
+  PackagePaxApplicable,
+} from '@/types/package.types'
 import type { BookingQuote } from '@/types/booking.types'
 import type { BookingWorkbenchDraft, BookingWorkbenchErrors } from '../bookingVocabulary'
 import {
@@ -28,6 +33,10 @@ export interface WorkbenchTierEngineProps {
   tiers: PackageDto[]
   /** `true` while a changed type/area key is still loading or placeholder data stands in. */
   isLoadingTiers: boolean
+  /** The API-fed applicable-pax lookup; it is descriptive and never gates selection. */
+  paxApplicables: PackagePaxApplicable[]
+  /** `true` while the first applicable-pax lookup request is pending. */
+  isLoadingPaxApplicables: boolean
   /** The municipality catalogue the area filter reads. */
   municipalities: AreaDto[]
   /** The distinct stored tier types the type filter offers (M7). */
@@ -67,6 +76,8 @@ export function WorkbenchTierEngine({
   onChange,
   tiers,
   isLoadingTiers,
+  paxApplicables,
+  isLoadingPaxApplicables,
   municipalities,
   packageTypes,
   ruleset,
@@ -76,6 +87,13 @@ export function WorkbenchTierEngine({
   isRecalculating,
 }: WorkbenchTierEngineProps) {
   const selectedTier = tiers.find((tier) => String(tier.packageId) === draft.packageId) ?? null
+  const paxApplicableLabels = new Map(
+    paxApplicables.map((item) => [item.numPaxId, item.packageApplicablePax]),
+  )
+  const paxClassificationLabel = (numPaxId: number) =>
+    isLoadingPaxApplicables
+      ? 'Loading classification…'
+      : paxApplicableLabels.get(numPaxId) ?? 'Classification unavailable'
 
   const isTypeChosen = draft.packageType.trim().length > 0
   const isAreaOffered = isTypeChosen && supportsExtendedArea(draft.packageType)
@@ -202,7 +220,7 @@ export function WorkbenchTierEngine({
           onChange={(value) => onChange({ packageId: value })}
           options={tiers.map((tier) => ({
             value: String(tier.packageId),
-            label: `${tier.description} · ${tier.packageType}`,
+            label: `${tier.description} · ${tier.packageType} · ${paxClassificationLabel(tier.numPaxId)}`,
           }))}
           placeholder={
             isLoadingTiers
@@ -253,7 +271,10 @@ export function WorkbenchTierEngine({
 
         {selectedTier ? (
           <>
-            <div className="rounded-xl bg-surface-container-low border border-artisan-border p-space-sm flex flex-col gap-space-sm min-w-0">
+            <div
+              data-testid="booking-selected-tier"
+              className="rounded-xl bg-surface-container-low border border-artisan-border p-space-sm flex flex-col gap-space-sm min-w-0"
+            >
               <div className="flex items-start justify-between gap-2 flex-wrap">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -309,6 +330,15 @@ export function WorkbenchTierEngine({
                         : formatCurrency(quote.baseAmount)}
                   </span>
                 </div>
+              </div>
+
+              <div className="flex flex-col">
+                <span className="font-caption text-caption text-espresso-400 uppercase">
+                  Applicable pax classification
+                </span>
+                <span className="font-body-sm text-body-sm text-espresso-700 break-words">
+                  {paxClassificationLabel(selectedTier.numPaxId)}
+                </span>
               </div>
 
               {isQuoteCurrent && quote.headcountFloorNote ? (

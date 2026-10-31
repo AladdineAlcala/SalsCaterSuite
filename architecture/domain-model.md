@@ -27,6 +27,7 @@ classDiagram
         +string Occasion
         +string Venue
         +DateOnly EventDate
+        +DateOnly EventEndDate
         +TimeSpan EventStartTime
         +TimeSpan EventEndTime
         +string PackageName
@@ -69,6 +70,16 @@ classDiagram
         +string PaymentMeans
         +string CheckNo
         +string CreatedByUser
+    }
+
+    class BookingStatusHistory {
+        +int BookingStatusHistoryId
+        +int TransactionId
+        +string PreviousStatus
+        +string NewStatus
+        +DateTime EffectiveAtUtc
+        +DateTime RecordedAtUtc
+        +string ChangeSource
     }
 
     class Refund {
@@ -140,6 +151,7 @@ classDiagram
     Package "1" --> "*" Booking : bundled in
     Booking "1" --> "*" Payment : receives
     Booking "1" --> "*" Refund : incurs
+    Booking "1" --> "*" BookingStatusHistory : lifecycle transitions
     CourseCategory "1" --> "*" Menu : categorizes
     Area "1" ..> "*" Booking : extended delivery
     Package "1" --> "*" PackageCourseRule : constrains
@@ -163,7 +175,7 @@ audit fields once for the whole model (entities must never redeclare them):
 | `UpdatedDate` | `DateTime?` | yes | per-table column (see dictionary) | |
 | `IsDeleted` | `bool` | no | per-table column (see dictionary) | `BIT NOT NULL`, `DEFAULT 0` |
 
-Entities inheriting `BaseEntity`: `Booking`, `Customer`, `Menu`, `Package`, `Payment`, `Refund`,
+Entities inheriting `BaseEntity`: `Booking`, `BookingStatusHistory` (DEC-178), `Customer`, `Menu`, `Package`, `Payment`, `Refund`,
 `Reservation`, `Area`, `CourseCategory`, `AddonDetail`, `Discount`, `PackageCourseRule`,
 `PackageAreaCoverage`, and `PackagePaxApplicable` (DEC-173).
 
@@ -183,11 +195,11 @@ is configured — adding one would be an unapproved behaviour change.
 - **Child Entities:** `Payment`, `Refund`, (Proposed: `BookingAddon`, `BookingDiscount`, `BookingMenu`)
 - **Invariants:**
   1. `NumberOfHeads` must be $> 0$.
-  2. `EventEndTime` must not precede `EventStartTime`.
+  2. The full event end instant (`EventEndDate + EventEndTime`) must not precede the full start instant (`EventDate + EventStartTime`); overnight bookings are supported (DEC-178).
   3. A booking in `Completed` status cannot be cancelled; a cancelled booking cannot be cancelled again (BR-06).
   4. A refund cannot exceed the total payments received for the booking (BR-06, DEC-024).
   5. Base price is snapshotted upon booking creation (BR-04).
-  6. `Status` is the single lifecycle field (BR-10). The legacy `ServeStatus` / `IsCancelled` boolean pair is **retired** and must not be reintroduced.
+  6. `Status` is the lifecycle-only `BookingStatus`; payment progress is a separate ledger-derived `paymentState` and payment posting never changes lifecycle status (DEC-177). The legacy `ServeStatus` / `IsCancelled` boolean pair is **retired** and must not be reintroduced.
   7. `BookingNumber` is assigned once and is never re-used (BR-09, DEC-016).
 
 > **Reporting basis.** `AmountDue` is the frozen stored net amount due, but the
@@ -195,6 +207,8 @@ is configured — adding one would be an unapproved behaviour change.
 > `BookingAmountDueCalculator.Calculate(booking, Σ Payment.AmountPaid)` overload
 > (DEC-046). `AmountPaid` on the entity is a denormalized cache and is **not**
 > authoritative (DEC-012). DEC-035 remains open for the owner.
+
+**Lifecycle/payment separation (DEC-177).** `Booking.Status` contains only lifecycle/outcome values. The payment projection (`PendingPayment`, `DepositPaid`, `FullyPaid`) is computed from non-soft-deleted `Payment` rows and the shared net-due calculation; it is not persisted as a `BookingStatus` value. BG-04 writes `BookingStatusHistory` atomically with lifecycle changes; history is not a second source of current state.
 
 ### 2.2 Menu Catalog Aggregate
 - **Root:** `Menu`

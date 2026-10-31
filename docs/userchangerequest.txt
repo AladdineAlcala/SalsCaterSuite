@@ -1,35 +1,11 @@
 Change Request:
-Packages & Buffets  New/Update Package Tier
+1. Packages & Buffets Catalogue Main
+   - Add to the view the Applicable pax classification information of a certain package
 
-Description:
+2. Booking and  Events Create/Edit
+  - When Selecting Package tier 
+    on the Buffet tier drop down add the *Applicable pax classification information
+     example: VIP Package A (20 to 29 pax)
 
-Backend :
-Add field from table Package
- - numPaxId - INT fK PackagePaxApplicable
-
-
-Add Table PackagePaxApplicable
-  numPaxId - INT PK
-  packageApplicablePax  STRING
- 
-values:pre populate
-1	15 to 19 Pax
-2	20 to 29 Pax
-3	30 to 49 Pax
-4	80 to 100 Above
-5	Not Applicable to PackMeals
-
-
-FrontEnd:
-Add Dropdown box for Package number of heads applicable
--Required
-
-
-
-options:
-
-	15 to 19 Pax
-	20 to 29 Pax
-	30 to 49 Pax
-	80 to 100 Above
-	Not Applicable to PackMeals
+  - On the selected Buffet tier package 
+    Add to the display information the *Applicable pax classification information of a certain selected package

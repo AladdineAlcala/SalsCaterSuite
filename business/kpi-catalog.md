@@ -75,7 +75,7 @@ Every metric in Sal's CaterSuite must have an authoritative mathematical formula
 - **Authoritative Formula:**
   $$\text{Count}(P) = |\{ b \in B_P \}|,\quad B_P = \{ b \mid b.\text{EventDate} \in P \land b.\text{Status} \notin \{\text{Cancelled}, \text{Expired}\} \}$$
   $$\text{ContractedValue}(P) = \sum_{b \in B_P} b.\text{NetAmountDue}$$
-- **Status split (BR-10):** Committed = `{Confirmed, DepositPaid, FullyPaid}` · Tentative = `{Pending}` · Other = `{InProgress, Completed, NoShow, Rescheduled}`.
+- **Status split (BR-10, DEC-177):** Committed = `{Confirmed}` · Tentative = `{Pending}` · Other = `{InProgress, Completed, NoShow, Rescheduled}`. Payment state is separate and does not change this lifecycle grouping.
 - **Date Basis:** `Booking.EventDate` (the event date), within the active reporting period.
 - **Authoritative Source:** `Booking` + `Payment`; `NetAmountDue` via `BookingAmountDueCalculator` on the ledger's argument set.
 - **Exclusions:** `Cancelled`, `Expired`, soft-deleted rows.
@@ -376,7 +376,7 @@ Every metric in Sal's CaterSuite must have an authoritative mathematical formula
 - **Business Meaning:** How many bookings the catering office is carrying, and what state they are in.
 - **Population:** the **filtered** register population - every non-soft-deleted booking whose status is not `Cancelled`, subject to the active filters (BR-27, BR-32).
 - **Authoritative Formula:**
-  $$\text{BookingCount} = |P|, \qquad \text{ConfirmedCount} = |\{ b \in P : b.\text{Status} \in \{\text{Confirmed}, \text{DepositPaid}, \text{FullyPaid}\}\} |$$
+  $$\text{BookingCount} = |P|, \qquad \text{ConfirmedCount} = |\{ b \in P : b.\text{Status} = \text{Confirmed}\} |$$
   $$\text{TentativeCount} = |\{ b \in P : b.\text{Status} = \text{Pending} \}|, \qquad \text{CompletedCount} = |\{ b \in P : b.\text{Status} = \text{Completed} \}|$$
   $$ \text{OtherCount} = \text{BookingCount} - \text{ConfirmedCount} - \text{TentativeCount} - \text{CompletedCount} $$
 - **Authoritative Source:** `GET /api/bookings/summary` (`pipeline.*`).
@@ -431,11 +431,11 @@ Every metric in Sal's CaterSuite must have an authoritative mathematical formula
 ### KPI-37: Payment-State Distribution (Filtered Population)
 - **Business Meaning:** How the book splits across the three payment states - how much is still awaiting its first payment, how much is partly paid, how much is settled.
 - **Population:** the **filtered** register population.
-- **Authoritative Formula:** the count and the outstanding amount of each of the three states defined by **BR-28** (`AwaitingDeposit`, `PartiallyPaid`, `Settled`).
+- **Authoritative Formula:** the count and outstanding amount of each of the three states defined by **BR-28** (`PendingPayment`, `DepositPaid`, `FullyPaid`).
 - **Authoritative Source:** `GET /api/bookings/summary` (`paymentStates[]`).
 - **Date Basis:** none - the population's own filter.
 - **Null semantics:** the counts are never `null`; a state with no bookings is simply absent from the list, and its amount is `0`.
-- **Note:** the three states are mutually exclusive and exhaustive (BR-28), so the three counts sum to the population's booking count. This is the register-scoped counterpart of the dashboard's KPI-18 "bookings awaiting deposit". **Overdue is not a payment state** - it is a separate dimension with its own aggregate (KPI-39), because a partly-paid booking is both `PartiallyPaid` and overdue.
+- **Note:** the three states are mutually exclusive and exhaustive (BR-28), so the three counts sum to the population's booking count. This is the register-scoped payment-state distribution. KPI-18 "bookings awaiting deposit" remains its separate no-payment-recorded formula; **overdue is not a payment state** but a separate dimension (KPI-39), because a `DepositPaid` booking may also be overdue.
 - **Status:** PROPOSED - awaiting owner ratification.
 
 ---

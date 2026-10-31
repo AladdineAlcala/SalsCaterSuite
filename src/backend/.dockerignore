@@ -1,0 +1,11 @@
+# Build output - always regenerated inside the image.
+**/bin/
+**/obj/
+
+# Test artefacts.
+**/TestResults/
+
+# IDE and local machine noise.
+*.user
+*.suo
+.vs/

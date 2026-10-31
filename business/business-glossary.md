@@ -9,7 +9,8 @@ This glossary defines the authoritative business terminology for Sal's CaterSuit
 - **Inquiry / Reservation (`Reservation`):** An initial customer expression of interest for a catering date, venue, and estimated pax count, prior to formal contract confirmation.
 - **Booking (`Booking` / `Transaction`):** A confirmed catering event contract associated with a specific customer, event date/time, venue, guest count, and package. Identified by a unique `TransactionId` (`trn_Id`).
 - **Pax (Headcount):** Number of guests/persons contracted for food service (`noOfPerson` / `noofPax`). **The printed catering contract labels this line "Guaranteed Pax"** — that is the document's own wording and it predates the Bookings & Events work (2026-10-22); the two are the same term, and a rule or a data field uses the business vocabulary while the signed document keeps its label.
-- **Booking Lifecycle Status (`booking_status`):** The **single** authoritative lifecycle state of a booking (BR-10, DEC-010). The legacy `serve_stat` (`ServeStatus`) and `is_cancelled` (`IsCancelled`) boolean pair is **retired** and must not be reintroduced. The vocabulary is `Pending`, `Confirmed`, `DepositPaid`, `FullyPaid`, `InProgress`, `Completed`, `Cancelled`, `NoShow`, `Rescheduled`, `Expired`.
+- **Booking Lifecycle Status (`booking_status`):** The single authoritative **event lifecycle** state of a booking (BR-10, DEC-177). Its vocabulary is `Pending`, `Confirmed`, `InProgress`, `Completed`, `Cancelled`, `NoShow`, `Rescheduled`, `Expired`. Payment progress is reported separately and never overwrites this status. The legacy `serve_stat` (`ServeStatus`) / `is_cancelled` (`IsCancelled`) boolean pair is retired and must not be reintroduced.
+- **Booking Payment Status (`paymentState`):** A separate server-derived view of payment progress (BR-28, DEC-177), classified from authoritative, non-soft-deleted payment entries and net amount due: `PendingPayment`, `DepositPaid`, or `FullyPaid`. The first recorded payment counts as a deposit; no deposit percentage is assumed. It is not changed by BG-04.
 - **Event Executed / Served:** An event whose food service has been rendered. It is expressed by the lifecycle status `Completed` (and `InProgress` while the event is running) — **not** by a boolean column.
 - **Cancellation:** The termination of a booking prior to execution, expressed by the lifecycle status `Cancelled`. It requires an explicit reason and a determination of refund or cancellation fee (BR-06).
 - **Banquet Event Order (BEO):** The master operational preparation document used by kitchen, banquet servers, and logistics detailing schedule, menu, equipment, venue instructions, and guest count.
@@ -69,8 +70,7 @@ records for reporting; they introduce no new business behaviour.
 - **As-of metric:** A metric over a *snapshot* of the book at request time — accounts receivable,
   AR aging, dish costing coverage, catalogue margin, food cost by category, bookings awaiting
   deposit. **Never scoped to a period**; a past-month value of a snapshot is meaningless.
-- **Committed booking:** A booking in `Confirmed`, `DepositPaid` or `FullyPaid` status — a contract
-  that is in force.
+- **Committed booking:** A booking in `Confirmed` lifecycle status — a contract that is in force.
 - **Tentative booking:** A booking in `Pending` status — created but not yet confirmed. *Distinct
   from a `Reservation`, which is a pre-contract expression of interest and is not a booking.*
 - **Other / executed booking:** A booking in `InProgress`, `Completed`, `NoShow` or `Rescheduled`

@@ -1,0 +1,9 @@
+# Dependencies and build output are produced inside the image.
+node_modules
+dist
+dist-ssr
+coverage
+
+# Runtime and editor noise.
+*.log
+.vs/

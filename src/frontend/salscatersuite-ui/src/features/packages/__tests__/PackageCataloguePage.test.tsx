@@ -10,13 +10,14 @@ import {
   emptyPackageSummaryFixture,
   emptyPackageTiersFixture,
   packageSummaryFixture,
+  packagePaxApplicablesFixture,
   packageTiersFixture,
   unpricedPackageSummaryFixture,
   unpricedPackageTiersFixture,
 } from '@/test/packageFixture'
 import { createTestQueryClient } from '@/test/testHelpers'
 
-type GetResolver = (url: string) => unknown
+type GetResolver = (url: string) => unknown | Promise<unknown>
 
 function renderCatalogue() {
   const queryClient = createTestQueryClient()
@@ -42,7 +43,7 @@ function renderCatalogue() {
 /** Routes the mocked GET calls to the fixture that matches the endpoint. */
 function mockGet(resolver: GetResolver) {
   const implementation = async (url: string): Promise<AxiosResponse> => ({
-    data: resolver(url),
+    data: await resolver(url),
     status: 200,
     statusText: 'OK',
     headers: {},
@@ -54,6 +55,7 @@ function mockGet(resolver: GetResolver) {
 
 function defaultResolver(url: string): unknown {
   if (url.includes('/packages/summary')) return packageSummaryFixture
+  if (url === '/packages/pax-applicables') return packagePaxApplicablesFixture
   if (url.includes('/packages')) return packageTiersFixture
   return {}
 }
@@ -165,6 +167,7 @@ describe('PackageCataloguePage', () => {
     const inspector = screen.getByTestId('package-tier-inspector')
     expect(within(inspector).getByText('VIP Degustation & Special Service')).toBeInTheDocument()
     expect(within(inspector).getByText('₱1,850.00')).toBeInTheDocument()
+    expect(within(inspector).getByText('30 to 49 Pax')).toBeInTheDocument()
     // The identity is the human-readable code generated when the tier was created.
     expect(within(inspector).getByText('PKG-VIP-01')).toBeInTheDocument()
 
@@ -175,7 +178,84 @@ describe('PackageCataloguePage', () => {
     const updated = screen.getByTestId('package-tier-inspector')
     expect(within(updated).getByText('PM Merienda Buffet')).toBeInTheDocument()
     expect(within(updated).getByText('₱500.00')).toBeInTheDocument()
+    expect(within(updated).getByText('15 to 19 Pax')).toBeInTheDocument()
+    expect(within(updated).queryByText('30 to 49 Pax')).not.toBeInTheDocument()
     expect(within(updated).getByText('PKG-PM-01')).toBeInTheDocument()
+  })
+
+  it('renders the exact API classification in card content and accessible names', async () => {
+    mockGet(defaultResolver)
+
+    renderCatalogue()
+
+    const weddingCard = await screen.findByRole('button', {
+      name: /Wedding Grand Tier.*applicable pax classification: 80 to 100 Above/,
+    })
+    expect(within(weddingCard).getByText('80 to 100 Above')).toBeInTheDocument()
+  })
+
+  it('shows a pending classification state without blocking catalogue interaction', async () => {
+    let resolveLookup!: (value: unknown) => void
+    const pendingLookup = new Promise<unknown>((resolve) => {
+      resolveLookup = resolve
+    })
+    mockGet((url) =>
+      url === '/packages/pax-applicables' ? pendingLookup : defaultResolver(url),
+    )
+
+    renderCatalogue()
+
+    const grid = await screen.findByTestId('package-tier-grid')
+    const weddingCard = within(grid).getByRole('button', { name: /Wedding Grand Tier/ })
+    expect(within(weddingCard).getByText('Loading classification…')).toBeInTheDocument()
+    expect(weddingCard).toBeEnabled()
+    expect(
+      within(screen.getByTestId('package-tier-inspector')).getByText(
+        'Loading classification…',
+      ),
+    ).toBeInTheDocument()
+
+    resolveLookup(packagePaxApplicablesFixture)
+    expect(await within(weddingCard).findByText('80 to 100 Above')).toBeInTheDocument()
+  })
+
+  it('shows an explicit unavailable state for an unmatched ID without blocking selection', async () => {
+    mockGet((url) =>
+      url === '/packages/pax-applicables'
+        ? packagePaxApplicablesFixture.filter((item) => item.numPaxId !== 4)
+        : defaultResolver(url),
+    )
+
+    renderCatalogue()
+
+    const grid = await screen.findByTestId('package-tier-grid')
+    const weddingCard = within(grid).getByRole('button', { name: /Wedding Grand Tier/ })
+    expect(within(weddingCard).getByText('Classification unavailable')).toBeInTheDocument()
+    await userEvent.click(weddingCard)
+    expect(
+      within(screen.getByTestId('package-tier-inspector')).getByText(
+        'Classification unavailable',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit Tier' })).toBeEnabled()
+  })
+
+  it('shows lookup failure as unavailable while keeping the catalogue usable', async () => {
+    mockGet((url) => {
+      if (url === '/packages/pax-applicables') {
+        throw new ApiError(400, ['The lookup could not be loaded.'])
+      }
+      return defaultResolver(url)
+    })
+
+    renderCatalogue()
+
+    const grid = await screen.findByTestId('package-tier-grid')
+    const weddingCard = within(grid).getByRole('button', { name: /Wedding Grand Tier/ })
+    expect(within(weddingCard).getByText('Classification unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('The packages catalogue could not be loaded')).not.toBeInTheDocument()
+    await userEvent.click(weddingCard)
+    expect(screen.getByRole('button', { name: 'Edit Tier' })).toBeEnabled()
   })
 
   it('shows the remaining capability gaps and fabricates no course, venue or margin content', async () => {

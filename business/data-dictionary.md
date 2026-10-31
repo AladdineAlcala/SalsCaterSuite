@@ -25,6 +25,7 @@ ORM: Entity Framework Core 10
 | `apply_extendedAmount` | `ApplyExtendedAmount` | `BIT` | YES | Boolean flag: whether area surcharge is added to contract. |
 | `eventcolor` | `EventColor` | `NVARCHAR(50)` | YES | Hex color code for calendar visualization (default `#2563eb`). |
 | `eventDate` | `EventDate` | `DATE` | YES | **The event date. It is the Accounts Receivable due date** (DEC-041, KPI-13) and the revenue/period date basis (KPI-07, KPI-08). |
+| `eventEndDate` | `EventEndDate` | `DATE` | NO | **PLANNED — not yet implemented (DEC-178).** The event's end date, preserving overnight schedules. Existing unambiguous same-day rows backfill from `EventDate`; ambiguous legacy rows with `EventEndTime < EventStartTime` make the migration fail until owner mapping is supplied. |
 | `startTime` | `EventStartTime` | `TIME` | YES | Event start time-of-day. |
 | `endTime` | `EventEndTime` | `TIME` | YES | Event end time-of-day. |
 | `p_name` | `PackageName` | `NVARCHAR(250)` | YES | Frozen display name of the package at booking time (BR-04). |
@@ -38,7 +39,7 @@ ORM: Entity Framework Core 10
 | `amountDue` | `AmountDue` | `DECIMAL(18,2)` | YES | Frozen net amount due. See RSK-009 / DEC-035: the **shared** `BookingAmountDueCalculator` path is authoritative for reporting. |
 | `depositAmount` | `DepositAmount` | `DECIMAL(18,2)` | YES | Deposit recorded against the booking. No deposit **percentage** is assumed (DEC-009). |
 | `amountPaid` | `AmountPaid` | `DECIMAL(18,2)` | YES | **Denormalized cache** of the payment sum — not authoritative (DEC-012). |
-| `booking_status` | `Status` | `INT` | YES | The BR-10 booking lifecycle, stored as the `BookingStatus` ordinal (`Pending`=0 … `Expired`=9). |
+| `booking_status` | `Status` | `INT` | YES | **PLANNED — not yet implemented (DEC-177).** Lifecycle-only `BookingStatus` ordinal: `Pending`=0, `Confirmed`=1, `InProgress`=2, `Completed`=3, `Cancelled`=4, `NoShow`=5, `Rescheduled`=6, `Expired`=7. Migration maps legacy ordinals 2/3 (`DepositPaid`/`FullyPaid`) to new `Confirmed` and remaps the remaining values as specified in DEC-177. |
 | `reminderSent` | `ReminderSent` | `BIT` | YES | Whether the event reminder has been sent. Default `0`. |
 | `row_version` | `RowVersion` | `ROWVERSION` | YES | Concurrency token. |
 | `b_createdbyUser` | `CreatedByUser` | `NVARCHAR(100)` | YES | Username of staff who encoded the booking. |
@@ -50,6 +51,19 @@ ORM: Entity Framework Core 10
 > (`IsCancelled`) booleans are **retired** (BR-10) and no longer exist in the model;
 > `booking_status` is the single lifecycle field (contract §5). They are not part of
 > the current schema and must not be reintroduced.
+
+### Table: `BookingStatusHistory` — **PLANNED — not yet implemented (DEC-178)**
+
+One durable row per lifecycle transition, plus a migration-baseline row preserving each existing pre-DEC-177 status for rollback review. The exact SQL column names/lengths and indexes are subject to AGENT 02's reviewed implementation proposal; required semantics are:
+
+| Concept | Meaning |
+| :--- | :--- |
+| Booking FK | The `Booking.TransactionId` whose lifecycle changed. |
+| Previous / new status names | The exact before/after lifecycle strings; the baseline record also preserves the exact legacy ordinal. |
+| Effective / recorded timestamps | The scheduled instant the transition became due and the UTC instant the transition/history row committed. |
+| Actor / source | `system` and BG-04 for automatic transitions; migration source for the baseline. |
+
+The status update and its history row commit atomically. Payment status is not stored in this table; it remains a ledger-derived projection.
 
 ---
 

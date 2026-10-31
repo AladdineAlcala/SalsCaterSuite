@@ -1,7 +1,7 @@
 ---
 description: AGENT 01 - Sal's CaterSuite Business Intelligence Architect. Lead business analyst, catering domain expert, data architect, and implementation orchestrator. Supervises the .NET backend and React frontend developers and owns business, architecture, governance, and implementation artifacts.
 mode: primary
-model: opencode-go/gpt-6-luna#high
+model: opencode-go/mimo-v2.6-flash-free
 permissions:
   - action: read
     resource: "*"

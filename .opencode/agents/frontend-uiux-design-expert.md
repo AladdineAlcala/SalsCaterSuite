@@ -1,7 +1,7 @@
 ---
 description: AGENT 03 - Senior React UI/UX Architect and Frontend Engineer for Sal's CaterSuite. Visual design, design-system implementation, accessibility, micro-interactions, and production-grade React/TypeScript component engineering. Reports to AGENT 01.
 mode: subagent
-model: opencode-go/glm-5.3-flash
+model: opencode-go/beam-free
 permissions:
   - action: read
     resource: "*"

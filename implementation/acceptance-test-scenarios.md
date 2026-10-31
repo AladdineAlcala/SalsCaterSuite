@@ -1845,4 +1845,75 @@ Feature: Package applicable-pax classification (REQ-PKG-04, DEC-173)
     When I create or quote a booking for that package
     Then the package type, MinPax, booking headcount eligibility, quote and price behavior remain unchanged
 ```
+
+### Scenario 114: Applicable-Pax Classification Is Visible on Catalogue and Booking Tier Selection
+```gherkin
+Feature: Applicable-pax classification display (REQ-PKG-04, DEC-176)
+  Scenario: Package catalogue presents the stored API label
+    Given the package list contains tiers with `numPaxId` references
+    And GET /api/packages/pax-applicables returns the fixed lookup rows
+    When I open /packages
+    Then each tier card and the selected-tier inspector show the matching lookup label verbatim
+    And the tier card's accessible name includes that label
+    When I select another tier
+    Then the inspector shows the newly selected tier's classification, not the previous tier's label
+  Scenario: Booking tier choices and selected details present the same label
+    Given the existing /bookings/new workbench has loaded packages and the applicable-pax lookup
+    When I open the Buffet tier selector
+    Then each option includes its tier name, existing type information, and matching lookup label
+    When I select a tier
+    Then the selected-tier panel shows the same matching label
+    When I change or clear the selected tier
+    Then the prior tier's classification is no longer displayed
+  Scenario: Lookup gaps never fabricate a classification or block booking
+    Given the applicable-pax lookup is pending, fails, or has no row for a tier's `numPaxId`
+    When I view or select that tier
+    Then the UI shows an explicit loading or unavailable state, not an invented label
+    And tier selection, quote, and save remain available subject to existing validation
+    And no classification label is parsed into a headcount bound or pricing rule
+```
+---
+
+### Scenario 115: Booking Lifecycle and Payment Status Remain Separate
+```gherkin
+Feature: Booking lifecycle, payment status and scheduled event transitions (REQ-BKG-09, DEC-177/178)
+  Scenario: A completed event can still have a balance
+    Given a booking has lifecycle status Completed
+    And recorded non-soft-deleted payments leave an outstanding balance
+    When I read the booking and its ledger
+    Then lifecycle status remains Completed
+    And paymentState is DepositPaid
+    And the positive balance remains included in accounts receivable
+    When I record the final payment
+    Then lifecycle status remains Completed
+    And paymentState becomes FullyPaid
+  Scenario: Payment status follows manually recorded ledger entries
+    Given a confirmed booking has a positive amount due and no payment rows
+    Then paymentState is PendingPayment
+    When the cashier records the first partial payment
+    Then paymentState is DepositPaid
+    And no background job is needed to change paymentState
+    When a single recorded payment settles the amount due
+    Then paymentState is FullyPaid without an intermediate DepositPaid requirement
+  Scenario: BG-04 advances only eligible lifecycle states at their schedule boundaries
+    Given a confirmed overnight booking with an event start and packout instant in Asia/Manila
+    When the scheduled start instant is reached
+    Then lifecycle status changes from Confirmed to InProgress
+    When scheduled packout plus one hour is reached
+    Then lifecycle status changes from InProgress to Completed
+    And a durable history row records each transition
+  Scenario: BG-04 respects the event-end fallback and exception statuses
+    Given an InProgress booking with no PackoutTime
+    When the EventEndDate plus EventEndTime plus one hour is reached
+    Then lifecycle status changes to Completed
+    And Pending, Expired, Cancelled, Rescheduled and NoShow bookings are not auto-completed
+  Scenario: Lifecycle migration preserves legacy meanings and guarded event-end backfill
+    Given the pre-DEC-177 enum ordinals and an existing booking population in a disposable database
+    When the DEC-177/178 migration is applied
+    Then old DepositPaid and FullyPaid lifecycle ordinals map to Confirmed
+    And all other old lifecycle statuses retain their meanings under the new ordinal map
+    And the migration baseline history preserves each original status
+    And an ambiguous legacy overnight end-time candidate fails until explicitly mapped
+    And the migration is never applied to a persistent database in this cycle
+```
 ---

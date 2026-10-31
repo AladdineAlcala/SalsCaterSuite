@@ -11,6 +11,8 @@ export interface PackageCardProps {
   /** The card the operator has selected — it carries the active border and ring. */
   isSelected: boolean
   onSelect: (packageId: number) => void
+  /** The API label, or an explicit loading/unavailable state. */
+  paxClassificationLabel: string
 }
 
 /**
@@ -24,7 +26,12 @@ export interface PackageCardProps {
  * are not rendered — `Package` carries no cost, no margin and no code column
  * (DEC-067).
  */
-export function PackageCard({ tier, isSelected, onSelect }: PackageCardProps) {
+export function PackageCard({
+  tier,
+  isSelected,
+  onSelect,
+  paxClassificationLabel,
+}: PackageCardProps) {
   const rate = formatCurrency(tier.amountPax)
   const minimum = tier.minPax === null ? EM_DASH : formatCount(tier.minPax)
   const rateLabel =
@@ -35,7 +42,7 @@ export function PackageCard({ tier, isSelected, onSelect }: PackageCardProps) {
       type="button"
       onClick={() => onSelect(tier.packageId)}
       aria-pressed={isSelected}
-      aria-label={`${tier.description}, ${rateLabel}`}
+      aria-label={`${tier.description}, ${rateLabel}, applicable pax classification: ${paxClassificationLabel}`}
       className={cn(
         'bg-artisan-surface rounded-xl p-4 shadow-elevation-1 flex flex-col justify-between gap-3 text-left w-full min-w-0 transition-all',
         isSelected
@@ -63,6 +70,12 @@ export function PackageCard({ tier, isSelected, onSelect }: PackageCardProps) {
         <h3 className="font-headline-sm text-headline-sm text-espresso-900 leading-snug break-words">
           {tier.description}
         </h3>
+        <div className="flex flex-col gap-0.5">
+          <span className="font-caption text-caption text-espresso-400">Applicable pax classification</span>
+          <span className="font-body-sm text-body-sm text-espresso-700 break-words">
+            {paxClassificationLabel}
+          </span>
+        </div>
       </div>
 
       <div className="pt-2 border-t border-surface-container flex items-end justify-between gap-2">

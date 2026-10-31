@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AxiosRequestConfig, AxiosResponse } from 'axios'
-import type { PackageDto } from '@/types/package.types'
+import type { PackageDto, PackagePaxApplicable } from '@/types/package.types'
 import { apiClient, ApiError } from '@/api/apiClient'
 import { BookingWorkbenchPage } from '@/features/bookings/BookingWorkbenchPage'
 import type { BookingQuoteRequest } from '@/types/booking.types'
@@ -15,7 +15,10 @@ import {
   inactiveTierBookingQuoteFixture,
 } from '@/test/bookingFixture'
 import { customerDirectoryFixture } from '@/test/customerFixture'
-import { packageTiersFixture } from '@/test/packageFixture'
+import {
+  packagePaxApplicablesFixture,
+  packageTiersFixture,
+} from '@/test/packageFixture'
 import {
   areaCatalogueFixture,
   packageCourseRulesetFixture,
@@ -38,10 +41,19 @@ interface MockOptions {
   createError?: ApiError
   /** The catalogue answer — `GET /packages` (every key, params unfiltered). */
   tiers?: PackageDto[]
+  /** The read-only applicable-pax lookup answer. */
+  paxApplicables?: PackagePaxApplicable[]
+  /** Holds the lookup request open so its pending state can be tested. */
+  holdPaxApplicables?: boolean
+  /** The applicable-pax lookup refuses the request. */
+  paxApplicablesError?: ApiError
 }
 
-function renderWorkbench() {
+function renderWorkbench(options: { seedPaxApplicables?: boolean } = {}) {
   const queryClient = createTestQueryClient()
+  if (options.seedPaxApplicables) {
+    queryClient.setQueryData(['package-pax-applicables'], packagePaxApplicablesFixture)
+  }
   const utils = render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={['/bookings/new']}>
@@ -89,6 +101,7 @@ const quoteBodies: BookingQuoteRequest[] = []
 
 function mockApi(options: MockOptions = {}) {
   const held: Array<(value: unknown) => void> = []
+  const heldPaxApplicables: Array<(value: unknown) => void> = []
   const requests: CapturedRequest[] = []
 
   vi.spyOn(apiClient, 'get').mockImplementation(
@@ -96,6 +109,15 @@ function mockApi(options: MockOptions = {}) {
       requests.push({ url, params: config?.params as Record<string, unknown> | undefined })
 
       if (url.includes('/course-rules')) return axiosResponse(packageCourseRulesetFixture)
+      if (url === '/packages/pax-applicables') {
+        if (options.paxApplicablesError) throw options.paxApplicablesError
+        if (options.holdPaxApplicables) {
+          return new Promise((resolve) => {
+            heldPaxApplicables.push((value) => resolve(axiosResponse(value)))
+          }) as Promise<AxiosResponse>
+        }
+        return axiosResponse(options.paxApplicables ?? packagePaxApplicablesFixture)
+      }
       if (url.includes('/packages')) {
         // Mock fidelity — the server honours `activeOnly` and answers with the
         // selectable tiers only; the general catalogue fixture's inactive row
@@ -151,6 +173,9 @@ function mockApi(options: MockOptions = {}) {
     },
     releaseQuote() {
       held.splice(0, held.length).forEach((resolve) => resolve(undefined))
+    },
+    releasePaxApplicables(value: unknown = packagePaxApplicablesFixture) {
+      heldPaxApplicables.splice(0, heldPaxApplicables.length).forEach((resolve) => resolve(value))
     },
   }
 }
@@ -221,6 +246,107 @@ describe('BookingWorkbenchPage', () => {
     expect(screen.getByText('Package & courses')).toBeInTheDocument()
     expect(screen.getByText('Financials')).toBeInTheDocument()
     expect(screen.getByText('Deposit')).toBeInTheDocument()
+  })
+
+  it('uses the lookup cache key shared with the package feature', async () => {
+    const api = mockApi()
+
+    renderWorkbench({ seedPaxApplicables: true })
+
+    await waitForEnabled('Package type')
+    expect(
+      api.requests.some((request) => request.url === '/packages/pax-applicables'),
+    ).toBe(false)
+  })
+
+  it('includes exact API labels in accessible tier options and refreshes the selected panel', async () => {
+    mockApi()
+
+    renderWorkbench()
+
+    await waitForEnabled('Package type')
+    fireEvent.change(screen.getByLabelText('Package type'), { target: { value: 'Wedding' } })
+    const tierPicker = await waitForEnabled('Buffet tier')
+    expect(
+      within(tierPicker).getByRole('option', {
+        name: /Wedding Grand Tier · Wedding · 80 to 100 Above/,
+      }),
+    ).toBeInTheDocument()
+
+    fireEvent.change(tierPicker, { target: { value: '12' } })
+    const selectedTier = screen.getByTestId('booking-selected-tier')
+    expect(within(selectedTier).getByText('80 to 100 Above')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Package type'), { target: { value: 'Vip' } })
+    expect(screen.queryByTestId('booking-selected-tier')).not.toBeInTheDocument()
+
+    const vipTierPicker = await waitForEnabled('Buffet tier')
+    expect(
+      within(vipTierPicker).getByRole('option', {
+        name: /VIP Degustation & Special Service · Vip · 30 to 49 Pax/,
+      }),
+    ).toBeInTheDocument()
+    fireEvent.change(vipTierPicker, { target: { value: '18' } })
+
+    const updatedSelectedTier = screen.getByTestId('booking-selected-tier')
+    expect(within(updatedSelectedTier).getByText('30 to 49 Pax')).toBeInTheDocument()
+    expect(within(updatedSelectedTier).queryByText('80 to 100 Above')).not.toBeInTheDocument()
+  })
+
+  it('keeps tier selection, quote and save available while the classification lookup is pending', async () => {
+    const api = mockApi({ holdPaxApplicables: true })
+
+    renderWorkbench()
+
+    await fillRequiredInputs()
+    const selectedTier = screen.getByTestId('booking-selected-tier')
+    expect(within(selectedTier).getByText('Loading classification…')).toBeInTheDocument()
+    expect(screen.getByLabelText('Buffet tier')).toHaveValue('12')
+    expect(await screen.findByText('₱305,000.00')).toBeInTheDocument()
+
+    await userEvent.click(screen.getAllByText('Save draft')[0])
+    await waitFor(() => expect(createdBodies).toHaveLength(1))
+    expect(createdBodies[0]).toMatchObject({ confirm: false, packageId: 12 })
+    expect(api.requests.some((request) => request.url === '/packages/pax-applicables')).toBe(true)
+
+    api.releasePaxApplicables()
+  })
+
+  it('keeps booking usable when the lookup fails or does not contain the selected ID', async () => {
+    const failedApi = mockApi({
+      paxApplicablesError: new ApiError(400, ['The lookup could not be loaded.']),
+    })
+
+    const failedPage = renderWorkbench()
+    await fillRequiredInputs()
+    expect(
+      within(screen.getByTestId('booking-selected-tier')).getByText(
+        'Classification unavailable',
+      ),
+    ).toBeInTheDocument()
+    expect(await screen.findByText('₱305,000.00')).toBeInTheDocument()
+    await userEvent.click(screen.getAllByText('Save draft')[0])
+    await waitFor(() => expect(createdBodies).toHaveLength(1))
+    expect(failedApi.requests.some((request) => request.url === '/packages/pax-applicables')).toBe(
+      true,
+    )
+    failedPage.unmount()
+
+    createdBodies.length = 0
+    const unmatchedApi = mockApi({
+      paxApplicables: packagePaxApplicablesFixture.filter((item) => item.numPaxId !== 4),
+    })
+    renderWorkbench()
+    await fillRequiredInputs()
+    expect(
+      within(screen.getByTestId('booking-selected-tier')).getByText(
+        'Classification unavailable',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Buffet tier')).toHaveValue('12')
+    expect(unmatchedApi.requests.some((request) => request.url === '/packages/pax-applicables')).toBe(
+      true,
+    )
   })
 
   it('renders the capability-gap notices that remain and the real pickers that replaced the rest', async () => {
@@ -618,6 +744,9 @@ describe('BookingWorkbenchPage', () => {
     }> = []
     vi.spyOn(apiClient, 'get').mockImplementation(
       async (url: string, config?: AxiosRequestConfig): Promise<AxiosResponse> => {
+        if (url === '/packages/pax-applicables') {
+          return axiosResponse(packagePaxApplicablesFixture)
+        }
         if (url === '/packages') {
           const params = (config?.params ?? {}) as Record<string, unknown>
           if (!params.activeOnly || params.areaId === undefined) {

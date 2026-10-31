@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { WorkbenchTierEngine } from '../components/WorkbenchTierEngine'
 import type { BookingQuoteHeldRate, BookingWorkbenchDraft } from '../bookingVocabulary'
@@ -8,8 +8,11 @@ import {
 } from '../bookingVocabulary'
 import { areaCatalogueFixture, packageCourseRulesetFixture } from '@/test/packageWorkbenchFixture'
 import { bookingQuoteFixture } from '@/test/bookingFixture'
-import { packageTiersFixture } from '@/test/packageFixture'
-import type { PackageDto } from '@/types/package.types'
+import {
+  packagePaxApplicablesFixture,
+  packageTiersFixture,
+} from '@/test/packageFixture'
+import type { PackageDto, PackagePaxApplicable } from '@/types/package.types'
 import type { BookingQuote } from '@/types/booking.types'
 
 /**
@@ -41,6 +44,8 @@ describe('WorkbenchTierEngine', () => {
   function renderEngine(overrides: {
     draft?: Partial<BookingWorkbenchDraft>
     tiers?: PackageDto[]
+    paxApplicables?: PackagePaxApplicable[]
+    isLoadingPaxApplicables?: boolean
     quote?: BookingQuote | null
     lastResolvedQuote?: BookingQuoteHeldRate | null
     isLoadingTiers?: boolean
@@ -53,6 +58,8 @@ describe('WorkbenchTierEngine', () => {
       onChange: vi.fn((patch: Partial<BookingWorkbenchDraft>) => patches.push(patch)),
       tiers: overrides.tiers ?? packageTiersFixture,
       isLoadingTiers: overrides.isLoadingTiers ?? false,
+      paxApplicables: overrides.paxApplicables ?? packagePaxApplicablesFixture,
+      isLoadingPaxApplicables: overrides.isLoadingPaxApplicables ?? false,
       municipalities: areaCatalogueFixture,
       packageTypes: ['Premier', 'Pm', 'Regular', 'Sd', 'Vip', 'Wedding'],
       ruleset: packageCourseRulesetFixture,
@@ -265,6 +272,74 @@ describe('WorkbenchTierEngine', () => {
         target: { value: '' },
       })
       expect(patches.at(-1)).toEqual({ areaFilterId: '', packageId: '' })
+    })
+  })
+
+  describe('applicable-pax classification display', () => {
+    it('shows the exact lookup label in the tier option and selected-tier panel', () => {
+      renderEngine({ draft: { packageId: '31', packageType: 'Regular' } })
+
+      expect(
+        screen.getByRole('option', {
+          name: /Regular Feast Buffet · Regular · 20 to 29 Pax/,
+        }),
+      ).toBeInTheDocument()
+      expect(
+        within(screen.getByTestId('booking-selected-tier')).getByText('20 to 29 Pax'),
+      ).toBeInTheDocument()
+    })
+
+    it('shows loading and unavailable states without disabling the tier picker', () => {
+      const { rerender } = render(
+        <WorkbenchTierEngine
+          draft={{ ...emptyBookingWorkbenchDraft(), packageId: '12', packageType: 'Wedding' }}
+          errors={{}}
+          onChange={vi.fn()}
+          tiers={packageTiersFixture}
+          isLoadingTiers={false}
+          paxApplicables={[]}
+          isLoadingPaxApplicables
+          municipalities={areaCatalogueFixture}
+          packageTypes={['Wedding']}
+          ruleset={packageCourseRulesetFixture}
+          isLoadingRuleset={false}
+          quote={null}
+          lastResolvedQuote={null}
+          isRecalculating={false}
+        />,
+      )
+
+      expect(screen.getByLabelText('Buffet tier')).toBeEnabled()
+      expect(
+        within(screen.getByTestId('booking-selected-tier')).getByText(
+          'Loading classification…',
+        ),
+      ).toBeInTheDocument()
+
+      rerender(
+        <WorkbenchTierEngine
+          draft={{ ...emptyBookingWorkbenchDraft(), packageId: '12', packageType: 'Wedding' }}
+          errors={{}}
+          onChange={vi.fn()}
+          tiers={packageTiersFixture}
+          isLoadingTiers={false}
+          paxApplicables={[]}
+          isLoadingPaxApplicables={false}
+          municipalities={areaCatalogueFixture}
+          packageTypes={['Wedding']}
+          ruleset={packageCourseRulesetFixture}
+          isLoadingRuleset={false}
+          quote={null}
+          lastResolvedQuote={null}
+          isRecalculating={false}
+        />,
+      )
+      expect(
+        within(screen.getByTestId('booking-selected-tier')).getByText(
+          'Classification unavailable',
+        ),
+      ).toBeInTheDocument()
+      expect(screen.getByLabelText('Buffet tier')).toBeEnabled()
     })
   })
 })

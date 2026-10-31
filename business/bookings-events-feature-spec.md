@@ -2,13 +2,13 @@
 
 | Field | Value |
 | :--- | :--- |
-| **Specification** | `business/bookings-events-feature-spec.md` **v1.1** (reissued after the Debater's plan review) |
-| **Requirements delivered** | **REQ-BKG-05** (new — the Bookings & Events Register) and **REQ-BKG-01** (the Booking Creation Wizard's missing screen) |
-| **Cycle** | 2026-10-22 — Bookings & Events |
+| **Specification** | `business/bookings-events-feature-spec.md` **v1.2** (DEC-177 / DEC-178 booking lifecycle and payment-state amendment; 2026-10-31) |
+| **Requirements** | **REQ-BKG-05** (Bookings & Events Register), **REQ-BKG-01** (Booking Creation Wizard), **REQ-BKG-09** (Lifecycle Status and Scheduled Completion) |
+| **Cycle** | 2026-10-22 — Bookings & Events; 2026-10-31 — lifecycle/payment status separation and BG-04 |
 | **Owner** | AGENT 01 — Business Intelligence Architect |
 | **Design references** | `D:\Downloads\SalsCaterSuite_Designs\Booking_Events_Main\{code.html,screen.png}` and `D:\Downloads\SalsCaterSuite_Designs\Booking_Events_CreateNew\{code.html,screen.png}` |
 | **Contract section** | `architecture/approved-api-contracts.md` §14 |
-| **Status** | **APPROVED for delivery** — see §1.2 for the rulings and §9 for the questions that remain open. The Debater's plan review returned `PROPOSE_BETTER_PLAN` with **8 blocking findings and 17 clarifications**; **all eight findings were applied** before delegation (see `WORKFLOW_STATE.md`) |
+| **Status** | **APPROVED for delivery** — the original register/workbench remains delivered; REQ-BKG-09 / DEC-177 / DEC-178 is approved for implementation after the developer proposals and AGENT 01 approval. Historical open questions remain in §9. |
 
 ---
 
@@ -46,23 +46,24 @@ AGENT 01 is the owner of the business rules. The following rulings were required
 | 15 | **RSK-023** — `ContractDocument` renders the denormalized cache and the domain's `Booking.Balance`, a **third money notion**, and its mitigation says the generators must move onto the shared calculator *"before any endpoint exposes them"*. **This cycle exposes it** as `GET /api/bookings/{id}/contract`. | The contract PDF renders the **shared calculator's** figures — `NetAmountDue`, `TotalPayments`, `RemainingBalance` — exactly as the ledger publishes them, so a printed contract can never disagree with the ledger it sits beside (DEC-023, DEC-025). | **DEC-113** (closes RSK-023) |
 | 16 | **The money chain has no rounding rule.** `DiscountPercentage` is `decimal(18,4)` while every money column is `decimal(18,2)`, and `RecalculateFinancials` does raw arithmetic. A percentage discount of `0.005` on a gross of `100.00` makes the stored `AmountDue` and the calculator's `NetAmountDue` differ by half a cent. | **One rounding, in one place** — two decimals, away from the midpoint (BR-20, DEC-003) — applied to the **discount** and the **net** in the Application layer, and the create path stores exactly those rounded values. The browser never re-rounds. | **DEC-115** |
 | 17 | The surcharge was **inferred** as `Subtotal − PackageAmount`. `Subtotal` conflates the surcharge with the add-on total and the other charges, and `ApplyExtendedAmount` is publicly settable — so the inference changes meaning the day add-ons exist and can be moved after the fact. | The surcharge becomes a **fourth frozen column**, `extendedAreaAmount` (`decimal(18,2) NOT NULL DEFAULT 0`). The flag becomes a creation-time switch and an audit marker; the **stored amount** is what the calculator charges. | **DEC-116** |
-| 18 | The payment-state names `DepositPaid` and `FullyPaid` **collide** with the `BookingStatus` lifecycle names of contract §5. A client that received both in one payload could not tell them apart. | The payment states are renamed **`AwaitingDeposit`, `PartiallyPaid`, `Settled`**. The two vocabularies never share a name. | **DEC-117** |
+| 18 | The existing `BookingStatus` conflates payment progress (`DepositPaid`, `FullyPaid`) with event lifecycle (`InProgress`, `Completed`). | DEC-177 separates lifecycle status from derived payment state. Lifecycle values no longer include payment progress. Payment values are `PendingPayment`, `DepositPaid`, and `FullyPaid`; the first recorded payment counts as the deposit. | **DEC-177** (supersedes this portion of DEC-117) |
+| 21 | A booking can be completed while a balance remains, and payment updates can overwrite event status. Event transitions are not automated. | `BookingStatus` is lifecycle-only; payment state is separate and ledger-derived. BG-04 advances a confirmed booking at scheduled start and completes an in-progress booking after packout + one hour, with the approved end-time fallback and exception exclusions. Completed balances remain AR (DEC-025). | **DEC-177 / DEC-178** |
 | 19 | The cycle adds a frontend feature folder, two routes, a client endpoint group, Application use cases, a repository interface and its implementation, an export, a migration and two configuration keys. AGENTS.md §0.1 rule 3 requires a **structural** decision recorded in `governance/decision-log.md` and a workplan update **in the same cycle**. | The structural change is **approved** and the workplan is realigned in this cycle. | **DEC-114** |
-| 20 | BR-05's **overpayment prohibition** is not implemented on `POST /api/payments` — `Booking.RecordPayment` rejects only a non-positive amount and a payment on a cancelled booking. The register publishes a `Settled` state that **includes** an overpayment, so an unguarded overpayment would let a booking report `Settled` while it owes money no surface can show. | The **overpayment guard is enforced** on the payment path as well as on the create path: a payment that would take the total above the net amount due is refused with `400`, and nothing is written. | **DEC-118** |
+| 20 | BR-05's **overpayment prohibition** is not implemented on `POST /api/payments` — `Booking.RecordPayment` rejects only a non-positive amount and a payment on a cancelled booking. The register publishes `FullyPaid` for a settled balance, so an unguarded overpayment could misstate the amount received. | The **overpayment guard is enforced** on the payment path as well as on the create path: a payment that would take the total above the net amount due is refused with `400`, and nothing is written. | **DEC-118** |
 
 ### 1.3 What the references show and what the approved model can carry
 
 | Reference panel | Approved source | Verdict |
 | :--- | :--- | :--- |
 | Booking code `BK-2025-089` | `Booking.BookingNumber` — `BK-{yyyyMMdd}-{TransactionId:D5}` (BR-09, DEC-016) | **Rendered as the domain format.** The reference's `#BKG-2026-1188` is not the contractual format and is not adopted. |
-| Status `CONFIRMED` / `TENTATIVE` | `BookingStatus` (BR-10) | **The domain vocabulary wins.** `Pending` is the tentative state; `Finalized` and `Invoiced` do not exist and are not introduced. |
+| Status `CONFIRMED` / `TENTATIVE` | `BookingStatus` (BR-10, DEC-177) | **The lifecycle vocabulary wins.** `Pending` is tentative; `Confirmed`, `InProgress`, and `Completed` describe event lifecycle. `DepositPaid`/`FullyPaid` are payment states, not lifecycle values. `Finalized` and `Invoiced` are not introduced. |
 | Tier pills `Wedding Tier` / `Premier Buffet` / `VIP Special` | `Package.PackageType` (free text; the `PackageType` enum members are the suggestions) | **Server-computed facet counts** over the register population. The pill label is the stored type; the client never rewrites it. |
 | Package & venue staging box | `Booking.PackageName`, `PricePerHead`, `NumberOfHeads`, `Booking.Venue` | **Rendered.** |
 | Contract value / paid / balance block | `BookingAmountDueCalculator` (DEC-042) + `Σ Payment.AmountPaid` (BR-10) | **Rendered, server-computed.** |
 | Kitchen telemetry footer (BEO state, chef, margin) | margin → tier standard run (DEC-103); BEO state → **no source** | **Margin rendered as a planning estimate; the BEO chip is a capability gap.** |
 | Kitchen prep staging percentages | **no source** — the recipe/yield engine is blocked (REQ-MNU-03, DEC-059) | **Capability gap.** |
 | Tier pills, venue filter, status filter, date filter, search | `Booking` + `Customer` + `Package` | **Server-side filters.** |
-| The payment filter (*"Fully Paid (100%) / 30% Downpayment Received / Balance Overdue / SOA Sent / Awaiting Initial Deposit"*) | the three BR-28 payment states; the overdue dimension | **Re-mapped.** The dropdown offers the **three** payment states and **no** percentage option (DEC-101); **"Overdue only"** is a **separate** toggle, because a partly-paid booking is both `PartiallyPaid` and overdue and folding the two would make the states overlap (BR-28). |
+| The payment filter (*"Fully Paid (100%) / 30% Downpayment Received / Balance Overdue / SOA Sent / Awaiting Initial Deposit"*) | the three BR-28 payment states; the overdue dimension | **Re-mapped.** The dropdown offers `PendingPayment`, `DepositPaid`, and `FullyPaid`; no percentage option is used. **"Overdue only"** remains a separate toggle, because a partly-paid booking may also be overdue (BR-28). |
 | Table totals strip | BR-08 + the single calculator | **Rendered, server-computed.** |
 | AR & SOA telemetry card | KPI-12 / KPI-13 quantities | **Rendered.** "3 Notices Sent" has no source and is replaced by the **overdue count**. |
 | Client profile card | `Customer` (name, company, contact, address) | **Rendered.** The reference's "Official Email" does not exist in the model and is replaced by the **address**. |
@@ -113,7 +114,7 @@ The following are **not** delivered in this cycle, each with its reason:
 
 ## 3. Domain and Data
 
-### 3.1 The domain extension (one additive migration)
+### 3.1 The original domain extension (2026-10-22)
 
 `Booking` gains **three nullable columns**. The migration is **purely additive** — no column is dropped, renamed, retyped or re-defaulted, and no existing row is modified.
 
@@ -128,7 +129,7 @@ The following are **not** delivered in this cycle, each with its reason:
 
 The migration remains **purely additive**: four columns, three nullable and one `NOT NULL DEFAULT 0`. No column is dropped, renamed or retyped and no existing row is modified. A pre-existing row's surcharge is `0` — which is the truth, because no booking has ever been charged one.
 
-**No new entity, no new enum.** `Booking` remains the aggregate root and the only entity whose schema changes.
+For the original 2026-10-22 delivery, no new entity or enum was introduced and `Booking` remained the aggregate root. The DEC-177/DEC-178 amendment adds lifecycle history and overnight end-date support below.
 
 ### 3.2 The register population
 
@@ -163,7 +164,7 @@ Soft-deleted bookings are excluded by the query itself. **No global query filter
 
 The consequence is explicit: **the register's cost is proportional to the filtered population, not to the page size.** For a register of a catering operation's live book that is the right trade — the totals strip and the facet counts must describe the whole population anyway — and it is recorded as RSK-056 rather than hidden.
 
-### 3.4 The payment-state vocabulary (BR-28)
+### 3.4 The payment-state vocabulary (BR-28, amended by DEC-177)
 
 One classifier, in one class, shared by the register, the summary and the quote — the same pattern as `CustomerAgingService` (DEC-052).
 
@@ -171,13 +172,13 @@ The **payment state** answers one question: *how far along is the payment?* It i
 
 | State | Condition |
 | :--- | :--- |
-| `AwaitingDeposit` | `Collected == 0` **and** `NetAmountDue > 0` — nothing has been collected and something is owed. |
-| `PartiallyPaid` | `Collected > 0` **and** `Collected < NetAmountDue` — a deposit or partial payment has been received and a balance remains. |
-| `Settled` | `Collected >= NetAmountDue` — nothing is owed. This includes a **zero-value** booking (`NetAmountDue == 0`, nothing collected) and an **overpayment** (`Collected > NetAmountDue`), neither of which may be reported as awaiting anything. |
+| `PendingPayment` | `Collected == 0` **and** `NetAmountDue > 0` — nothing has been collected and something is owed. |
+| `DepositPaid` | `Collected > 0` **and** `Collected < NetAmountDue` — the first payment has been recorded and a balance remains. Subsequent partial installments stay in this state. |
+| `FullyPaid` | `Collected >= NetAmountDue` — nothing is owed. This preserves the prior zero-value booking behavior (`NetAmountDue == 0`, nothing collected). New overpayments remain refused by BR-05. |
 
-The evaluation order is **`AwaitingDeposit` → `PartiallyPaid` → `Settled`**, and the three are exclusive by construction: `Collected == 0` and `Collected > 0` cannot both hold, and `Collected < NetAmountDue` and `Collected >= NetAmountDue` cannot both hold. Every booking therefore has **exactly one** payment state, and the three counts sum to the population's booking count.
+The evaluation order is **`PendingPayment` → `DepositPaid` → `FullyPaid`**, and the three are exclusive by construction. Every booking therefore has **exactly one** payment state, and the three counts sum to the population's booking count. Payment state is derived from non-soft-deleted ledger entries and the shared net-due path; it is not stored in or written to `Booking.Status`.
 
-**The names must not collide with the lifecycle vocabulary.** Contract §5 publishes the ten `BookingStatus` names, and two of them — `DepositPaid` and `FullyPaid` — are *payment* names. The payment states are therefore named **`AwaitingDeposit`, `PartiallyPaid`, `Settled`** (DEC-117), and the two vocabularies never share a name. `BookingStatus.DepositPaid` remains a **lifecycle** status; `PartiallyPaid` is a **payment** state. A client that received both in one payload can tell them apart by name.
+`BookingDto.status` and `paymentState` are separate fields and separate concepts: the first describes event lifecycle; the second describes payment progress. `DepositPaid` and `FullyPaid` no longer appear in `BookingStatus`, so they unambiguously belong to the payment-state projection. DEC-177 supersedes the name-avoidance constraint in DEC-117.
 
 **Overdue is a separate dimension, not a payment state.** A booking with a balance is **overdue** when its **event date has passed** — the event date is the due date (DEC-041):
 
@@ -185,13 +186,13 @@ The evaluation order is **`AwaitingDeposit` → `PartiallyPaid` → `Settled`**,
 isOverdue = Outstanding > 0 && EventDate < today
 ```
 
-`isOverdue` is published **per item** and drives the register's **overdue filter** and the `receivables.overdueCount` / `overdueAmount` aggregates. It is deliberately **not** a payment state: a partly-paid booking is `PartiallyPaid` **and** overdue, and folding the two into one vocabulary would make the states overlap (the register's filters would then select rows that no single state describes).
+`isOverdue` is published **per item** and drives the register's **overdue filter** and the `receivables.overdueCount` / `overdueAmount` aggregates. It is deliberately **not** a payment state: a partly-paid booking is `DepositPaid` **and** overdue, and folding the two into one vocabulary would make the states overlap (the register's filters would then select rows that no single state describes).
 
-**Why not the reference's four payment options.** The reference offers *"Fully Paid (100%) / 30% Downpayment Received / Balance Overdue / SOA Sent / Awaiting Initial Deposit"*. The `30%` cannot be a filter: the deposit percentage is **configuration and absent by default** (DEC-101), so a percentage-based filter would assert a house rule that does not exist. The register therefore filters on the **three** payment states — labelled *"Fully paid"*, *"Partially paid"* and *"Awaiting initial deposit"* — and offers **"Overdue only"** as a separate, clearly-labelled toggle beside the filter row.
+**Why not the reference's four payment options.** The reference offers *"Fully Paid (100%) / 30% Downpayment Received / Balance Overdue / SOA Sent / Awaiting Initial Deposit"*. The `30%` cannot be a filter: the deposit percentage is **configuration and absent by default** (DEC-101), so a percentage-based filter would assert a house rule that does not exist. The register therefore filters on the **three** payment states, displayed as *"Pending Payment"*, *"Deposit Paid"* and *"Fully Paid"*, and offers **"Overdue only"** as a separate, clearly-labelled toggle beside the filter row.
 
 ### 3.4.1 The filter surface (BR-32)
 
-The **Payment** dropdown offers: *All payment states*, *Fully paid* (`Settled`), *Partially paid* (`PartiallyPaid`) and *Awaiting initial deposit* (`AwaitingDeposit`). The **overdue** filter is a separate toggle chip: *Overdue only*.
+The **Payment** dropdown offers: *All payment states*, *Pending Payment* (`PendingPayment`), *Deposit Paid* (`DepositPaid`) and *Fully Paid* (`FullyPaid`). The **overdue** filter is a separate toggle chip: *Overdue only*.
 
 Both feed the same `paymentState` / `overdue` query parameters, and the **facet** for the payment states counts the three states of the base population with the payment-state filter removed.
 
@@ -269,7 +270,7 @@ The **soft-deleted-payment exclusion is unified** (DEC-111): the dashboard alrea
 
 The **ledger's payment list** is a second, separate question: the ledger *lists* the payment rows, and a soft-deleted payment should not be listed either. The exclusion is therefore applied to **both** the listed entries and the sum — a soft-deleted payment is not money the business holds, and it is not a receipt the customer may see.
 
-**The overpayment guard.** BR-05 prohibits a total payment that exceeds the net amount due *"unless explicitly flagged and acknowledged as an advance credit"*. The guard is **not** implemented on `POST /api/payments` today — `Booking.RecordPayment` only rejects a non-positive amount and a payment on a cancelled booking. This cycle **adds** the guard to the payment path, because the register publishes a `Settled` state that includes an overpayment and a `Balance` that clamps at zero; an unguarded overpayment would let a booking report `Settled` while it owes money that no surface can show. The **create path** carries the same guard (BR-33).
+**The overpayment guard.** BR-05 prohibits a total payment that exceeds the net amount due *"unless explicitly flagged and acknowledged as an advance credit"*. The guard is **not** implemented on `POST /api/payments` today — `Booking.RecordPayment` only rejects a non-positive amount and a payment on a cancelled booking. This cycle **adds** the guard to the payment path; an unguarded overpayment could report `FullyPaid` while the amount received exceeds what the contract permits. The **create path** carries the same guard (BR-33).
 
 ### 3.7 The out-of-town surcharge on a booking (BR-26, DEC-100, DEC-116)
 
@@ -346,8 +347,8 @@ The headcount floor (`Package.MinPax`) is reported as an **advisory note** besid
 | `packageId` | `> 0` when present; the tier must exist **and be active**. |
 | `occasion` | required, ≤ 150 characters. |
 | `venue` | required, ≤ 200 characters. |
-| `eventDate` / `startTime` / `endTime` | required; the end must not be before the start. |
-| `callTime` / `packoutTime` | optional; when present they must satisfy the **dispatch ordering** (BR-34): `callTime <= EventStartTime` and `packoutTime >= EventEndTime`. The check is unambiguous because the model forbids an overnight event outright. |
+| `startDate` / `endDate` | required; the full end instant must not precede the full start instant. Overnight schedules are supported and their end-date component is persisted. |
+| `callTime` / `packoutTime` | optional; when present they must satisfy the full-date dispatch ordering (BR-34): call time is no later than program start on EventDate; packout is no earlier than program end on EventEndDate. |
 | `extendedAreaId` | `> 0` when present; the municipality must exist and be live. |
 | `applyExtendedAmount` | requires `extendedAreaId`. |
 | `discountCode` | optional; when present it must resolve to **exactly one active** discount, otherwise `400` (unknown, or ambiguous - `disc_code` has no unique index). |
@@ -356,6 +357,17 @@ The headcount floor (`Package.MinPax`) is reported as an **advisory note** besid
 | `initialPayment.paymentMeans` | one of the `PaymentMeans` **enum names** — `Cash`, `Check`, `GCash`, `LDDAP`, `CreditCard` — because the enum travels by name (contract §8). The client's labels are *"Cash"*, *"Check"*, *"GCash"*, *"Bank Transfer / LDDAP"* and *"Credit Card"*; the **wire value is the enum name**. The `pay_means` column is mapped with `HasConversion<string>()`, so RSK-016's legacy-value crash is a **pre-existing** defect: the **new** write path stores the enum name and cannot produce one, but the register **loads payments for every card** and therefore inherits RSK-016's blast radius (RSK-055). |
 
 Every rejection is `400 { "errors": [ ... ] }` (BR-11) and the error text is the **server's own**, so the operator reads one message whether the browser or the API refuses.
+
+---
+
+### 3.13 Booking lifecycle, payment status, and BG-04 (REQ-BKG-09, DEC-177/178)
+
+- `Booking.Status` is lifecycle-only: `Pending`, `Confirmed`, `InProgress`, `Completed`, `Cancelled`, `NoShow`, `Rescheduled`, `Expired`. Payment events never mutate it.
+- `paymentState` is a separate server projection from non-soft-deleted payment entries and the shared net-due calculation: `PendingPayment`, `DepositPaid`, `FullyPaid`. A first partial payment counts as the deposit; a one-entry full settlement may go directly to `FullyPaid`. BG-04 never changes payment state. KPI-18 remains its existing zero-payment-recorded measure.
+- BG-04 runs as scheduled polling in the API host. It advances `Confirmed` at `EventDate + EventStartTime` and `InProgress` at `EventEndDate + PackoutTime + one hour`, falling back to `EventEndDate + EventEndTime + one hour`; schedule times are interpreted in Asia/Manila.
+- BG-04 excludes `Pending`, `Expired`, `Cancelled`, `Rescheduled`, and `NoShow`; a rescheduled booking requires explicit reconfirmation. Manual NoShow/Rescheduled actions are not part of this requirement.
+- `Booking.EventEndDate` preserves overnight requests. API `startDate`/`endDate` are Asia/Manila local schedule instants and carry an explicit `+08:00` offset; persistence stores their local dates and time-of-day values. The migration remaps legacy status ordinals per DEC-177, stores a durable baseline/history, and fails closed on ambiguous legacy overnight rows. Each automatic transition is idempotent, row-version protected, and committed atomically with its history row; delayed polling catches up through valid transitions in order.
+- No financial formula, deposit percentage, refund, AR, or overpayment rule changes. A `Completed` booking with an outstanding balance remains collectible (DEC-025).
 
 ---
 
@@ -547,14 +559,14 @@ The navigation entry **Bookings & Events** becomes `implemented: true`. Every ot
 1. **The header row** — the title, the subtitle, and the three actions: **Export (XLSX)**, **Batch BEOs (inactive — capability gap)**, **New booking**.
 2. **The four KPI cards** — Active Pipeline, Leading Tier, Contract Value, Committed Headcount. Each carries the server's figure and an optional progress track.
 3. **The command bar** — the **tier pills** (the facet counts), the **grid / timeline** toggle, the **search**, and the four selects (**status**, **date range**, **venue**, **payment state**), plus the **overdue toggle chip** beside them.
-   - The **Payment** dropdown offers *All payment states*, *Fully paid* (`Settled`), *Partially paid* (`PartiallyPaid`) and *Awaiting initial deposit* (`AwaitingDeposit`) — the **three** BR-28 states. It does **not** offer a percentage-based option: the required deposit percentage is configuration and absent by default (DEC-101), so a "30% downpayment" filter would assert a house rule that does not exist.
+    - The **Payment** dropdown offers *All payment states*, *Pending Payment* (`PendingPayment`), *Deposit Paid* (`DepositPaid`) and *Fully Paid* (`FullyPaid`) — the **three** BR-28 states. It does **not** offer a percentage-based option: the required deposit percentage is configuration and absent by default (DEC-101), so a "30% downpayment" filter would assert a house rule that does not exist.
    - The **overdue toggle chip** (*Overdue only*) is the separate `overdue` filter (§3.4). It is clearly labelled as a dimension of its own, not as a fourth payment state.
    - The **timeline** view is a **server-side sort**: the toggle sets `sort=EventDateAsc` and the page renders as a chronological rail. It is therefore the **same server page**, in the server's own order — never a local re-ordering of one page that would misrepresent the population as a chronology. The paging dock and the totals strip are unchanged.
 4. **The dossier grid** — one card per booking, three columns on a wide screen, one on a narrow one.
 5. **The totals strip and the pagination dock** — the totals, the "showing *x* to *y* of *n*", the page size and the page buttons.
 6. **The three-card operational dock** — **Commissary load**, **BEO & event orders (capability gap)**, **AR & SOA telemetry**.
 
-**The dossier card** carries: the booking number and its status chip; the countdown line ("In 3 days • 29 Mar 2026 • 17:00"); the customer and the contact; the tier block (name, description, pax, rate per head); the venue line; the contract-value block (value, the progress track, the paid and the outstanding figures); the footer strip (the BEO chip — a capability gap — and the planning-estimate margin).
+**The dossier card** carries: the booking number, lifecycle-status chip and separate payment-state chip; the countdown line ("In 3 days • 29 Mar 2026 • 17:00"); the customer and the contact; the tier block (name, description, pax, rate per head); the venue line; the contract-value block (value, the progress track, the paid and the outstanding figures); the footer strip (the BEO chip — a capability gap — and the planning-estimate margin).
 
 **The countdown is the server's.** The card reads `daysUntilEvent`, an integer the API computes from `IDateTime.UtcNow` and the booking's event date — **never** from the browser's clock. A `null` or a negative value means the event is not in the future, and the card shows the event date alone. The date and the time are then formatted by `utils/dateFormatter.ts`.
 
@@ -598,7 +610,7 @@ Every panel states its own emptiness. A panel that can legitimately hold no reco
 
 | KPI | Name | Formula | Source |
 | :--- | :--- | :--- | :--- |
-| **KPI-33** | Register pipeline count and status split | The count of the filtered population, split into confirmed (`Confirmed`/`DepositPaid`/`FullyPaid`), tentative (`Pending`), completed (`Completed`) and other. | The register query |
+| **KPI-33** | Register pipeline count and status split | The count of the filtered population, split into committed (`Confirmed`), tentative (`Pending`), completed (`Completed`) and other (`InProgress`, `NoShow`, `Rescheduled`); lifecycle status is independent from paymentState (DEC-177). | The register query |
 | **KPI-34** | Leading tier, its share and its period change | The tier with the highest net contracted value; its share of the population's net contracted value; the change of that tier's net contracted value against the **immediately preceding equal-length period**. | The summary query |
 | **KPI-35** | Net contracted value, collected and outstanding | `Σ NetAmountDue`, `Σ Collected`, `Σ Outstanding`. The two sub-figures sum to the headline. | The summary query |
 | **KPI-36** | Committed headcount | `Σ NumberOfHeads` over the population, and the mean per booking. | The summary query |
@@ -654,7 +666,7 @@ Every panel states its own emptiness. A panel that can legitimately hold no reco
 - **AC-BKG-33** — **The single net-due source (DEC-099).** For every booking, `Booking.AmountDue` (the stored snapshot) **equals** `BookingAmountDueCalculator.Calculate(booking, …).NetAmountDue` **to the cent, after the one rounding** — including a booking that carries **both** a surcharge and a discount, and one whose percentage discount needs the rounding (DEC-115). The pre-existing unit and integration suites stay **green unchanged**.
 - **AC-BKG-43** — **One rounding (DEC-115).** Every published money figure is rounded to two decimals, away from the midpoint, **once**, in the Application layer; the browser never re-rounds. A percentage discount that produces a third decimal is rounded **before** it is stored and before it is applied.
 - **AC-BKG-44** — **The surcharge is stored, not inferred (DEC-116).** The frozen surcharge is its own column; flipping `ApplyExtendedAmount` after the booking exists changes nothing; and a surcharge of zero is distinguishable from a surcharge that was never applied.
-- **AC-BKG-45** — **The payment-state names never collide with the lifecycle names (DEC-117).** A payload that carries both a lifecycle status and a payment state publishes `DepositPaid`/`FullyPaid` only as lifecycle values and `AwaitingDeposit`/`PartiallyPaid`/`Settled` only as payment values.
+- **AC-BKG-45 (amended by DEC-177)** — A payload carrying both dimensions publishes a lifecycle-only `status` and a separate payment `paymentState`; `PendingPayment`, `DepositPaid`, and `FullyPaid` never appear as BookingStatus values.
 - **AC-BKG-46** — **The overpayment guard (DEC-118).** A payment that would take the total above the net amount due is refused with `400`, and **nothing** is written — no payment row, no status change, no change to the cached `AmountPaid`. The guard applies to `POST /api/payments` and to the create path's initial payment.
 - **AC-BKG-47** — **The soft-deleted-payment exclusion covers every money surface (DEC-111).** The ledger, the booking details, the customer directory and profile, the customer statement, the calendar feed, the legacy customer list and the register all exclude a soft-deleted payment from **both** the sum and the listed entries.
 - **AC-BKG-34** — The register, the ledger, the booking details, the customer statement, the calendar feed and the dashboard all publish the **same** net amount due for the same booking.
@@ -673,6 +685,16 @@ Every panel states its own emptiness. A panel that can legitimately hold no reco
 - **AC-BKG-49** — **The printed contract itemises what it charges.** The service-details table shows the out-of-town surcharge with its rate, its headcount and its total when the booking has one, and has **no** surcharge row when it does not; the totals show the discount with its frozen code; the dispatch schedule is printed **once**, in the particulars, and only when both times are stated; the contract amount equals the shared calculator's net amount due; and **no** line reads `0.00` for a charge that was never applied.
 - **AC-BKG-50** — **The contract adds; it never rewrites.** The Event Date, the Occasion and the Venue — the lines the pre-cycle contract printed — are unchanged; the particulars block is **pinned** as Event Date, Occasion, Venue, Serving Time and `Guaranteed Pax: N Persons`, plus the conditional dispatch schedule; and the totals block carries Total Charges, the discount with its frozen code, the Contract Amount, the payments received and the remaining balance (DEC-123).
 
+### 7.5 Booking lifecycle, payment state, and scheduled transitions (REQ-BKG-09, DEC-177/178)
+
+- **AC-BKG-51** — `BookingStatus` contains lifecycle/outcome values only: `Pending`, `Confirmed`, `InProgress`, `Completed`, `Cancelled`, `NoShow`, `Rescheduled`, `Expired`. Payment activity never changes `Booking.Status`; a completed booking remains `Completed` after later payment entries.
+- **AC-BKG-52** — Every existing API response that publishes a booking lifecycle status publishes a distinct `paymentState`. The new payment values are `PendingPayment`, `DepositPaid`, and `FullyPaid`, computed once from non-soft-deleted payment records and the authoritative net due. First payment with a remaining balance means `DepositPaid`; one payment that covers the balance goes directly to `FullyPaid`; a Completed booking with a balance remains collectible.
+- **AC-BKG-53** — A `Confirmed` booking becomes `InProgress` at `EventDate + EventStartTime` in Asia/Manila. `Pending`, `Expired`, `Cancelled`, `Rescheduled`, and `NoShow` never auto-advance. Rescheduled bookings require explicit reconfirmation before BG-04 evaluates the new schedule.
+- **AC-BKG-54** — `InProgress` becomes `Completed` at `EventEndDate + PackoutTime + 1 hour`; if `PackoutTime` is unstated, use `EventEndDate + EventEndTime + 1 hour`. The event end date preserves overnight bookings; local schedule boundaries are converted to instants consistently.
+- **AC-BKG-55** — The lifecycle migration maps old enum ordinals exactly as DEC-177 specifies, records every pre-migration value in durable status history for rollback, and fails for unknown ordinals or ambiguous legacy overnight rows rather than guessing. Up/Down scripts and round-trip are validated only on disposable databases.
+- **AC-BKG-56** — BG-04 is an idempotent scheduled poll in the existing API host; after downtime it catches up through valid transitions in order. Status and history commit atomically; row-version concurrency prevents overwriting a concurrent cancellation/reschedule/no-show. BG-04 never changes payment state and adds no SignalR/outbox or manual exception endpoint.
+- **AC-BKG-57** — KPI-18 retains its existing zero-payment-recorded formula and label; it is not silently substituted with the new `PendingPayment` classifier. Existing committed/tentative/executed pipeline populations are preserved.
+
 ---
 
 ## 8. Required Tests
@@ -684,7 +706,7 @@ Every panel states its own emptiness. A panel that can legitimately hold no reco
 | `BookingAmountDueCalculatorSnapshotTests` | The shared overload **reproduces** the frozen snapshot for a plain booking, a booking with a surcharge, a booking with a percentage discount, a booking with a fixed discount and a booking with both; the surcharge is charged **once**; the six-argument overload is unchanged; the **existing** pinned behaviour (a stored zero discount must not shadow the percentage rule) still holds; **the one rounding** is applied to the discount and to the net, and a third-decimal percentage discount produces an identical stored and computed figure. |
 | `BookingRoundingTests` | `Round2` rounds away from the midpoint; the discount and the net are each rounded **once**; a percentage of `0.005` on a gross of `100.00` yields the same stored and computed net; the six-argument overload keeps its signature and its semantics. |
 | `BookingOverpaymentGuardTests` | A payment above the net amount due is refused and **nothing** is written; the guard does not apply to a refund; a payment that takes the total **exactly** to the net amount due is accepted. |
-| `BookingPaymentStateClassifierTests` | The three states are mutually exclusive and exhaustive; the **zero-value** booking and the **overpayment** are `Settled`; the event date is the due date (DEC-041); `isOverdue` is true only for an outstanding balance past the event date. |
+| `BookingPaymentStateClassifierTests` | The three states are mutually exclusive and exhaustive; the **zero-value** booking maps to `FullyPaid` under the existing zero-balance rule; the event date is the due date (DEC-041); `isOverdue` is true only for an outstanding balance past the event date. Overpayments remain rejected by BR-05. |
 | `GetBookingDossierQueryTests` | The filters; the facets ignore their own dimension; the totals are over the population, not the page; the soft-deleted exclusion; the soft-deleted-payment exclusion. |
 | `GetBookingDossierSummaryQueryTests` | The KPI formulas; the leading tier; the preceding-period change; the `null` cases; the capacity `null`. |
 | `PreviewBookingQuoteCommandTests` | The surcharge; the discount precedence and cap; the deposit; the balance; the checks; the `null` semantics; the quote persists nothing. |
@@ -711,6 +733,12 @@ Every panel states its own emptiness. A panel that can legitimately hold no reco
 | `BookingWorkbenchPage.test.tsx` | The three columns; the quote drives the rail; the recalculating state; the draft/confirm actions; the capability-gap notices. |
 | `noHardcodedFigures.test.ts` | No peso sign, thousands separator, decimal literal, four-digit literal or percentage literal in the feature folder. |
 | `AppRoutes.test.tsx` | The register replaces the placeholder; every navigation entry still resolves. |
+
+### 8.4 Lifecycle and scheduled-transition tests
+
+- Backend unit tests pin the new payment-state predicates, including zero due, first partial payment, later installments, direct full payment, soft-deleted payment exclusion, and preservation of `Completed` after payment.
+- Backend integration/migration tests pin every legacy ordinal mapping, the migration baseline history, the ambiguous-overnight guard, EventEndDate round-trip, and the scheduled transitions at exact Asia/Manila boundaries. They also cover excluded statuses, delayed catch-up, row-version conflict, idempotence, and atomic status/history persistence on disposable SQL Server databases.
+- Frontend tests update lifecycle and payment-state types, status labels/chips, filters/facets, dashboard/customer/calendar consumers, and assert the two dimensions remain separately rendered. KPI-18 remains unchanged.
 
 ---
 

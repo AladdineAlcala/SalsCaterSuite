@@ -17,7 +17,7 @@
 | **Database Engine** | SQL Server (Development target: LocalDB `MSSQLLocalDB`) |
 | **Test Projects** | `src/backend/SalsCaterSuite.UnitTests` (xUnit), `src/backend/SalsCaterSuite.IntegrationTests` (xUnit + `WebApplicationFactory`) |
 | **Status** | Living document — aligned to the **as-built** repository state |
-| **Last aligned** | 2026-10-28 (AGENT 01 — REQ-PKG-04 / DEC-173 delivered and DEC-174/175 recorded. As-built trees, 18 Domain entities, 18 Application contracts, new read-only package lookup endpoint, migration chain, request-file map and delivered-feature state realigned. Independent validation: Release backend build 0 warnings/0 errors, 1021/1021 unit, 160/160 integration; focused frontend 11 files/239 tests, full Vitest 27 files/430 tests, TypeScript and production build passed with the existing Vite chunk-size advisory. EF model parity clean; DEC-173 Up/Down scripts generated/reviewed only and not applied to a persistent database. Owner confirms DEC-172 is already applied to Development; DEC-173 remains unapplied. Clean remote clone/live browser E2E not verified; see §11.) |
+| **Last aligned** | 2026-10-31 (AGENT 01 — REQ-PKG-04 / DEC-176 applicable-pax display delivered. As-built frontend remains within existing package and booking feature/test folders; no project, route, endpoint, DTO, dependency, or database structure changed. Independent frontend validation: focused packages + bookings 11 files/321 tests; full Vitest 27 files/512 tests; TypeScript and production build passed with the existing Vite chunk-size advisory. No live browser E2E, clean remote clone, commit, or push; see §11.) |
 
 > **Read this document before acting.** If the code and this document disagree, **the code is the current truth and this document is stale**. AGENT 01 realigns the document as part of closing the work cycle. A sub-agent that finds a discrepancy must report it to AGENT 01 and must **not** silently treat either side as correct.
 
@@ -628,7 +628,7 @@ src/frontend/salscatersuite-ui/
     │   └── AuthContext.tsx            (user state, role check, login/logout)
     ├── features/
     │   ├── auth/                      (LoginPage.tsx)
-    │   ├── bookings/                  (REQ-BKG-05/01 — DELIVERED · REQ-BKG-06/07/08 — DELIVERED)
+    │   ├── bookings/                  (REQ-BKG-05/01 — DELIVERED · REQ-BKG-06/07/08 — DELIVERED; DEC-176 classification display on existing create workbench)
     │   │   ├── components/            (BookingAddonsPanel — selected-only panel with lazy category-filtered modal, DEC-170; BookingBatchYieldPanel,
     │   │   │                           BookingContractLedger, BookingDossierCard, BookingDossierGrid,
     │   │   │                           BookingEmptyState, BookingFilterBar,
@@ -643,8 +643,8 @@ src/frontend/salscatersuite-ui/
     │   │   │                           WorkbenchAddonPicker, WorkbenchChecklist, WorkbenchClientRail,
     │   │   │                           WorkbenchFields, WorkbenchHeader, WorkbenchLedgerRail,
     │   │   │                           WorkbenchLogisticsBlock, WorkbenchMenuDraft,
-    │   │   │                           WorkbenchScheduleMatrix, WorkbenchTierEngine)
-    │   │   ├── hooks/                 (useBookingMenu, useBookingRegister, useBookingWorkbench)
+    │   │   │                           WorkbenchScheduleMatrix, WorkbenchTierEngine — the buffet-tier option and selected-tier panel display the verbatim applicable-pax lookup label, DEC-176)
+    │   │   ├── hooks/                 (useBookingMenu, useBookingRegister, useBookingWorkbench, which exports the feature-local `useBookingPaxApplicables` query using the shared lookup cache key)
     │   │   ├── BookingMenuPage.tsx, BookingsEventsPage.tsx, BookingWorkbenchPage.tsx,
     │   │   │                           bookingVocabulary.ts
     │   │   └── __tests__/             (BookingMenuPage.test.tsx, BookingsEventsPage.test.tsx,
@@ -674,10 +674,10 @@ src/frontend/salscatersuite-ui/
     │   │   ├── hooks/                 (useMenuCourses, useMenuExport, useMenuMaster, useMenuMutations, useMenuPreview)
     │   │   ├── MenuCostingMasterPage.tsx, MenuRecipeFormPage.tsx, menuStatus.ts
     │   │   └── __tests__/
-    │   ├── packages/                  (REQ-PKG-01 / REQ-PKG-02 / REQ-PKG-04 — DELIVERED; course-rule fields amended by DEC-172)
-    │   │   ├── components/            (PackageBanner, PackageCard, PackageCardGrid,
+    │   ├── packages/                  (REQ-PKG-01 / REQ-PKG-02 / REQ-PKG-04 — DELIVERED; course-rule fields amended by DEC-172; catalogue classification display delivered by DEC-176)
+    │   │   ├── components/            (PackageBanner, PackageCard — API-fed applicable-pax classification on card, PackageCardGrid,
     │   │   │                           PackageCatalogueSkeleton, PackageEmptyState, PackageFilterBar,
-    │   │   │                           PackageInspector, PackageKpiCard, PackageKpiGrid,
+    │   │   │                           PackageInspector — selected-tier classification display, PackageKpiCard, PackageKpiGrid,
     │   │   │                           PackageTypeChip, PackageTypeTabs;
     │   │   │                           REQ-PKG-02: PackageSpecRail, PackageForecastPanel,
     │   │   │                           PackageCourseRuleCard, PackageCourseRuleEditor (course rules omit inclusion/upgrade add-on fields — DEC-172),
@@ -691,7 +691,7 @@ src/frontend/salscatersuite-ui/
     │   │   ├── PackageCataloguePage.tsx, PackageTierFormPage.tsx (required API-fed applicable-pax select, DEC-173), packageTypes.ts;
     │   │   │                           REQ-PKG-02: PackageCourseRulesPage.tsx,
     │   │   │                           PackageLocationsPage.tsx
-    │   │   └── __tests__/             (PackageCataloguePage.test.tsx, PackageTierFormPage.test.tsx,
+    │   │   └── __tests__/             (PackageCataloguePage.test.tsx, PackageTierFormPage.test.tsx (REQ-PKG-04 selector tests),
     │   │                               noHardcodedFigures.test.ts;
     │   │                               REQ-PKG-02: PackageCourseRulesPage.test.tsx,
     │   │                               PackageLocationsPage.test.tsx)
@@ -832,7 +832,7 @@ Additional server endpoints not yet consumed by the client exist on the Calendar
 - No feature folder may fabricate data to cover a missing endpoint. A gap renders an explicit **capability-gap notice** or a `NotImplementedPage`.
 - Shared UI lives in `components/ui` and `components/feedback`; feature-specific code stays inside its feature folder.
 - Types in `src/types/` mirror the .NET DTOs. Enums travel as **string names**.
-- For REQ-PKG-04, `package.types.ts` mirrors `PackagePaxApplicable` and the required `numPaxId`; the Package Tier form loads selector options from the API and does not hardcode the lookup rows.
+- For REQ-PKG-04, `src/types/package.types.ts` mirrors `PackagePaxApplicable` and the required `numPaxId`; the Package Tier form loads selector options from the API and does not hardcode the lookup rows.
 - Currency is always `₱` with no space and 2 decimals, via `utils/currencyFormatter.ts`. A **money input** uses `utils/currencyInput.ts` and `components/ui/CurrencyInput.tsx` instead (`1,425.00`, no symbol in the editable text — DEC-166).
 - A feature folder carries a `noHardcodedFigures` test that fails if a peso, thousands separator, decimal or 4+ digit literal is hardcoded in the feature.
 
@@ -1061,7 +1061,7 @@ The authoritative per-feature status, test evidence and outstanding gaps live in
 
 | Feature | Requirement | Backend | Frontend | State |
 | :--- | :--- | :--- | :--- | :--- |
-| Package Applicable Pax Classification | REQ-PKG-04 | Required `Package.numPaxId` FK, five fixed lookup rows, repository-backed `GET /api/packages/pax-applicables`, create/update reference validation; DEC-173 migration guarded for owner mapping `p_id=1→4`, `p_id=2→2` | Required API-fed selector on existing `PackageTierFormPage`, edit preselection and lookup loading/error/empty states; no booking rule | **DELIVERED 2026-10-28** — build 0 W/0 E, 1021/1021 unit, 160/160 integration, focused FE 11 files/239 tests, full Vitest 27 files/430, TypeScript/build pass; migration reviewed only and not applied to a persistent DB |
+| Package Applicable Pax Classification | REQ-PKG-04 | Required `Package.numPaxId` FK, five fixed lookup rows, repository-backed `GET /api/packages/pax-applicables`, create/update reference validation; DEC-173 migration guarded for owner mapping `p_id=1→4`, `p_id=2→2` | Required API-fed selector on existing `PackageTierFormPage`; DEC-176 adds verbatim lookup labels to package cards/inspector and the existing `/bookings/new` tier options/selected-tier panel; pending/error/unmatched states are non-blocking; no booking edit screen/rule | **DELIVERED 2026-10-31** — independent frontend focused packages + bookings 11 files/321 tests, full Vitest 27 files/512 tests, TypeScript and production build passed (existing Vite chunk advisory). DEC-173 migration remains script-reviewed only and unapplied to a persistent DB. No live browser E2E or clean remote clone. |
 | Platform & build | — | 5 projects on `net10.0`, 0 warnings / 0 errors | Vite/TS/Tailwind toolchain | Green |
 | Persistence architecture | DEC-037/039 | Repository-only persistence | n/a | Green |
 | Authentication & identity | DEC-017/028 | JWT + `ClaimTypes.Role`, legacy hasher | Login + `ProtectedRoute` | Green |
@@ -1142,7 +1142,15 @@ The authoritative per-feature status, test evidence and outstanding gaps live in
 | :--- | :--- | :--- | :--- |
 | 2026-10-28 | AGENT 01 | **REQ-PKG-04 Package Applicable Pax Classification delivered (DEC-173).** Added the fixed-ID `PackagePaxApplicable` lookup, required `Package.numPaxId` FK, read-only `GET /api/packages/pax-applicables`, create/update reference validation, and the API-fed required selector on the existing Package Tier form. The five labels and existing-row mapping are owner-approved; this is classification-only and adds no booking or pricing rule. Migration `20261028121519_AddPackagePaxApplicableClassification` is generated and Up/Down script-reviewed only; the explicit guard rejects unmapped rows; DEC-173 was not applied to a persistent database. Also corrected the previously omitted `IAddonRepository` in §2.3 (as-built Application interface count is 18) and corrected §5's owner request path to `docs/userchangerequest.txt`. The owner confirmed DEC-172 is applied to Development (DEC-174). DEC-175 records review of reconstructed DEC-172 test edits after the reported checkout incident; RSK-075 is accepted/closed with exact original wording noted as unrecoverable. Independent validation: backend Release build 0 W/0 E, 1021/1021 unit, 160/160 integration; focused FE 11 files/239, full Vitest 27 files/430, TypeScript/build passed with the existing chunk advisory; model parity clean; no clean remote clone or live browser E2E. | 2.2–2.6, 3.2, 3.4–3.5, 4–5, 9–11 |
 
+### Additional change-log entry — 2026-10-31
+
+| Date | Agent | Change | Sections touched |
+| :--- | :--- | :--- | :--- |
+| 2026-10-31 | AGENT 01 | **REQ-PKG-04 applicable-pax classification display delivered (DEC-176).** Existing API-fed labels are displayed on package catalogue cards and the selected-tier inspector, and in the existing `/bookings/new` buffet-tier options and selected-tier panel. The booking query stays inside the existing bookings feature and shares the lookup cache key; labels are verbatim, loading/error/unmatched states are non-blocking, and no booking edit surface is added. No backend, endpoint, DTO, database, route, project, dependency, or shared component change. AGENT 01 independently verified focused packages + bookings **11 files / 321 tests**, full Vitest **27 files / 512 tests**, TypeScript and production build (existing Vite chunk advisory). No live browser E2E, clean remote clone, commit or push. | 3.2, 9–11 |
+
 ## 11. Verification Checklist
+
+**Verification — 2026-10-31 (AGENT 01, REQ-PKG-04 / DEC-176 Close).** Enumerated the affected existing frontend package and booking feature trees and confirmed that all changed product and test files remain under §3.2; no new file category, project, feature folder, route, endpoint, dependency or layer boundary was added. The package lookup endpoint in §3.4 and the `/packages` and `/bookings/new` routes in §3.3 are unchanged. **Independent frontend validation:** `npm --prefix src/frontend/salscatersuite-ui run test -- src/features/packages src/features/bookings` → **11 files / 321 tests passed**; `npm --prefix src/frontend/salscatersuite-ui run test` → **27 files / 512 tests passed**; `npm --prefix src/frontend/salscatersuite-ui run build` → TypeScript passed and Vite built 2,169 modules successfully with the existing >500 kB chunk-size advisory. Scoped `git diff --check` for the workflow, business/governance/implementation docs and affected frontend folders was clean. No backend/API/database behavior changed, so backend suites and persistent databases were not touched. No live browser E2E, viewport measurement, clean remote clone, commit or push was performed. The pre-existing modified `docs/userchangerequest.txt` was left untouched.
 
 **Verification — 2026-10-28 (AGENT 01, REQ-PKG-04 / DEC-173 Close).** Enumerated the as-built Domain folder (**18 entities**) and Application common contracts (**18 files**, including the pre-existing `IAddonRepository` previously omitted from this document); verified the new Application lookup DTO/query and repository contract, Infrastructure configuration/repository, `DbContext` entity set, existing `PackagesController` action, and migration `20261028121519_AddPackagePaxApplicableClassification`. The migration folder contains **9 migrations** plus the model snapshot. The frontend change is inside the existing `features/packages` boundary, with the shared package/lookup TypeScript mirror and the single new endpoint in `endpoints.ts`; no frontend route, new project, controller, feature folder, shared component, or layer dependency was added. **Independent backend validation:** Release build with redirected output → **0 warnings / 0 errors**; unit tests → **1021/1021 passed**; integration tests → **160/160 passed** on disposable LocalDB. `dotnet ef migrations has-pending-model-changes` → **no model changes** (the pre-existing tool/runtime version warning is `dotnet-ef` 10.0.0 vs runtime 10.0.13). Independent Up/Down SQL was generated to temporary files and reviewed: the five fixed rows precede the nullable package column, the explicit `THROW` guard precedes backfill/NOT NULL/FK, and Down drops the FK/index/column/table in valid order. The migration was **not applied** to Development or any persistent/production database. **Independent frontend validation:** focused packages + bookings **11 files / 239 tests passed**; full Vitest **27 files / 430 tests passed**; production build passed TypeScript and Vite (2,169 modules) with the existing >500 kB chunk-size advisory. No live browser E2E, viewport measurement, clean remote clone, commit or push was performed. The owner-confirmed development DB remains at DEC-172 (DEC-174). RSK-075's checkout/reconstruction incident was reviewed; all other affected fixture diffs were limited to the expected `NumPaxId` additions, and the owner accepted proceeding with the reconstructed DEC-172 tests (DEC-175); the lost exact original wording remains documented.
 

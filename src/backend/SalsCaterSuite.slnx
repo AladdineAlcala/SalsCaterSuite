@@ -2,6 +2,7 @@
   <Project Path="SalsCaterSuite.Application/SalsCaterSuite.Application.csproj" />
   <Project Path="SalsCaterSuite.Domain/SalsCaterSuite.Domain.csproj" />
   <Project Path="SalsCaterSuite.Infrastructure/SalsCaterSuite.Infrastructure.csproj" />
-  <Project Path="SalsCaterSuite.WebApi/SalsCaterSuite.WebApi.csproj" />
   <Project Path="SalsCaterSuite.UnitTests/SalsCaterSuite.UnitTests.csproj" />
+  <Project Path="SalsCaterSuite.WebApi/SalsCaterSuite.WebApi.csproj" />
+  <Project Path="SalsCaterSuite.Worker/SalsCaterSuite.Worker.csproj" Id="d9613ce5-2ed2-4584-97a1-e19c2cc4ace5" />
 </Solution>

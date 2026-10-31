@@ -94,7 +94,7 @@ $$\text{RemainingBalance} = \max(0.00, \text{NetAmountDue} - \text{TotalPayments
 - Booking details, ledger, calendar and customer statements must all reconcile to the same authoritative figure.
 - `${RemainingBalance} = \max(0.00, \text{NetAmountDue} - \text{AmountPaid}_{authoritative})$` (BR-03 continues to apply).
 - **Refunds do not reduce the balance due.** Refunds are reported separately as `TotalRefunded`; whether a refund reduces the outstanding balance depends on the cancellation/refund policy (DEC-007) and is currently **UNRESOLVED**.
-- Booking lifecycle `Status` is the single source of truth and is derived from payment progress (`Pending` → `DepositPaid` → `FullyPaid`) and event execution (`InProgress` → `Completed`) with `Cancelled` terminal. The legacy `ServeStatus` / `IsCancelled` boolean pair is retired and must not be reintroduced.
+- Booking lifecycle `Status` is the single source of truth for event/booking lifecycle only: `Pending`, `Confirmed`, `InProgress`, `Completed`, `Cancelled`, `NoShow`, `Rescheduled`, `Expired`. It is not derived from payment progress. Payment status is a separate server projection over the authoritative ledger (BR-28); payment recording never changes lifecycle `Status`. The legacy `ServeStatus` / `IsCancelled` boolean pair is retired and must not be reintroduced.
 
 ---
 
@@ -363,25 +363,25 @@ $$\text{StandardRunFoodCostPerPax} = \sum_{r \in R} \overline{\text{FoodCost}}_r
 - The register's population is every **non-soft-deleted** booking whose status is **not** `Cancelled`. `Expired` bookings stay in it, because DEC-025 keeps them in AR (RSK-017 remains open).
 - A booking with **no tier** (`PackageId` is nullable) is in the population and in every total. It is **excluded from the tier facet** (it has no tier type) and from the **leading tier** (KPI-34), and it is counted in the pipeline.
 
-### Rule BR-28: The Payment-State Vocabulary And The Overdue Dimension
+### Rule BR-28: The Payment-State Vocabulary And The Overdue Dimension (amended by DEC-177)
 
 - One classifier, in one class, shared by the register, the summary and the quote. The **payment state** answers one question - *how far along is the payment?* - and it is a **three-state** vocabulary:
 
 | State | Condition |
 | :--- | :--- |
-| `AwaitingDeposit` | `Collected == 0` **and** `NetAmountDue > 0` |
-| `PartiallyPaid` | `Collected > 0` **and** `Collected < NetAmountDue` |
-| `Settled` | `Collected >= NetAmountDue` |
+| `PendingPayment` | `Collected == 0` **and** `NetAmountDue > 0` |
+| `DepositPaid` | `Collected > 0` **and** `Collected < NetAmountDue` |
+| `FullyPaid` | `Collected >= NetAmountDue` |
 
-- **The names must not collide with the lifecycle vocabulary** (DEC-117). Contract section 5 publishes the ten `BookingStatus` names, and two of them - `DepositPaid` and `FullyPaid` - are *payment* names. The payment states are therefore named **`AwaitingDeposit`**, **`PartiallyPaid`** and **`Settled`**, and the two vocabularies never share a name. `BookingStatus.DepositPaid` remains a **lifecycle** status; `PartiallyPaid` is a **payment** state.
-- The evaluation order is `AwaitingDeposit` -> `PartiallyPaid` -> `Settled`, and the three states are **mutually exclusive and exhaustive** by construction: `Collected == 0` and `Collected > 0` cannot both hold, and `Collected < NetAmountDue` and `Collected >= NetAmountDue` cannot both hold. **Every booking has exactly one payment state**, and the three counts sum to the population's booking count.
-- `Settled` deliberately covers two edge cases that must never be reported as awaiting anything: a **zero-value** booking (`NetAmountDue == 0`, nothing collected) and an **overpayment** (`Collected > NetAmountDue`).
+- **Payment progress is separate from lifecycle status** (DEC-117 superseded by DEC-177). `DepositPaid` and `FullyPaid` are no longer `BookingStatus` values; they are payment-state values. `PendingPayment` is the state for no collections against a positive due.
+- The evaluation order is `PendingPayment` -> `DepositPaid` -> `FullyPaid`, and the three states are **mutually exclusive and exhaustive** by construction. The sum excludes soft-deleted payments (DEC-012, DEC-111). The first recorded payment counts as the deposit; no minimum deposit percentage or threshold is inferred. A full payment in one entry may move directly from PendingPayment to FullyPaid; later partial installments remain DepositPaid until the amount due is met.
+- `FullyPaid` deliberately preserves the prior `Settled` edge cases: a **zero-value** booking (`NetAmountDue == 0`, nothing collected) and an overpayment would classify as FullyPaid, although BR-05 rejects new overpayments. No payment status is stored as a second financial truth; it is derived from the ledger and shared net-due path.
 - **Overdue is a separate dimension, not a payment state.** A booking with a balance is overdue when its **event date has passed** - the event date is the due date (DEC-041):
 
   $$\text{IsOverdue} = \text{Outstanding} > 0 \;\land\; \text{EventDate} < \text{today}$$
 
   It is published per item, it drives the register's overdue filter, and it feeds the `overdueCount` / `overdueAmount` aggregates. It is deliberately **not** a payment state: a partly-paid booking is `PartiallyPaid` **and** overdue, and folding the two into one vocabulary would make the states overlap, so a payment-state filter would select rows that no single state describes.
-- The register therefore filters on **payment state** (`AwaitingDeposit`, `PartiallyPaid`, `Settled`) and on **overdue** separately. It does **not** filter on a deposit **percentage**: the required deposit percentage is configuration and absent by default (DEC-101, BR-30), so a percentage-based filter would assert a house rule that does not exist.
+- The register therefore filters on **payment state** (`PendingPayment`, `DepositPaid`, `FullyPaid`) and on **overdue** separately. It does **not** filter on a deposit **percentage**: the required deposit percentage is configuration and absent by default (DEC-101, BR-30), so a percentage-based filter would assert a house rule that does not exist.
 
 ### Rule BR-29: The Pre-Dispatch Checks Warn, And Only One Blocks
 
@@ -417,16 +417,16 @@ $$\text{StandardRunFoodCostPerPax} = \sum_{r \in R} \overline{\text{FoodCost}}_r
 - A **confirmed** booking may carry an **initial payment**, which is recorded in the **same commit** as the booking — a confirmed booking with an agreed deposit is never a booking without its payment.
 - An initial payment larger than the net amount due is **rejected** (BR-05's overpayment prohibition, enforced by DEC-118), and the rejection creates **no** booking and **no** payment row.
 - The initial payment's receipt number comes from the **one** receipt-number generator (BR-05's `OR-YYYYMMDD-XXXX` format), shared with the payment ledger.
-### Rule BR-34: The Dispatch Schedule Is An Ordering Within The Event's Day
+### Rule BR-34: The Dispatch Schedule Is Ordered Against the Full Event Interval (amended by DEC-178)
 
-- A booking may carry a **kitchen call time** (`callTime`) and a **pack-out time** (`packoutTime`). Both are a **time of day**, stored in their own nullable columns (DEC-106).
+- A booking may carry a **kitchen call time** (`callTime`) and a **pack-out time** (`packoutTime`). Both are **time-of-day** values stored in nullable columns (DEC-106). The booking also stores `EventDate` and `EventEndDate` so overnight schedules retain their end-date offset (DEC-178).
 - The schedule is an **ordering**, and it is validated as one:
 
-  $$\text{CallTime} \le \text{EventStartTime} \qquad \land \qquad \text{PackoutTime} \ge \text{EventEndTime}$$
+  $$\text{EventDate}+\text{CallTime} \le \text{EventDate}+\text{EventStartTime} \qquad \land \qquad \text{EventEndDate}+\text{PackoutTime} \ge \text{EventEndDate}+\text{EventEndTime}$$
 
   A value that breaks the ordering is a `400` (BR-11). The kitchen must be called **before** the programme starts, and the floor must be packed out **after** it ends.
-- The rule is **unambiguous** because the model already forbids the case that would make a time of day ambiguous: `Booking.Create` rejects `endDate < startDate`, so an **overnight event cannot exist** and `EventStartTime` / `EventEndTime` are always same-day times of day.
-- The rule is **not** a "same day" rule — the columns are a time of day, and the check is an ordering. A call time of `02:00` and a pack-out time of `23:00` around a `17:00`-``22:00` programme are both valid.
+- The create path requires the full `endDate` instant not to precede `startDate`; an end date on a later day is permitted and stored in `EventEndDate`. The legacy schema did not preserve this offset; DEC-178 adds it. Migration candidates whose old end time is earlier than the start time are ambiguous and must fail closed pending explicit owner mapping.
+- The rule compares complete instants, not time strings alone. For overnight events, the call time belongs to the start date and pack-out time belongs to the end date.
 - Both times are **optional**. A booking without them is a booking without a dispatch schedule, not an invalid one.
 - The rule is **ratified by AGENT 01** (2026-10-22) after the backend delivery, and it is pinned by a test on both the validator and the command path.
 ---
@@ -583,3 +583,20 @@ $$\text{StandardRunFoodCostPerPax} = \sum_{r \in R} \overline{\text{FoodCost}}_r
 - Every **money** input renders two decimals and thousands separators while unfocused (`1,425.00`) and the raw value while it is being edited. The **peso symbol is not shown inside an editable field**; readouts keep it (`₱1,425.00`).
 - The form state stays raw, so a comma never reaches a parser. Counts (headcount, quota, portions, percentages) remain plain numbers.
 - The client never derives a monetary figure from a formatted string; the server remains the authority for every total (DEC-002).
+
+### Rule BR-49: Booking Lifecycle Transitions (DEC-177 / DEC-178)
+
+- The lifecycle vocabulary is `Pending`, `Confirmed`, `InProgress`, `Completed`, `Cancelled`, `NoShow`, `Rescheduled`, and `Expired`. Payment progress is not stored in `Booking.Status`.
+- Payment status is separately derived from the authoritative sum of non-soft-deleted `Payment.AmountPaid` entries and the shared net-due calculation: `PendingPayment` when collected is zero and a positive balance is due; `DepositPaid` when a positive partial amount has been recorded; `FullyPaid` when collected meets/exceeds net due. The first recorded payment counts as the deposit. No deposit threshold or percentage is implied. A full payment in one entry may go directly to `FullyPaid`; zero-value bookings retain the existing settled/zero-balance treatment.
+- BG-04 advances `Confirmed` to `InProgress` at the scheduled start instant in Asia/Manila. It advances `InProgress` to `Completed` one hour after scheduled packout, or one hour after scheduled event end when packout is unstated.
+- BG-04 never changes `Pending`, `Expired`, `Cancelled`, `Rescheduled`, or `NoShow`. A rescheduled booking must be explicitly confirmed again before automatic transitions apply. Manual NoShow/Rescheduled actions are outside this delivery.
+- Transitions are idempotent, row-version concurrency-safe, and written with a durable `BookingStatusHistory` record in the same transaction. Delayed polling catches up through valid transitions in order. BG-04 never mutates payment status.
+- A `Completed` booking with a remaining balance remains collectible and included in AR (DEC-025). Payment status does not reopen or downgrade the event lifecycle.
+
+### Rule BR-49: Booking Lifecycle Transitions (DEC-178)
+
+- The lifecycle vocabulary is the `BookingStatus` enum: `Pending`, `Confirmed`, `InProgress`, `Completed`, `Cancelled`, `NoShow`, `Rescheduled`, `Expired`. Payment status is separate (BR-28).
+- A scheduled background service advances only `Confirmed` → `InProgress` when the event's scheduled start instant is reached, and `InProgress` → `Completed` when scheduled packout plus one hour is reached. If no packout time is stored, use the event end instant plus one hour. Interpret the event's stored date/time in Asia/Manila and compare it as an instant.
+- `Pending`, `Expired`, `Cancelled`, `Rescheduled`, and `NoShow` are never auto-completed. A rescheduled booking must be confirmed again against its new schedule before BG-04 may advance it. Manual NoShow/Rescheduled actions are not delivered by this rule.
+- A delayed or repeated poll is idempotent. When both thresholds have passed before the next poll, record the valid transitions in order (`Confirmed` → `InProgress` → `Completed`) in durable booking-status history. Use concurrency control so a cancellation, reschedule, or no-show recorded concurrently is never overwritten.
+- Payment recording, including a payment that fully settles a Completed booking, never changes lifecycle `Status`. A Completed booking with an unpaid balance remains in AR (DEC-025); payment status is recomputed separately through BR-28.

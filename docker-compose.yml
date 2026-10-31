@@ -1,0 +1,75 @@
+# ---------------------------------------------------------------------------
+# Sal's CaterSuite - local Docker deployment
+#
+#   web  (nginx)  :8080 -> SPA + /api proxy -> api
+#   api  (.NET 10):5149 -> http://+:8080 inside the container
+#   db   (SQL 22) :1433 -> replaces LocalDB, which cannot run on Linux
+#
+# Secrets come from .env (git-ignored). Start with:
+#   node scripts/deploy.mjs
+#
+# The Database__* switches are for THIS local container only. A shared or
+# production host must leave them false and apply migrations as a reviewed step
+# (DEC-018 / DEC-020).
+# ---------------------------------------------------------------------------
+name: salscatersuite
+
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"
+      MSSQL_SA_PASSWORD: "${SQL_SA_PASSWORD:?set SQL_SA_PASSWORD in .env}"
+      MSSQL_MEMORY_LIMIT_MB: "2048"
+    ports:
+      # Host access for SSMS. 1433 is commonly taken by a local SQL container or a
+      # native instance, so the host port is configurable.
+      - "${DB_HOST_PORT:-14330}:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - 'SQLCMD=/opt/mssql-tools18/bin/sqlcmd; [ -x "$$SQLCMD" ] || SQLCMD=/opt/mssql-tools/bin/sqlcmd; "$$SQLCMD" -S 127.0.0.1 -U sa -P "$$MSSQL_SA_PASSWORD" -C -l 5 -b -Q "SELECT 1" -o /dev/null'
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 40s
+
+  api:
+    build:
+      context: ./src/backend
+      dockerfile: SalsCaterSuite.WebApi/Dockerfile
+    environment:
+      # Development enables the Swagger UI. It does NOT weaken the database rules:
+      # both switches below are set explicitly, and the connection string points at
+      # the container, never at LocalDB.
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_URLS: "http://+:8080"
+      ConnectionStrings__SalsCaterSuiteDb: "Server=db,1433;Database=SalsCaterSuiteDb;User Id=sa;Password=${SQL_SA_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=true"
+      Database__ApplyMigrationsOnStartup: "true"
+      Database__SeedOnStartup: "true"
+      Jwt__SecretKey: "${JWT_SECRET:?set JWT_SECRET in .env}"
+      Jwt__Issuer: "SalsCaterSuite.Api"
+      Jwt__Audience: "SalsCaterSuite.Client"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      # 5149 is usually the local `dotnet watch` API. The container gets its own
+      # host port so both can run at once; the Vite dev proxy can point at either
+      # via VITE_API_PROXY_TARGET.
+      - "${API_HOST_PORT:-5150}:8080"
+
+  web:
+    build:
+      context: ./src/frontend/salscatersuite-ui
+      dockerfile: Dockerfile
+    depends_on:
+      - api
+    ports:
+      - "${WEB_HOST_PORT:-8080}:80"
+
+volumes:
+  mssql-data:

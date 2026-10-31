@@ -3,14 +3,14 @@
 | Field | Value |
 | :--- | :--- |
 | **Requirement** | REQ-PKG-01 (Packages - Catering Packages Catalog); REQ-PKG-04 (Package Applicable Pax Classification) |
-| **Specification version** | v1.1 |
-| **Issued** | 2026-10-21; amended 2026-10-28 by AGENT 01 (BI Architect) |
-| **Status** | REQ-PKG-01 and REQ-PKG-04 delivered |
+| **Specification version** | v1.2 |
+| **Issued** | 2026-10-21; amended 2026-10-28 (DEC-173) and 2026-10-31 (DEC-176) by AGENT 01 (BI Architect) |
+| **Status** | REQ-PKG-01 and REQ-PKG-04 delivered, including DEC-176 classification display |
 | **Design reference** | `d:\Downloads\SalsCaterSuite_Designs\Package_Main\code.html` + `screen.png` - **reference only**, not a specification of data |
 | **API contract** | `architecture/approved-api-contracts.md` section 12 (issued with this specification) |
-| **Decisions** | DEC-067 .. DEC-072, DEC-162 .. DEC-167, DEC-173 (`governance/decision-log.md`) |
+| **Decisions** | DEC-067 .. DEC-072, DEC-162 .. DEC-167, DEC-173, DEC-176 (`governance/decision-log.md`) |
 | **KPI additions** | KPI-25 .. KPI-28 (`business/kpi-catalog.md`) |
-| **Tasks** | TASK-PKG-01-BE / FE (delivered); TASK-PKG-04-BE / FE (applicable-pax enhancement) |
+| **Tasks** | TASK-PKG-01-BE / FE (delivered); TASK-PKG-04-BE / FE (lookup delivered); TASK-PKG-05-FE (DEC-176 display extension) |
 
 ---
 
@@ -192,8 +192,8 @@ Follows the delivered anatomy of the Menu & Food Costing Master: a banner, a fou
    - **Per-Pax Rate Range** - `lowestAmountPax` - `highestAmountPax`; em dash when no tier is priced.
    - **Minimum Headcount** - `lowestMinPax`; sub-line "Highest floor: N heads"; when no tier sets a floor the sub-line reads "No tier sets a minimum headcount" and the unit is suppressed, so the readout never shows a dash followed by a unit.
 3. **Filter bar** - a free-text search over the tier name and type, a **tier-type tab strip** (All + one tab per distinct type present in the catalogue, each with its live count), an **active/inactive** filter and a **sort** control (rate high-low, rate low-high, name A-Z).
-4. **Tier cards** - one card per tier: the tier type as a badge, the description as the heading, the per-guest rate, the minimum headcount, and the active state as a labelled chip (never colour alone).
-5. **Inspector** (right column, sticky) - the selected tier's identity, its commercial terms (rate, minimum headcount, state), the actions (Edit Tier / Deactivate-or-Activate), and the **four capability-gap notices**.
+4. **Tier cards** - one card per tier: the tier type as a badge, the description as the heading, the per-guest rate, the minimum headcount, the applicable-pax classification returned by the fixed lookup (DEC-173), and the active state as a labelled chip (never colour alone). Include the classification in the card's accessible name.
+5. **Inspector** (right column, sticky) - the selected tier's identity, its commercial terms (rate, minimum headcount, state), its applicable-pax classification, the actions (Edit Tier / Deactivate-or-Activate), and the **four capability-gap notices**. The label is resolved from the existing API lookup, not parsed or authored in the client.
 6. **Empty states** - an empty catalogue and a filter that matches nothing are **different** states and say so.
 7. **Footer** - the server's `generatedAt` and the API connection state, exactly like the delivered screens.
 
@@ -262,6 +262,7 @@ Full definitions are appended to `business/kpi-catalog.md`. They are catalogue s
 | AC-P17 | The API returns the fixed choices in ID order. Missing/zero `numPaxId` on create/update returns `400 { errors: ["Applicable pax classification is required."] }`; an unknown ID returns `400 { errors: ["Applicable pax classification was not found."] }`; neither persists or changes anything. |
 | AC-P18 | The migration inserts the five approved lookup rows and applies only `p_id=1 → 4` and `p_id=2 → 2`; an unexpected unmapped package row causes a safe failure. The migration is script-reviewed only and never applied to a persistent database in this cycle. |
 | AC-P19 | The applicable-pax classification has no effect on package type, `MinPax`, booking eligibility, quote payloads, or pricing. |
+| AC-P20 | Every catalogue tier card and the selected-tier inspector display the exact `PackagePaxApplicable` label matched by `numPaxId`; card accessible names include it. Lookup loading/failure/unmatched states are explicit and never substitute an authored label. |
 
 ---
 
@@ -288,6 +289,7 @@ Full definitions are appended to `business/kpi-catalog.md`. They are catalogue s
 - `PackageTierFormPage.test.tsx` - the pre-filled edit form, the client-side rejection messages, the server's verbatim `errors[]`, and the successful save.
 - `noHardcodedFigures.test.ts` - the feature scan.
 - `PackageTierFormPage.test.tsx` additionally covers the required API-fed applicable-pax selector, edit preselection, loading/error behavior, and payload inclusion of `numPaxId`.
+- `PackageCataloguePage.test.tsx` additionally covers API-fed classification labels on cards and inspector, selection changes without stale labels, accessible card names, and non-blocking lookup loading/error/unmatched states. A source guard ensures fixed lookup labels are not hardcoded in production frontend code.
 
 ---
 

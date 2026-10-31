@@ -1,7 +1,7 @@
 ---
 description: Plan-review sub-agent. Reviews the workplan in WORKFLOW_STATE.md before delegation. Binary decision - is there a meaningfully better plan, or is the current one good enough?
 mode: subagent
-model: opencode-go/minimax-m3
+model: opencode-go/deepseek-v4.1-flash-free
 steps: 4
 permissions:
   - action: subagent

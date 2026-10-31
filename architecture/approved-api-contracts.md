@@ -25,6 +25,7 @@ Security: Bearer JWT (`Authorization: Bearer <token>`)
   "occasion": "Silver Wedding Anniversary",
   "venue": "Grand Ballroom, Hotel Sal",
   "eventDate": "2026-11-20",
+  "eventEndDate": "2026-11-20",
   "eventStartTime": "17:00:00",
   "eventEndTime": "22:00:00",
   "callTime": "14:00:00",
@@ -48,11 +49,12 @@ Security: Bearer JWT (`Authorization: Bearer <token>`)
   "depositAmount": 0.00,
   "amountPaid": 30000.00,
   "balance": 51000.00,
-  "status": "DepositPaid",
+  "status": "Confirmed",
+  "paymentState": "DepositPaid",
   "reminderSent": false
 }
 ```
-- **Notes:** `eventDate` is a date (`yyyy-MM-dd`); `eventStartTime`/`eventEndTime` are times (`HH:mm:ss`). `status` is the booking lifecycle enum (BR-10). `amountPaid` and `balance` must reconcile with the ledger endpoint (§2).
+- **Notes:** `eventDate` and `eventEndDate` are dates (`yyyy-MM-dd`); `eventStartTime`/`eventEndTime` are times (`HH:mm:ss`). `status` is the booking lifecycle enum and `paymentState` is the separate ledger-derived payment state (BR-10/BR-28, DEC-177). `eventEndDate` preserves overnight schedules. `amountPaid` and `balance` must reconcile with the ledger endpoint (§2).
 - **The dispatch schedule (DEC-106, BR-34).** `callTime` is the kitchen call time and `packoutTime` the pack-out time. Both are a **time of day** and both are **frozen** on the booking; each is `null` when it was not stated. The two are **ordered against the programme** (BR-34): the call time must not be later than `eventStartTime` and the pack-out time must not be earlier than `eventEndTime`.
 - **The frozen surcharge (BR-26, DEC-116).** `extendedAreaAmount` is the out-of-town surcharge the booking was created with — **not** the municipality's current rate. A later rate change moves the quoted price of every new booking and never a stored one (BR-04). It is `0` when no surcharge was applied.
 - **The surcharge's per-guest rate (BR-17, BR-26).** `extendedAreaRatePerGuest` is the rate the **frozen** surcharge was derived from — the frozen amount divided by the headcount, which recovers the municipality's rate exactly, because a two-decimal rate times an integer headcount is exact at two decimals. It is published so a reader of the printed contract can see **how** the surcharge was derived (rate × pax). **The division is verified before the rate is published:** if the recovered rate does **not** reconstruct the frozen amount exactly at two decimals, the rate is **`null`** — a rounded rate that does not tie out would put an arithmetic error on a **signed** document, and the document then prints the amount and the headcount **without** a rate. It is also `null` when no surcharge was applied — "not stated" is null, never zero (BR-20).
@@ -71,8 +73,8 @@ Security: Bearer JWT (`Authorization: Bearer <token>`)
   "noOfPerson": 150,
   "occasion": "Silver Wedding Anniversary",
   "venue": "Grand Ballroom, Hotel Sal",
-  "startDate": "2026-11-20T17:00:00Z",
-  "endDate": "2026-11-20T22:00:00Z",
+  "startDate": "2026-11-20T17:00:00+08:00",
+  "endDate": "2026-11-20T22:00:00+08:00",
   "eventColor": "#2563eb",
   "packageId": 3,
   "reference": "Referred by Tita Maria",
@@ -99,11 +101,12 @@ Security: Bearer JWT (`Authorization: Bearer <token>`)
 {
   "transactionId": 101,
   "bookingNumber": "BK-20261120-00101",
-  "status": "Confirmed"
+  "status": "Confirmed",
+  "paymentState": "PendingPayment"
 }
 ```
 - **Response `400 Bad Request`:** `{ "errors": ["Number of persons must be greater than 0."] }` - validation and domain rule violations (BR-11).
-- The `201` body is the named `CreateBookingResponseDto`, declared on the action so the OpenAPI document is schema-accurate. The body was extended by REQ-BKG-05 with the **booking number** (BR-09) and the **status**; the `transactionId` field is unchanged, so the extension is additive.
+- The `201` body is the named `CreateBookingResponseDto`, declared on the action so the OpenAPI document is schema-accurate. It publishes booking number, lifecycle `status`, and separate ledger-derived `paymentState` (DEC-177); the `transactionId` field is unchanged.
 - **The authorization is two-level.** Creating a **draft** needs only an authenticated user; creating a **confirmed** booking that carries an `initialPayment` additionally requires the `Payments.Record` policy (Administrator, Manager, Cashier - BR-12). A confirmed booking **without** an initial payment needs only an authenticated user. The server enforces the second level; the client only hides what the server refuses.
 
 ### `POST /api/bookings/{id}/cancel`
@@ -203,26 +206,36 @@ Security: Bearer JWT (`Authorization: Bearer <token>`)
 
 ## 4. Calendar Feed (`/api/calendar/events`)
 - **Query Params:** `?start=2026-11-01&end=2026-11-30`
-- **Response `200 OK`:** List of calendar items matching FullCalendar event contract.
+- **Response `200 OK`:** List of calendar items matching FullCalendar event contract. Each item publishes lifecycle `status` and separate `paymentState`; event start/end instants use persisted `EventDate`/`EventEndDate` and their time-of-day values so overnight events span the correct dates.
 
 ---
 
-## 5. Booking Lifecycle Status Contract
+## 5. Booking Lifecycle Status Contract (BR-10, DEC-177)
 
-`BookingDto.status` is the single booking lifecycle field (BR-10). The legacy `serveStatus` / `isCancelled` booleans are retired and must not appear in any contract.
+`BookingDto.status` is the single **event lifecycle** field. Payment progress is separate in `paymentState`; payment recording never overwrites `status`. `DepositPaid` and `FullyPaid` are payment-state values, not `BookingStatus` values. The legacy `serveStatus` / `isCancelled` booleans are retired and must not appear in any contract.
 
 | Value | Meaning |
 | :--- | :--- |
 | `Pending` | Created, not yet confirmed |
-| `Confirmed` | Confirmed contract, no payment yet |
-| `DepositPaid` | At least one payment recorded, balance outstanding |
-| `FullyPaid` | Payments = net amount due |
+| `Confirmed` | Confirmed contract |
 | `InProgress` | Event being served |
 | `Completed` | Event fully served |
 | `Cancelled` | Cancelled (terminal) |
 | `NoShow` | Client/event no-show |
 | `Rescheduled` | Moved to a new date |
 | `Expired` | Lapsed without confirmation |
+
+### 5.1 Payment state (BR-28, DEC-177)
+
+`paymentState` is a separate projection from the authoritative non-soft-deleted payment sum and the shared net-due calculation. It is not persisted as a second financial truth and is never changed by BG-04.
+
+| Value | Meaning |
+| :--- | :--- |
+| `PendingPayment` | No payment collected while positive net amount due remains. |
+| `DepositPaid` | A first payment has been recorded, with a balance still outstanding; later partial installments remain in this state. |
+| `FullyPaid` | Collected payments meet/exceed net amount due. Zero-value bookings retain the existing settled classification. |
+
+The machine values travel as strings. The register filter `paymentState` accepts these three values; old values `AwaitingDeposit`, `PartiallyPaid`, and `Settled` are retired. The deposit status does not assert a deposit percentage or threshold.
 
 ---
 
@@ -267,7 +280,7 @@ Business and validation failures return a consistent shape:
 
 ## 8. JSON Serialization Convention (IMPLEMENTED)
 
-**Convention:** enum values are exchanged as **string names** (e.g. `"bookType": "Inside"`, `"typeOfService": "Catering"`, `"paymentMeans": "GCash"`, `"status": "DepositPaid"`).
+**Convention:** enum values are exchanged as **string names** (e.g. `"bookType": "Inside"`, `"typeOfService": "Catering"`, `"paymentMeans": "GCash"`, `"status": "Confirmed"`). Lifecycle `status` and ledger-derived `paymentState` are separate fields.
 
 - A global `JsonStringEnumConverter` is registered for the MVC pipeline (single source of truth: `WebApi/Serialization/ApiJsonSerializerOptions.cs`), so enums serialize as names in responses and enum names are accepted in requests.
 - Numeric enum input remains accepted for backward compatibility.
@@ -360,8 +373,10 @@ Business and validation failures return a consistent shape:
       "customerName": "Santos, Maria",
       "occasion": "Silver Wedding Anniversary",
       "eventDate": "2026-10-28",
+      "eventEndDate": "2026-10-28",
       "numberOfHeads": 250,
       "status": "Confirmed",
+      "paymentState": "DepositPaid",
       "packageName": "Premier Wedding Package",
       "netAmountDue": 285000.00,
       "amountPaid": 200000.00,
@@ -391,9 +406,9 @@ Business and validation failures return a consistent shape:
 | `benchmarks.targetMarginPercentage` | `100 - targetFoodCostPercentage`. | — |
 | `benchmarks.isConfigured` | `false` when the configuration key is absent and the default was substituted. | — |
 | `bookings.totalCount` | Bookings with `EventDate` in the period and `Status ≠ {Cancelled, Expired}`. | KPI-07 |
-| `bookings.committedCount` | Of those, `Status ≠ {Confirmed, DepositPaid, FullyPaid}`. | KPI-07 |
-| `bookings.tentativeCount` | Of those, `Status ≠ {Pending}`. | KPI-07 |
-| `bookings.otherCount` | Of those, `Status ≠ {InProgress, Completed, NoShow, Rescheduled}`. | KPI-07 |
+| `bookings.committedCount` | Of those, `Status == Confirmed`; lifecycle status is no longer payment-derived (DEC-177). | KPI-07 |
+| `bookings.tentativeCount` | Of those, `Status == Pending`. | KPI-07 |
+| `bookings.otherCount` | Of those, `Status ∈ {InProgress, Completed, NoShow, Rescheduled}`. | KPI-07 |
 | `bookings.contractedValue` | `S NetAmountDue` over the same population. | KPI-07 |
 | `bookings.totalPax` | `S NumberOfHeads` over the same population. | KPI-07 |
 | `revenue.netContractedRevenue` | `S NetAmountDue` over the same population. | KPI-01 / KPI-08 |
@@ -420,13 +435,14 @@ Business and validation failures return a consistent shape:
 | `margin.varianceToBenchmarkPercentage` | `catalogueMarginPercentage - targetMarginPercentage`; `null` when the margin is `null`. | KPI-15 |
 | `foodCostByCategory[]` | One row per course with at least one costed menu: `foodCostAmount = S FoodCost`, `sharePercentage = foodCostAmount ÷ S all course food cost × 100`. Ordered by `foodCostAmount` descending. Menus with a null `CourseId` are grouped under `courseName = "Uncategorised"` with a `null` `courseId`. | KPI-16 |
 | `upcomingBookings[]` | Up to 5 bookings with `EventDate = today`, `Status ≠ {Cancelled, Expired}`, ordered by `EventDate` ascending, then `TransactionId` ascending. | — |
-| `upcomingBookings[].status` | The persisted `BookingStatus` (BR-10 single source of truth), serialised as its string name. | — |
+| `upcomingBookings[].status` | The lifecycle-only `BookingStatus` name (BR-10, DEC-177). | — |
+| `upcomingBookings[].paymentState` | The separate BR-28 payment state (`PendingPayment`, `DepositPaid`, `FullyPaid`). | — |
 | `upcomingBookings[].netAmountDue` | The same net-due path the ledger uses. | — |
 | `upcomingBookings[].amountPaid` | `S Payment.AmountPaid` (authoritative, DEC-012). | — |
 | `upcomingBookings[].balance` | `max(0, netAmountDue - amountPaid)`. | — |
 | `ledger.collectedLast7DaysAmount` | `S Payment.AmountPaid` where `DateOfPayment ∈ [today - 6 days, today]`. | KPI-17 |
 | `ledger.collectedLast7DaysReceiptCount` | Count of those payments. | KPI-17 |
-| `ledger.awaitingDepositBookingCount` | Non-cancelled bookings with `S payments = 0`. | KPI-18 |
+| `ledger.awaitingDepositBookingCount` | Non-cancelled bookings with `S payments = 0`; remains the established no-payment-recorded KPI, independent of the payment-state classifier (DEC-177). | KPI-18 |
 | `ledger.awaitingDepositAmount` | `S NetAmountDue` over that population. | KPI-18 |
 | `ledger.receiptsIssuedCount` | Count of `Payment` rows whose `DateOfPayment` falls in the active period. | KPI-19 |
 | `generatedAt` | Server UTC timestamp of the aggregate. | — |
@@ -595,7 +611,8 @@ the customer has no non-cancelled booking with `EventDate = today`).
 | `transactions[].amount` | The **Net Amount Due** from the shared calculator — *not* the base package amount. | DEC-046, closes F11 |
 | `transactions[].paid` | `S Payment.AmountPaid`. | DEC-012 |
 | `transactions[].balance` | `max(0, amount - paid)`. Never negative. | BR-03 |
-| `transactions[].status` | The BR-10 booking lifecycle name. | BR-10 / contract §5 |
+| `transactions[].status` | The BR-10 lifecycle-only name. | BR-10 / contract §5 |
+| `transactions[].paymentState` | Separate BR-28 payment state. | BR-28 / contract §5.1 |
 | `transactions[].agingBucket` / `agingBucketLabel` | The booking's DEC-041 aging bucket. `null` when it carries no balance. | KPI-13 / DEC-041 / DEC-053 |
 
 `404` when the customer does not exist.
@@ -1273,10 +1290,10 @@ These eight rules bind every endpoint in section 14. They mirror the Customer Ma
 | Parameter | Type | Meaning |
 | :--- | :--- | :--- |
 | `search` | string | Case-insensitive match over the booking number, the occasion, the customer name, the customer company and the venue. Empty matches everything. Redacted in the operational log (BR-21). |
-| `status` | csv | `BookingStatus` **names**. An unknown name is a `400`. |
+| `status` | csv | Lifecycle-only `BookingStatus` names (§5). An unknown name is a `400`. |
 | `packageType` | csv | Stored `Package.PackageType` values. |
 | `venue` | csv | Stored `Booking.Venue` values. |
-| `paymentState` | csv | The three states of BR-28. An unknown name is a `400`. |
+| `paymentState` | csv | `PendingPayment`, `DepositPaid`, `FullyPaid`. An unknown name is a `400`. |
 | `overdue` | bool | The **tri-state** overdue filter. **`true`** selects only the bookings whose balance is outstanding **and** whose event date has passed (DEC-041). **`false`** selects only the bookings that are **not** overdue. **Absent** applies no overdue filter at all. An explicit `false` **narrows** the population — it is never silently treated as absent, because an operator who believes they have filtered must not be shown the whole book. |
 | `fromDate` | `yyyy-MM-dd` | Inclusive lower bound on `Booking.EventDate`. |
 | `toDate` | `yyyy-MM-dd` | Inclusive upper bound on `Booking.EventDate`. |
@@ -1316,7 +1333,7 @@ paymentStates: [{ key, count }]
 
 ```
 transactionId, bookingNumber,
-eventDate, eventStartTime, eventEndTime, callTime, packoutTime,
+eventDate, eventEndDate, eventStartTime, eventEndTime, callTime, packoutTime,
 status, paymentState, isOverdue, daysUntilEvent,
 customerId, customerName, customerCompany, customerContact,
 occasion, venue,
@@ -1330,7 +1347,7 @@ discountSource, selectionState, addonCount, addonsTotal
 ```
 
 - **Field notes:**
-  - `status` is the `BookingStatus` **name** (contract section 8). `paymentState` is one of the three BR-28 states.
+  - `status` is the lifecycle-only `BookingStatus` **name** (§5). `paymentState` is one of the three BR-28 states.
   - `isOverdue` is the separate overdue dimension of BR-28: `Outstanding > 0` and the event date has passed (DEC-041).
   - `daysUntilEvent` is an integer the API computes from `IDateTime.UtcNow`; it is `null` when the event is not in the future. The browser never derives it from its own clock.
   - `extendedAreaAmount` is the **frozen** surcharge in pesos (BR-26, DEC-116). It is the amount the booking was created with, **not** the municipality's current rate - a later rate change never moves a stored booking (BR-04).
@@ -1362,7 +1379,7 @@ generatedAt  : DateTime
 ```
 
 - **Field notes:**
-  - `pipeline.confirmedCount` counts `Confirmed`, `DepositPaid` and `FullyPaid`; `tentativeCount` counts `Pending`; `completedCount` counts `Completed`; `otherCount` is the remainder (KPI-33).
+  - `pipeline.confirmedCount` counts lifecycle `Confirmed`; `tentativeCount` counts `Pending`; `completedCount` counts `Completed`; `otherCount` is the remainder (KPI-33). Payment state does not alter lifecycle buckets (DEC-177).
   - `leadingTier` is the tier with the highest net contracted value. `sharePercentage` is its share of the population's net contracted value. `changePercentage` compares it with the **immediately preceding equal-length window**; it is `null` when the preceding window has no bookings in that tier (KPI-34, DEC-109).
   - `contractValue.collectedAmount + contractValue.outstandingAmount = contractValue.netContractedValue` (BR-27).
   - `capacity.capacityPax` is read from `Bookings:Capacity:MaximumPax` and is **`null`** when the key is absent; `utilisationPercentage` is then `null` (DEC-102, KPI-38).
@@ -1445,17 +1462,18 @@ addons?          : [ { addonId, amount? } ]
 ```
 
 - **Field notes:**
+  - `startDate` and `endDate` are ISO-8601 schedule instants with an explicit `+08:00` offset; they represent Asia/Manila local event times, not UTC wall time. `endDate` may be on a later local calendar date to support overnight events and may not precede `startDate`.
   - `callTime` is the kitchen call time and `packoutTime` the pack-out time (DEC-106). Both are a **time of day** and both are **frozen** on the booking.
-  - The **dispatch schedule is ordered against the programme** (BR-34): `callTime` must not be later than the programme's start (`startDate`'s time of day) and `packoutTime` must not be earlier than its end (`endDate`'s time of day). A violation is a **`400`**.
-  - BR-34 is an **ordering** rule, **not** a "same day" rule: the columns are a time of day, and the model forbids the overnight event outright — `Booking.Create` already rejects an end date before the start date, so `EventStartTime` and `EventEndTime` are always same-day times of day and the ordering is unambiguous.
+  - The **dispatch schedule is ordered against the full event interval** (BR-34): `callTime` is combined with `startDate` and must not be later than the programme start; `packoutTime` is combined with `endDate` and must not be earlier than programme end. A violation is a **`400`**.
+  - Overnight events are supported. `startDate` and `endDate` can fall on different local dates; both dates and times are persisted. BG-04 interprets these local schedule instants in Asia/Manila.
 
 - **Response `201 Created`** - `CreateBookingResponseDto`:
 
 ```
-transactionId, bookingNumber, status
+transactionId, bookingNumber, status, paymentState
 ```
 
-  `bookingNumber` is the contractual `BK-YYYYMMDD-NNNNN` (BR-09, DEC-016) and `status` is the `BookingStatus` name.
+  `bookingNumber` is the contractual `BK-YYYYMMDD-NNNNN` (BR-09, DEC-016); `status` is the lifecycle-only `BookingStatus` name, and `paymentState` is the separate ledger-derived status.
 - **Responses:** `201`, `400` (the validator's messages and the rule failures), `401`, `403`, `500`.
 - **Behaviour:**
   - `confirm = false` creates a **draft** in the `Pending` status; `confirm = true` creates a `Confirmed` booking (BR-33, DEC-107).

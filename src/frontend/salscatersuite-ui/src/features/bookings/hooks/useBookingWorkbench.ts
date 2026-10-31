@@ -3,7 +3,12 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { ApiError, apiClient } from '@/api/apiClient'
 import { API_ENDPOINTS } from '@/api/endpoints'
 import type { CustomerDirectoryResponse } from '@/types/customer.types'
-import type { AreaDto, PackageCourseRuleset, PackageDto } from '@/types/package.types'
+import type {
+  AreaDto,
+  PackageCourseRuleset,
+  PackageDto,
+  PackagePaxApplicable,
+} from '@/types/package.types'
 import type {
   BookingQuote,
   BookingQuoteRequest,
@@ -18,6 +23,7 @@ export const BOOKING_MUNICIPALITY_CATALOGUE_QUERY_KEY =
   'booking-municipality-catalogue' as const
 export const BOOKING_CLIENT_CATALOGUE_QUERY_KEY = 'booking-client-catalogue' as const
 export const BOOKING_COURSE_RULESET_QUERY_KEY = 'booking-course-ruleset' as const
+const PACKAGE_PAX_APPLICABLES_QUERY_KEY = 'package-pax-applicables' as const
 
 /** How long the quote inputs rest before the server is asked for a quote. */
 const QUOTE_DEBOUNCE_MS = 300
@@ -223,6 +229,25 @@ export function useBookingTierCatalogue(areaId: number | null = null, activeOnly
     },
     staleTime: 300_000,
     placeholderData: keepPreviousData,
+    retry: shouldRetry,
+  })
+}
+
+/**
+ * `GET /api/packages/pax-applicables` — the shared, read-only classification
+ * lookup. The cache key intentionally matches the package feature's query
+ * without importing across feature boundaries.
+ */
+export function useBookingPaxApplicables() {
+  return useQuery({
+    queryKey: [PACKAGE_PAX_APPLICABLES_QUERY_KEY],
+    queryFn: async (): Promise<PackagePaxApplicable[]> => {
+      const response = await apiClient.get<PackagePaxApplicable[]>(
+        API_ENDPOINTS.packages.paxApplicables,
+      )
+      return response.data
+    },
+    staleTime: 300_000,
     retry: shouldRetry,
   })
 }

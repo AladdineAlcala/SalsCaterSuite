@@ -3,6 +3,13 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const PACKAGES_ROOT = join(process.cwd(), 'src', 'features', 'packages')
+const PAX_CLASSIFICATION_LABELS = [
+  '15 to 19 Pax',
+  '20 to 29 Pax',
+  '30 to 49 Pax',
+  '80 to 100 Above',
+  'Not Applicable to PackMeals',
+]
 
 function collectSourceFiles(directory: string): string[] {
   const files: string[] = []
@@ -89,5 +96,14 @@ describe('packages feature contains no hardcoded figures', () => {
       benchmarkAssignments ?? [],
       `${relative} must not assign a number to a benchmark`,
     ).toEqual([])
+  })
+
+  it.each(files)('%s does not hardcode an applicable-pax lookup label', (file) => {
+    const code = stripComments(readFileSync(file, 'utf8'))
+    const relative = file.slice(process.cwd().length + 1)
+
+    for (const label of PAX_CLASSIFICATION_LABELS) {
+      expect(code, `${relative} must read “${label}” from the API`).not.toContain(label)
+    }
   })
 })

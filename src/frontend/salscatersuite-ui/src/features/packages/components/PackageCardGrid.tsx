@@ -6,6 +6,8 @@ export interface PackageCardGridProps {
   /** The tier the operator has selected, or `null`. */
   selectedPackageId: number | null
   onSelect: (packageId: number) => void
+  /** Resolves the lookup label or its explicit loading/unavailable state. */
+  getPaxClassificationLabel: (numPaxId: number) => string
 }
 
 /**
@@ -18,6 +20,7 @@ export function PackageCardGrid({
   tiers,
   selectedPackageId,
   onSelect,
+  getPaxClassificationLabel,
 }: PackageCardGridProps) {
   return (
     <div
@@ -30,6 +33,7 @@ export function PackageCardGrid({
           tier={tier}
           isSelected={tier.packageId === selectedPackageId}
           onSelect={onSelect}
+          paxClassificationLabel={getPaxClassificationLabel(tier.numPaxId)}
         />
       ))}
     </div>

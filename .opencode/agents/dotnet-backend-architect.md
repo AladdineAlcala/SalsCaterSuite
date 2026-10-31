@@ -1,7 +1,7 @@
 ---
 description: AGENT 02 - Senior .NET Backend Architect and Full-Stack-Aware Developer for Sal's CaterSuite. Clean Architecture, DDD, EF Core, SQL Server, financial transaction integrity, migrations, and backend automated testing. Reports to AGENT 01.
 mode: subagent
-model: opencode-go/minimax-m3
+model: opencode-go/glm-5.3-flash-free
 permissions:
   - action: read
     resource: "*"

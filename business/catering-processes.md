@@ -59,7 +59,7 @@ flowchart TD
   1. Prior to event, Kitchen BEO Document is generated.
   2. Kitchen calculates ingredient requirements based on pax count and dish portions.
   3. Banquet manager verifies venue setup, tables, linens, and add-on equipment.
-  4. While the event is running the booking's lifecycle status is `InProgress`; once food service is rendered it becomes `Completed` (BR-10 — the legacy `ServeStatus` boolean is retired and must not be reintroduced). **There is no API for this transition today** (DEC-036).
+  4. BG-04 advances a `Confirmed` booking to `InProgress` at its scheduled start instant and advances `InProgress` to `Completed` one hour after packout (or one hour after event end when packout is unstated), using Asia/Manila schedule time. `Cancelled`, `Rescheduled`, and manually recorded `NoShow` bookings are never auto-completed. Overnight bookings retain a separate event end date (BR-49, DEC-178). Payment status is separate and is not changed by this job; a `Completed` booking with a balance remains collectible (DEC-025).
 
 ### Phase 5: Post-Event Settlement & Financial Reporting
 - **Actors:** Cashier, Accountant, Business Owner
@@ -67,4 +67,3 @@ flowchart TD
   1. Final billing statement / Statement of Account (SOA) is settled.
   2. In case of overdue corporate receivables, aging reports are tracked.
   3. Management exports Monthly Catering Report (ClosedXML) reconciling revenue, collections, and outstanding receivables.
-

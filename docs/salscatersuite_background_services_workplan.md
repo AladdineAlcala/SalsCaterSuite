@@ -4,7 +4,7 @@
 **Document owner:** AGENT 01 — Sal's CaterSuite Business Intelligence Architect (skill `bi-architect`)
 **Audience:** AGENT 01 (BI Architect), AGENT 02 (.NET Backend Architect Developer), the Debater plan-review sub-agent
 **Authority:** This document is a **future-enhancement workplan** for asynchronous and scheduled backend work. It is subordinate to `docs/salscatersuite_project_structure_workplan.md`, the business rules, the approved API contracts, and `governance/decision-log.md`.
-**Status:** **PROPOSED — not yet approved, not yet implemented.** Every item in this document is `PLANNED — not yet implemented` unless explicitly marked otherwise.
+**Status:** **PROPOSED overall.** BG-04 alone is **APPROVED for implementation by DEC-178**, but is not yet implemented; all other items remain `PLANNED — not yet implemented`.
 
 | Field | Value |
 | :--- | :--- |
@@ -16,9 +16,9 @@
 | **Current scheduler** | **None.** No `IHostedService`, `BackgroundService`, Hangfire, or Quartz registration exists in `Program.cs`. |
 | **Current real-time** | SignalR is registered (`builder.Services.AddSignalR()`), but no hub is mapped and no `SignalRContext.tsx` exists. |
 | **Existing building blocks** | `CustomerAgingService`, `DashboardService`, `MenuCostingService`, `PackageCostingCalculator`, six QuestPDF documents, four ClosedXML exports, `IDateTime` / `DateTimeService`, Serilog |
-| **Last updated** | 2026-10-22 (AGENT 01 — initial proposal) |
+| **Last updated** | 2026-10-31 (AGENT 01 — BG-04 scope approved by DEC-178; other background work remains proposed) |
 
-> **Read this before acting.** This document does not authorize implementation. AGENT 02 must not add a scheduler, a background job, a migration, or a package until AGENT 01 approves the relevant phase and records the decision in `governance/decision-log.md`.
+> **Read this before acting.** Only BG-04's scheduled booking lifecycle transition scope is approved, under DEC-178. This document does not authorize implementation of any other job, scheduler package, outbox, notification provider, migration unrelated to BG-04, or Worker project. AGENT 02 must follow the scoped decision and obtain AGENT 01 approval for any expansion.
 >
 > If the code and this document disagree, **the code is the current truth and this document is stale**. Report the discrepancy to AGENT 01; do not silently choose either side.
 
@@ -180,14 +180,14 @@ public interface IBackgroundJob
 
 ## 3. Job Catalog
 
-All items are **`PLANNED — not yet implemented`**. Priorities are proposed.
+All items except BG-04 are **`PLANNED — not yet implemented`**. Priorities are proposed and do not imply approval.
 
 | ID | Job | Priority | Trigger | Calls | Output |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **BG-01** | Outbox + notification dispatcher | P0 | Continuous poll / queued | `IEmailSender`, `ISmsSender`, SignalR publisher | Email/SMS/push delivered; outbox marked processed; dead-letter on exhaustion |
 | **BG-02** | Daily receivables aging snapshot | P1 | Daily 00:05 Asia/Manila | `ICustomerAgingService`, `IDateTime`, booking/payment repositories | One aging snapshot per customer/booking per date |
 | **BG-03** | Receivables reminders | P1 | Daily 08:00, business days | Aging snapshot, customer contact preferences, notification sender | Reminder per customer/booking/bucket/milestone; audit log |
-| **BG-04** | Booking lifecycle transitions | P2 | Daily 00:10 + booking events | Booking status rules, repositories | Status transitions, audit entries, SignalR events |
+| **BG-04** | Booking lifecycle transitions | P2 | Scheduled polling in the existing API host | Booking lifecycle transition service, booking/status-history repositories, `IDateTime` | `Confirmed` → `InProgress` at event start; `InProgress` → `Completed` at packout + 1 hour, with the approved end-time fallback; durable status history. **APPROVED by DEC-178; implementation pending.** No SignalR/outbox in this scope. |
 | **BG-05** | Event reminders | P2 | Daily 07:00 | Upcoming bookings, notification sender | 7-day and 1-day reminders to customer/staff |
 | **BG-06** | Async document generation | P2 | Queued on request | QuestPDF documents, file store | PDF path/blob, `DocumentJob` status, notification |
 | **BG-07** | Async exports | P2 | Queued on request | ClosedXML exports, file store | XLSX/CSV file, `ExportJob` status, expiring download link |
@@ -261,24 +261,27 @@ All items are **`PLANNED — not yet implemented`**. Priorities are proposed.
 
 **Dependencies.** BG-01, BG-02, notification provider, template approval, business-day/holiday policy.
 
-### BG-04 — Booking lifecycle transitions
+### BG-04 — Booking lifecycle transitions (**APPROVED by DEC-178; implementation pending**)
 
 **Problem.** Booking statuses can drift from the event date. Manual updates are error-prone.
 
 **Proposed flow.**
 
-1. Daily (and on booking events), evaluate the approved status rules.
-2. Apply only valid transitions; record an audit entry with the actor `system`.
-3. Publish a SignalR event after commit.
+1. A scheduled, in-process `BackgroundService` polls due bookings in batches using the shared `IDateTime` abstraction; the implementation proposal must recommend a cadence.
+2. Advance only `Confirmed` → `InProgress` at `EventDate + EventStartTime` and `InProgress` → `Completed` at `EventEndDate + PackoutTime + 1 hour`. If packout is absent, use `EventEndDate + EventEndTime + 1 hour`. Interpret scheduled date/time in Asia/Manila and compare as instants.
+3. Exclude soft-deleted rows and statuses `Pending`, `Expired`, `Cancelled`, `Rescheduled`, and `NoShow`. A rescheduled booking must be explicitly confirmed again. Manual NoShow/Rescheduled actions are out of scope.
+4. Make each transition idempotent and row-version/concurrency safe. If the worker resumes after both thresholds, record both valid transitions in order. Save lifecycle status and `BookingStatusHistory` atomically, with actor/source `system/BG-04` and effective/recorded timestamps.
+5. Publish no SignalR event in this cycle: there is no mapped hub and no push channel. Payment status is unchanged by this job.
 
 **Acceptance criteria.**
 
-- Only transitions allowed by the business rules occur.
-- The job never overwrites a manual terminal status without an explicit rule.
-- Re-running the job is idempotent.
-- Every transition is auditable.
+- Only the two approved transitions occur, at their date/time thresholds.
+- `Pending`, `Expired`, `Cancelled`, `Rescheduled`, and `NoShow` never become `Completed` through BG-04.
+- Re-running and multi-instance races are safe through idempotence and row-version concurrency.
+- Every lifecycle transition is recorded in durable `BookingStatusHistory` in the same transaction.
+- No payment status or financial amount is changed by BG-04.
 
-**Dependencies.** AGENT 01 approval of the lifecycle rules; booking status enum; SignalR hub.
+**Dependencies.** DEC-177 / DEC-178; lifecycle-only `BookingStatus`; `EventEndDate`; `BookingStatusHistory`; repository-backed transition service; `IDateTime`. No SignalR hub, outbox, scheduler package, or separate project is in scope.
 
 ### BG-05 — Event reminders
 

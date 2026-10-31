@@ -16,7 +16,11 @@ import { PackageFilterBar } from './components/PackageFilterBar'
 import { PackageInspector } from './components/PackageInspector'
 import { PackageKpiGrid } from './components/PackageKpiGrid'
 import { PackageTypeTabs } from './components/PackageTypeTabs'
-import { usePackageList, usePackageSummary } from './hooks/usePackageCatalogue'
+import {
+  usePackageList,
+  usePackagePaxApplicables,
+  usePackageSummary,
+} from './hooks/usePackageCatalogue'
 import { useTogglePackageActive } from './hooks/usePackageMutations'
 import {
   filterPackageTiers,
@@ -80,6 +84,25 @@ export function PackageCataloguePage() {
 
   const listQuery = usePackageList()
   const summaryQuery = usePackageSummary()
+  const paxApplicablesQuery = usePackagePaxApplicables()
+
+  const paxApplicableLabels = useMemo(
+    () =>
+      new Map(
+        (paxApplicablesQuery.data ?? []).map((item) => [
+          item.numPaxId,
+          item.packageApplicablePax,
+        ]),
+      ),
+    [paxApplicablesQuery.data],
+  )
+  const getPaxClassificationLabel = useCallback(
+    (numPaxId: number) => {
+      if (paxApplicablesQuery.isPending) return 'Loading classification…'
+      return paxApplicableLabels.get(numPaxId) ?? 'Classification unavailable'
+    },
+    [paxApplicablesQuery.isPending, paxApplicableLabels],
+  )
 
   const { refetch: refetchList } = listQuery
   const { refetch: refetchSummary } = summaryQuery
@@ -284,6 +307,7 @@ export function PackageCataloguePage() {
                 tiers={visibleTiers}
                 selectedPackageId={selectedTier ? selectedTier.packageId : null}
                 onSelect={handleSelectTier}
+                getPaxClassificationLabel={getPaxClassificationLabel}
               />
             ) : null}
           </div>
@@ -291,6 +315,9 @@ export function PackageCataloguePage() {
           <div className="xl:col-span-5 xl:sticky xl:top-20 min-w-0">
             <PackageInspector
               tier={selectedTier}
+              paxClassificationLabel={
+                selectedTier ? getPaxClassificationLabel(selectedTier.numPaxId) : null
+              }
               onEdit={handleEdit}
               onToggleActive={handleToggleActive}
               isToggling={toggleActive.isPending}

@@ -23,6 +23,7 @@ import {
   useBookingClientCatalogue,
   useBookingCourseRuleset,
   useBookingMunicipalityCatalogue,
+  useBookingPaxApplicables,
   useBookingQuote,
   useBookingTierCatalogue,
   useCreateBooking,
@@ -92,6 +93,7 @@ export function BookingWorkbenchPage() {
   const catalogueQuery = useBookingTierCatalogue()
   const areaFilterId = parseIdentifier(draft.areaFilterId)
   const tiersQuery = useBookingTierCatalogue(areaFilterId, true)
+  const paxApplicablesQuery = useBookingPaxApplicables()
   const municipalitiesQuery = useBookingMunicipalityCatalogue()
   const clientsQuery = useBookingClientCatalogue(clientSearch)
   const createBooking = useCreateBooking()
@@ -608,6 +610,8 @@ export function BookingWorkbenchPage() {
             onChange={handleDraftChange}
             tiers={filteredTiers}
             isLoadingTiers={isTierListLoading}
+            paxApplicables={paxApplicablesQuery.data ?? []}
+            isLoadingPaxApplicables={paxApplicablesQuery.isPending}
             municipalities={municipalitiesQuery.data ?? []}
             packageTypes={packageTypes}
             ruleset={ruleset}

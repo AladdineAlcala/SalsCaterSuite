@@ -12,6 +12,8 @@ import { PackageTypeChip } from './PackageTypeChip'
 export interface PackageInspectorProps {
   /** The tier the operator selected, or `null` when nothing is selected. */
   tier: PackageDto | null
+  /** The API label, or an explicit loading/unavailable state for the tier. */
+  paxClassificationLabel: string | null
   /** Opens the tier form in edit mode. */
   onEdit: (packageId: number) => void
   /** Activates or deactivates the tier. */
@@ -43,6 +45,7 @@ export interface PackageInspectorProps {
  */
 export function PackageInspector({
   tier,
+  paxClassificationLabel,
   onEdit,
   onToggleActive,
   isToggling,
@@ -107,6 +110,14 @@ export function PackageInspector({
             </dt>
             <dd className="font-data-md text-data-md text-espresso-900 font-bold">
               {tier.minPax === null ? EM_DASH : `${minimum} ${PAX_UNIT}`}
+            </dd>
+          </div>
+          <div className="flex flex-col gap-0.5 sm:col-span-2">
+            <dt className="font-caption text-caption text-espresso-400 uppercase font-semibold">
+              Applicable pax classification
+            </dt>
+            <dd className="font-body-sm text-body-sm text-espresso-700 break-words">
+              {paxClassificationLabel ?? 'Classification unavailable'}
             </dd>
           </div>
           {tier.extendedLocationAmount != null ? (
