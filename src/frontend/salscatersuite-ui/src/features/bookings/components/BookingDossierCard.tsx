@@ -1,4 +1,4 @@
-import { FileText, MapPin, Users, UtensilsCrossed } from 'lucide-react'
+import { FileText, MapPin, Pencil, Users, UtensilsCrossed } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { CapabilityGapNotice } from '@/components/feedback/CapabilityGapNotice'
 import { ProgressTrack } from '@/components/ui/ProgressTrack'
@@ -20,6 +20,8 @@ export interface BookingDossierCardProps {
   onDownloadContract: (transactionId: number) => void
   /** Opens the menu editor of this booking. */
   onOpenMenu: (transactionId: number) => void
+  /** Opens the booking edit form. */
+  onOpenEdit?: (transactionId: number) => void
 }
 
 /**
@@ -53,6 +55,7 @@ export function BookingDossierCard({
   isTimeline = false,
   onDownloadContract,
   onOpenMenu,
+  onOpenEdit,
 }: BookingDossierCardProps) {
   /*
    * The progress track is a **display bound** between two figures the server
@@ -91,15 +94,28 @@ export function BookingDossierCard({
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={() => onDownloadContract(item.transactionId)}
-            title="Download the printable catering contract"
-            aria-label={`Download the contract for ${item.bookingNumber}`}
-            className="p-1.5 rounded-lg hover:bg-surface-container text-espresso-700 hover:text-espresso-900 transition-colors shrink-0"
-          >
-            <FileText className="h-4 w-4" aria-hidden="true" />
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            {onOpenEdit && (
+              <button
+                type="button"
+                onClick={() => onOpenEdit(item.transactionId)}
+                title="Edit the booking core details"
+                aria-label={`Edit ${item.bookingNumber}`}
+                className="p-1.5 rounded-lg hover:bg-surface-container text-espresso-700 hover:text-espresso-900 transition-colors"
+              >
+                <Pencil className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => onDownloadContract(item.transactionId)}
+              title="Download the printable catering contract"
+              aria-label={`Download the contract for ${item.bookingNumber}`}
+              className="p-1.5 rounded-lg hover:bg-surface-container text-espresso-700 hover:text-espresso-900 transition-colors"
+            >
+              <FileText className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
         </div>
 
         {/* The client and the occasion. */}

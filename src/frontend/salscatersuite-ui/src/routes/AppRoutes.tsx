@@ -6,6 +6,7 @@ import { ProtectedRoute } from './ProtectedRoute'
 import { useAuth } from '@/context/AuthContext'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { BookingsEventsPage } from '@/features/bookings/BookingsEventsPage'
+import { BookingEditPage } from '@/features/bookings/BookingEditPage'
 import { BookingMenuPage } from '@/features/bookings/BookingMenuPage'
 import { BookingWorkbenchPage } from '@/features/bookings/BookingWorkbenchPage'
 import { CustomerMasterPage } from '@/features/customers/CustomerMasterPage'
@@ -64,6 +65,7 @@ export function AppRoutes() {
           <Route index element={<DashboardPage />} />
           <Route path="bookings" element={<BookingsEventsPage />} />
           <Route path="bookings/new" element={<BookingWorkbenchPage />} />
+          <Route path="bookings/:transactionId/edit" element={<BookingEditPage />} />
           <Route path="bookings/:transactionId/menu" element={<BookingMenuPage />} />
           <Route path="menus" element={<MenuCostingMasterPage />} />
           <Route path="menus/new" element={<MenuRecipeFormPage />} />

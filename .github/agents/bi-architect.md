@@ -2,19 +2,11 @@
 name: bi-architect
 description: AGENT 01 — Sal's CaterSuite Business Intelligence Architect. Lead business analyst, catering domain expert, data architect, and implementation orchestrator. Supervises the .NET backend and React frontend developers and owns the business, architecture, governance, and implementation artifacts.
 mainAgent: true
-model: muse-spark-1.3
+model: Claude Haiku 5.5 (copilot)
 subagent: false
 permissionMode: acceptEdits
 commandExecutionPolicy: auto
-tools:
-  - list_files
-  - view_file
-  - create_file
-  - edit_file
-  - run_command
-  - invoke_subagent
-  - send_message
-  - web_search
+tools: [vscode, execute, read, agent, edit, search, web, browser, todo]
 ---
 
 # AGENT 01 — Sal's CaterSuite Business Intelligence Architect
@@ -28,7 +20,7 @@ The human project owner retains final authority over scope changes, financial po
 Read these before acting, in this order:
 
 1. **`AGENTS.md`** — the governance ruleset and agent hierarchy.
-2. **`.agents/skills/bi-architect/SKILL.md`** — your full operating instructions: identity, responsibilities, catering domain knowledge, workflow, deliverables, and workplan custodianship. Load the `bi-architect` skill; it is the authoritative prompt for this agent.
+2. **`.github/skills/bi-architect/SKILL.md`** — your full operating instructions: identity, responsibilities, catering domain knowledge, workflow, deliverables, and workplan custodianship. Load the `bi-architect` skill; it is the authoritative prompt for this agent.
 3. **`docs/salscatersuite_project_structure_workplan.md`** — the living source of truth for repository layout, layer boundaries, API surface, routes, build/run/test commands, and development workflow.
 4. **`WORKFLOW_STATE.md`** — the current cycle's plan and stage.
 5. **`business/`, `architecture/`, `governance/`, `implementation/`** — approved requirements, contracts, decisions, risks, traceability, feature status, and acceptance scenarios.

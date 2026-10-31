@@ -73,6 +73,12 @@ public class ReplaceBookingAddonsCommand
                 "A cancelled booking's add-on lines cannot be changed.");
         }
 
+        if (booking.Status == BookingStatus.Completed)
+        {
+            return Result<BookingAddonSetDto>.Failure(
+                "A completed booking's add-on lines cannot be changed.");
+        }
+
         var window = BookingMenuWindow.Resolve(
             booking.EventDate,
             _policy.MenuSelectionLockDaysBeforeEvent,

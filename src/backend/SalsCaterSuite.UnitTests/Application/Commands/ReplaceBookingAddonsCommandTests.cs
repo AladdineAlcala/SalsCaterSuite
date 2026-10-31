@@ -391,6 +391,18 @@ public class ReplaceBookingAddonsCommandTests
     }
 
     [Fact]
+    public async Task A_completed_booking_should_refuse_the_write()
+    {
+        var booking = SeedBooking();
+        booking.MarkCompleted();
+
+        var result = await _command.ExecuteAsync(booking.TransactionId, Request(Line(10)));
+
+        result.Succeeded.Should().BeFalse();
+        result.Errors.Should().Contain("A completed booking's add-on lines cannot be changed.");
+    }
+
+    [Fact]
     public async Task A_locked_window_should_refuse_the_write_and_name_the_lock_date()
     {
         var booking = SeedBooking(eventDateOffsetDays: 3);

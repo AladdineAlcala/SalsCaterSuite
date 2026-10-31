@@ -500,6 +500,18 @@ public class ReplaceBookingMenuSelectionCommandTests
     }
 
     [Fact]
+    public async Task A_completed_booking_should_refuse_the_write()
+    {
+        var booking = SeedBooking();
+        booking.MarkCompleted();
+
+        var result = await _command.ExecuteAsync(booking.TransactionId, CompliantSelection());
+
+        result.Succeeded.Should().BeFalse();
+        result.Errors.Should().Contain("A completed booking's dish selection cannot be changed.");
+    }
+
+    [Fact]
     public async Task An_unknown_booking_should_be_reported_as_not_found()
     {
         var result = await _command.ExecuteAsync(9_999, CompliantSelection());

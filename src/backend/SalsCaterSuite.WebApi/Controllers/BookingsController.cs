@@ -21,6 +21,7 @@ public class BookingsController : ControllerBase
 {
     private readonly CreateBookingCommand _createBooking;
     private readonly CancelBookingCommand _cancelBooking;
+    private readonly UpdateBookingCoreCommand _updateBookingCore;
     private readonly GetBookingDetailsQuery _getDetails;
     private readonly GetBookingLedgerQuery _getLedger;
     private readonly GetBookingRegisterQuery _getRegister;
@@ -35,6 +36,7 @@ public class BookingsController : ControllerBase
     public BookingsController(
         CreateBookingCommand createBooking,
         CancelBookingCommand cancelBooking,
+        UpdateBookingCoreCommand updateBookingCore,
         GetBookingDetailsQuery getDetails,
         GetBookingLedgerQuery getLedger,
         GetBookingRegisterQuery getRegister,
@@ -48,6 +50,7 @@ public class BookingsController : ControllerBase
     {
         _createBooking = createBooking;
         _cancelBooking = cancelBooking;
+        _updateBookingCore = updateBookingCore;
         _getDetails = getDetails;
         _getLedger = getLedger;
         _getRegister = getRegister;
@@ -70,6 +73,28 @@ public class BookingsController : ControllerBase
         return result.Succeeded
             ? Ok(result.Data)
             : NotFound(new { errors = result.Errors });
+    }
+
+    /// <summary>PUT /api/bookings/{id} — update editable booking core details.</summary>
+    [HttpPut("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateCore(int id, [FromBody] UpdateBookingCoreRequestDto request, CancellationToken cancellationToken)
+    {
+        var result = await _updateBookingCore.ExecuteAsync(id, request, cancellationToken);
+
+        if (result.Succeeded)
+        {
+            return NoContent();
+        }
+
+        if (result.Errors.Contains("Booking not found."))
+        {
+            return NotFound(new { errors = result.Errors });
+        }
+
+        return BadRequest(new { errors = result.Errors });
     }
 
     /// <summary>GET /api/bookings/{id}/ledger — Get payment ledger summary</summary>

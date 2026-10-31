@@ -45,6 +45,10 @@ export const API_ENDPOINTS = {
   bookings: {
     /** The paged, filtered Bookings & Events Register (contract §14.1). */
     root: '/bookings',
+    /** The detail projection of one booking (contract §1). */
+    detail: (transactionId: number) => `/bookings/${transactionId}`,
+    /** Updates the editable booking core details. */
+    update: (transactionId: number) => `/bookings/${transactionId}`,
     /** The register aggregate — the only source of the KPI figures (contract §14.2). */
     summary: '/bookings/summary',
     /** The server-computed quote for the workbench — it persists nothing (contract §14.3). */

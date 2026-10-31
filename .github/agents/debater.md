@@ -2,6 +2,7 @@
 name: debater
 description: Reviews the workplan in WORKFLOW_STATE.md created by the BI-architect before delegation to the .NET Backend Architect Developer or React UI/UX Frontend Developer. Binary decision: is there a meaningfully better plan, or is the current one good enough?
 mainAgent: false
+model: Claude Haiku 5.5 (copilot)
 subagent: true
 mode: subagent
 temperature: 0.3
@@ -12,12 +13,7 @@ permission:
   edit:
     "*": deny
     "WORKFLOW_STATE.md": allow
-tools:
-  - list_files
-  - view_file
-  - edit_file
-  - run_command
-  - send_message
+tools: [vscode, execute, agent, edit, search, web, browser, todo]
 ---
 
 # Debater — Plan Review Sub-Agent

@@ -62,6 +62,18 @@ services:
       # via VITE_API_PROXY_TARGET.
       - "${API_HOST_PORT:-5150}:8080"
 
+  worker:
+    build:
+      context: ./src/backend
+      dockerfile: SalsCaterSuite.Worker/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ConnectionStrings__SalsCaterSuiteDb: "Server=db,1433;Database=SalsCaterSuiteDb;User Id=sa;Password=${SQL_SA_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=true"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
   web:
     build:
       context: ./src/frontend/salscatersuite-ui

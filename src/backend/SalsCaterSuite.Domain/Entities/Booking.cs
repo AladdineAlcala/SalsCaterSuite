@@ -318,8 +318,38 @@ public class Booking : BaseEntity
     {
         if (Status == BookingStatus.Cancelled)
             throw new DomainException("Cannot complete a cancelled booking.");
+        if (Status == BookingStatus.NoShow)
+            throw new DomainException("Cannot complete a no-show booking.");
+        if (Status == BookingStatus.Rescheduled)
+            throw new DomainException("Cannot complete a rescheduled booking.");
+
+        if (Status == BookingStatus.Completed)
+            return;
 
         Status = BookingStatus.Completed;
+    }
+
+    /// <summary>Updates the booking core details that are editable after creation.</summary>
+    public void UpdateCoreDetails(DateOnly eventDate, int numberOfHeads)
+    {
+        if (eventDate == default)
+            throw new DomainException("Event date is required.");
+        if (numberOfHeads <= 0)
+            throw new DomainException("Number of heads must be greater than zero.");
+        if (Status is BookingStatus.Cancelled or BookingStatus.Completed or BookingStatus.NoShow or BookingStatus.Rescheduled)
+            throw new DomainException("This booking cannot be edited in its current lifecycle state.");
+
+        EventDate = eventDate;
+        NumberOfHeads = numberOfHeads;
+
+        if (PricePerHead > 0m)
+        {
+            PackageAmount = PricePerHead * NumberOfHeads;
+        }
+
+        var updatedSubtotal = PackageAmount + ExtendedAreaAmount + AddonsTotal;
+        Subtotal = updatedSubtotal;
+        AmountDue = Math.Max(0m, updatedSubtotal - DiscountAmount + TaxAmount);
     }
 
     /// <summary>Cancels the booking. A cancelled booking cannot be un-cancelled.</summary>

@@ -70,6 +70,12 @@ public class ReplaceBookingMenuSelectionCommand
                 "A cancelled booking's dish selection cannot be changed.");
         }
 
+        if (booking.Status == BookingStatus.Completed)
+        {
+            return Result<BookingMenuSelectionDto>.Failure(
+                "A completed booking's dish selection cannot be changed.");
+        }
+
         var window = BookingMenuWindow.Resolve(
             booking.EventDate,
             _policy.MenuSelectionLockDaysBeforeEvent,

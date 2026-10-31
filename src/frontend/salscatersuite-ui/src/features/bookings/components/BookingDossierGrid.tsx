@@ -7,6 +7,7 @@ export interface BookingDossierGridProps {
   view: 'grid' | 'timeline'
   onDownloadContract: (transactionId: number) => void
   onOpenMenu: (transactionId: number) => void
+  onOpenEdit?: (transactionId: number) => void
 }
 
 /**
@@ -24,6 +25,7 @@ export function BookingDossierGrid({
   view,
   onDownloadContract,
   onOpenMenu,
+  onOpenEdit,
 }: BookingDossierGridProps) {
   const isTimeline = view === 'timeline'
 

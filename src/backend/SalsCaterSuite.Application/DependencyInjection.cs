@@ -36,6 +36,7 @@ public static class DependencyInjection
         // Bookings
         services.AddScoped<CreateBookingCommand>();
         services.AddScoped<CancelBookingCommand>();
+        services.AddScoped<UpdateBookingCoreCommand>();
         services.AddScoped<GetBookingDetailsQuery>();
         services.AddScoped<GetBookingLedgerQuery>();
 

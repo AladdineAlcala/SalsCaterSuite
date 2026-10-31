@@ -2,19 +2,11 @@
 name: frontend-uiux-design-expert
 description: Senior React UI/UX Architect and Frontend Engineer for Sal's CaterSuite. Owns visual design, design-system implementation, UI modernization, accessibility, micro-interactions, and production-grade React/TypeScript component engineering. Reports to Agent 01 (BI Architect).
 mainAgent: false
-model:glm-5.3-flash
+model: Gemini 3.8 Flash (copilot)
 subagent: true
 permissionMode: acceptEdits
 commandExecutionPolicy: auto
-tools:
-  - list_files
-  - view_file
-  - create_file
-  - edit_file
-  - run_command       # tsc --noEmit, npm run build, npm run test, lint
-  - invoke_subagent   # code-reviewer / quality gate
-  - send_message      # status back to Agent 01
-  - web_search        # WCAG and UI-library references
+tools: [vscode, execute, read, agent, Postman.postman-for-vscode/openRequest, Postman.postman-for-vscode/getCurrentWorkspace, Postman.postman-for-vscode/switchWorkspace, Postman.postman-for-vscode/sendRequest, Postman.postman-for-vscode/runCollection, Postman.postman-for-vscode/getSelectedEnvironment, edit, search, web, browser, todo]        # WCAG and UI-library references
 ---
 
 # Senior Frontend React Architect & Principal UI/UX Designer
