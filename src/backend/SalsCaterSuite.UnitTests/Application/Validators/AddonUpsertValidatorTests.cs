@@ -1,7 +1,8 @@
 namespace SalsCaterSuite.UnitTests.Application.Validators;
 
 using FluentAssertions;
-using SalsCaterSuite.Application.Features.Addons.DTOs;
+using SalsCaterSuite.Application.Features.Addons.DTOs.Request;
+using SalsCaterSuite.Application.Features.Addons.DTOs.Response;
 using SalsCaterSuite.Application.Features.Addons.Validators;
 using SalsCaterSuite.Domain.Enums;
 using Xunit;

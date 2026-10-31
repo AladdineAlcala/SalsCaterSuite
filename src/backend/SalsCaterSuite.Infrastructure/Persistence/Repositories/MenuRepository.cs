@@ -4,7 +4,8 @@ using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Menus.DTOs;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Request;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Response;
 using SalsCaterSuite.Application.Features.Menus.Models;
 using SalsCaterSuite.Domain.Entities;
 
@@ -65,7 +66,7 @@ public class MenuRepository : IMenuRepository
     /// The menu list projection (course name included), optionally filtered by course.
     /// Soft-deleted dishes are excluded (DEC-063).
     /// </summary>
-    public async Task<List<MenuDto>> GetProjectionListAsync(int? courseId, CancellationToken cancellationToken = default)
+    public async Task<List<MenuResponse>> GetProjectionListAsync(int? courseId, CancellationToken cancellationToken = default)
     {
         IQueryable<Menu> query = _context.Menus.AsNoTracking()
             .Where(m => !m.IsDeleted)
@@ -76,7 +77,7 @@ public class MenuRepository : IMenuRepository
 
         return await query
             .OrderBy(m => m.CourseId).ThenBy(m => m.MenuName)
-            .Select(m => new MenuDto
+            .Select(m => new MenuResponse
             {
                 MenuId = m.MenuId,
                 CourseId = m.CourseId,
@@ -94,14 +95,14 @@ public class MenuRepository : IMenuRepository
     /// The single-menu projection (course name included). A soft-deleted dish is not found
     /// (DEC-063).
     /// </summary>
-    public async Task<MenuDto?> GetProjectionByIdAsync(string menuId, CancellationToken cancellationToken = default)
+    public async Task<MenuResponse?> GetProjectionByIdAsync(string menuId, CancellationToken cancellationToken = default)
     {
         return await _context.Menus
             .AsNoTracking()
             .Where(m => !m.IsDeleted)
             .Include(m => m.CourseCategory)
             .Where(m => m.MenuId == menuId)
-            .Select(m => new MenuDto
+            .Select(m => new MenuResponse
             {
                 MenuId = m.MenuId,
                 CourseId = m.CourseId,
@@ -115,12 +116,12 @@ public class MenuRepository : IMenuRepository
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<List<CourseDto>> GetCourseProjectionsAsync(CancellationToken cancellationToken = default)
+    public async Task<List<CourseResponse>> GetCourseProjectionsAsync(CancellationToken cancellationToken = default)
     {
         return await _context.CourseCategories
             .AsNoTracking()
             .OrderBy(c => c.CourseId)
-            .Select(c => new CourseDto { CourseId = c.CourseId, CourseName = c.CourseName })
+            .Select(c => new CourseResponse { CourseId = c.CourseId, CourseName = c.CourseName })
             .ToListAsync(cancellationToken);
     }
 
@@ -340,7 +341,7 @@ public class MenuRepository : IMenuRepository
     /// exact "All Dishes (n)" count (spec §6.1).
     /// </para>
     /// </summary>
-    private async Task<MenuCoursesDto> GetCourseScopeAsync(
+    private async Task<MenuCoursesResponse> GetCourseScopeAsync(
         MenuMasterFilter filter,
         CancellationToken cancellationToken)
     {
@@ -362,11 +363,11 @@ public class MenuRepository : IMenuRepository
 
         var countByCourse = counts.ToDictionary(c => c.CourseId, c => c.DishCount);
 
-        return new MenuCoursesDto
+        return new MenuCoursesResponse
         {
             Total = total,
             Items = courses
-                .Select(c => new MenuCourseCountDto
+                .Select(c => new MenuCourseCountResponse
                 {
                     CourseId = c.CourseId,
                     CourseName = c.CourseName,

@@ -3,7 +3,9 @@ namespace SalsCaterSuite.UnitTests.Application.Commands;
 using FluentAssertions;
 using SalsCaterSuite.Application.Features.Packages;
 using SalsCaterSuite.Application.Features.Packages.Commands;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Application.Features.Packages.Queries;
 using SalsCaterSuite.Application.Features.Packages.Validators;
 using SalsCaterSuite.Domain.Entities;
@@ -54,16 +56,16 @@ public class PackageCourseRuleCommandTests
                 new FakeDateTime(new DateTime(2026, 10, 22, 9, 0, 0, DateTimeKind.Utc))));
     }
 
-    private static PackageCourseRulesetRequest Request(params PackageCourseRuleRequestDto[] rules) =>
+    private static PackageCourseRulesetRequest Request(params PackageCourseRuleRequest[] rules) =>
         new(rules);
 
-    private static PackageCourseRuleRequestDto Rule(int courseId) =>
+    private static PackageCourseRuleRequest Rule(int courseId) =>
         new(courseId, 1, 120, "One selection");
 
     [Fact]
     public async Task A_rejected_payload_should_persist_nothing()
     {
-        var result = await _command.ExecuteAsync(1, Request(new PackageCourseRuleRequestDto(99, 1, null, "Unknown course")));
+        var result = await _command.ExecuteAsync(1, Request(new PackageCourseRuleRequest(99, 1, null, "Unknown course")));
 
         result.Succeeded.Should().BeFalse();
         result.Errors.Should().Contain("Course category 99 does not exist.");
@@ -174,7 +176,7 @@ public class PackageCourseRuleCommandTests
         var result = await _command.ExecuteAsync(1, Request(Rule(1)));
 
         result.Succeeded.Should().BeFalse();
-        result.Should().BeOfType<PackageNotFoundResult<PackageCourseRulesetDto>>();
+        result.Should().BeOfType<PackageNotFoundResult<PackageCourseRulesetResponse>>();
         result.Errors.Should().ContainSingle().Which.Should().Be("Package not found.");
         _store.PackageCourseRules.Should().BeEmpty();
         _rules.SaveCount.Should().Be(0);

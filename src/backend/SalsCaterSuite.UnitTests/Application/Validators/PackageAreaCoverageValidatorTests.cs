@@ -1,7 +1,9 @@
 namespace SalsCaterSuite.UnitTests.Application.Validators;
 
 using FluentAssertions;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Application.Features.Packages.Validators;
 using SalsCaterSuite.Domain.Entities;
 using SalsCaterSuite.UnitTests.Common.Fakes;
@@ -29,7 +31,7 @@ public class PackageAreaCoverageValidatorTests
         _store.Areas.Add(new Area { AreaId = 4, AreaDetails = "Retired municipality", IsDeleted = true });
     }
 
-    private static PackageAreaCoverageEntryDto ValidEntry(int areaId = 3) => new(areaId, true);
+    private static PackageAreaCoverageEntryRequest ValidEntry(int areaId = 3) => new(areaId, true);
 
     [Fact]
     public async Task A_valid_coverage_set_should_pass()
@@ -54,7 +56,7 @@ public class PackageAreaCoverageValidatorTests
     [Fact]
     public async Task An_empty_coverage_set_should_pass_because_it_clears_the_tier()
     {
-        var request = new PackageAreaCoverageRequest(Array.Empty<PackageAreaCoverageEntryDto>());
+        var request = new PackageAreaCoverageRequest(Array.Empty<PackageAreaCoverageEntryRequest>());
 
         (await _setValidator.ValidateAsync(request)).IsValid.Should().BeTrue();
     }

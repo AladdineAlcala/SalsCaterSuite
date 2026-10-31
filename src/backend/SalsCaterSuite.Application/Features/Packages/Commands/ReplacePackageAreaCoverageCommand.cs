@@ -1,7 +1,9 @@
 using FluentValidation;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Application.Features.Packages.Queries;
 using SalsCaterSuite.Domain.Entities;
 
@@ -40,7 +42,7 @@ public class ReplacePackageAreaCoverageCommand
         _matrix = matrix;
     }
 
-    public async Task<Result<PackageAreaCoverageMatrixDto>> ExecuteAsync(
+    public async Task<Result<PackageAreaCoverageMatrixResponse>> ExecuteAsync(
         int packageId,
         PackageAreaCoverageRequest request,
         CancellationToken cancellationToken = default)
@@ -50,7 +52,7 @@ public class ReplacePackageAreaCoverageCommand
 
         if (!validationResult.IsValid)
         {
-            return Result<PackageAreaCoverageMatrixDto>.Failure(
+            return Result<PackageAreaCoverageMatrixResponse>.Failure(
                 validationResult.Errors.Select(error => error.ErrorMessage).ToArray());
         }
 
@@ -60,7 +62,7 @@ public class ReplacePackageAreaCoverageCommand
 
         if (package is null)
         {
-            return new PackageNotFoundResult<PackageAreaCoverageMatrixDto>("Package not found.");
+            return new PackageNotFoundResult<PackageAreaCoverageMatrixResponse>("Package not found.");
         }
 
         // Every row the tier holds, the soft-deleted ones included, so a re-added municipality

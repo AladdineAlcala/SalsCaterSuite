@@ -1,5 +1,7 @@
 using SalsCaterSuite.Application.Common.Interfaces;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Features.Bookings.Services;
 using SalsCaterSuite.Application.Services;
 using SalsCaterSuite.Domain.Entities;
@@ -8,7 +10,7 @@ using SalsCaterSuite.Domain.Enums;
 namespace SalsCaterSuite.Application.Features.Bookings.Services;
 
 /// <summary>
-/// The <b>one</b> projection of a booking's dish selection onto <see cref="BookingMenuSelectionDto"/>
+/// The <b>one</b> projection of a booking's dish selection onto <see cref="BookingMenuSelectionResponse"/>
 /// (contract §15.1).
 /// <para>
 /// The read endpoint and the two writes' responses both build their payload here, so the saved
@@ -42,7 +44,7 @@ public class BookingMenuSelectionPresenter
     /// Describes the booking's <b>live</b> selection, the tier's live ruleset and the
     /// menu-change window.
     /// </summary>
-    public async Task<BookingMenuSelectionDto> BuildAsync(
+    public async Task<BookingMenuSelectionResponse> BuildAsync(
         Booking booking,
         CancellationToken cancellationToken = default)
     {
@@ -64,7 +66,7 @@ public class BookingMenuSelectionPresenter
             .Select(row => new ResolvedSelectionRow(row.CourseId, row.MenuId, row.PrepInstruction))
             .ToList();
 
-        var dto = new BookingMenuSelectionDto
+        var dto = new BookingMenuSelectionResponse
         {
             TransactionId = booking.TransactionId,
             BookingNumber = booking.BookingNumber,

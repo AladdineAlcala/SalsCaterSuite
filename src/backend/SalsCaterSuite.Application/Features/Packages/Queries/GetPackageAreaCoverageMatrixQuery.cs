@@ -1,6 +1,8 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Application.Features.Packages.Services;
 
 namespace SalsCaterSuite.Application.Features.Packages.Queries;
@@ -33,7 +35,7 @@ public class GetPackageAreaCoverageMatrixQuery
         _clock = clock;
     }
 
-    public async Task<Result<PackageAreaCoverageMatrixDto>> ExecuteAsync(
+    public async Task<Result<PackageAreaCoverageMatrixResponse>> ExecuteAsync(
         int packageId,
         CancellationToken cancellationToken = default)
     {
@@ -43,7 +45,7 @@ public class GetPackageAreaCoverageMatrixQuery
 
         if (!ruleset.Succeeded)
         {
-            return Result<PackageAreaCoverageMatrixDto>.Failure(ruleset.Errors);
+            return Result<PackageAreaCoverageMatrixResponse>.Failure(ruleset.Errors);
         }
 
         var package = ruleset.Data!;
@@ -60,7 +62,7 @@ public class GetPackageAreaCoverageMatrixQuery
 
         var grossProfitPercentages = ComputeGrossProfitRange(package, activeRows);
 
-        var matrix = new PackageAreaCoverageMatrixDto
+        var matrix = new PackageAreaCoverageMatrixResponse
         {
             PackageId = package.PackageId,
             PackageName = package.PackageName,
@@ -90,7 +92,7 @@ public class GetPackageAreaCoverageMatrixQuery
             GeneratedAt = _clock.UtcNow
         };
 
-        return Result<PackageAreaCoverageMatrixDto>.Success(matrix);
+        return Result<PackageAreaCoverageMatrixResponse>.Success(matrix);
     }
 
     /// <summary>
@@ -104,7 +106,7 @@ public class GetPackageAreaCoverageMatrixQuery
     /// </para>
     /// </summary>
     private static List<decimal> ComputeGrossProfitRange(
-        PackageCourseRulesetDto package,
+        PackageCourseRulesetResponse package,
         IReadOnlyCollection<PackageAreaCoverageProjection> activeRows)
     {
         var percentages = new List<decimal>();
@@ -137,7 +139,7 @@ public class GetPackageAreaCoverageMatrixQuery
         return percentages;
     }
 
-    private static PackageAreaCoverageRowDto MapRow(PackageAreaCoverageProjection row) => new()
+    private static PackageAreaCoverageRowResponse MapRow(PackageAreaCoverageProjection row) => new()
     {
         PackageAreaCoverageId = row.PackageAreaCoverageId,
         AreaId = row.AreaId,

@@ -3,7 +3,9 @@ namespace SalsCaterSuite.UnitTests.Application.Commands;
 using FluentAssertions;
 using SalsCaterSuite.Application.Features.Bookings;
 using SalsCaterSuite.Application.Features.Bookings.Commands;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Features.Bookings.Services;
 using SalsCaterSuite.Domain.Entities;
 using SalsCaterSuite.Domain.Enums;
@@ -180,10 +182,10 @@ public class ReplaceBookingAddonsCommandTests
         return booking;
     }
 
-    private static BookingAddonRequestDto Line(int addonId, decimal? amount = null) =>
+    private static BookingAddonRequest Line(int addonId, decimal? amount = null) =>
         new() { AddonId = addonId, Amount = amount };
 
-    private static BookingAddonsRequest Request(params BookingAddonRequestDto[] lines) =>
+    private static BookingAddonsRequest Request(params BookingAddonRequest[] lines) =>
         new() { Addons = lines.ToList() };
 
     // ─────────────────────────── the happy path ───────────────────────────
@@ -420,7 +422,7 @@ public class ReplaceBookingAddonsCommandTests
     {
         var result = await _command.ExecuteAsync(9_999, Request(Line(10)));
 
-        result.Should().BeOfType<BookingNotFoundResult<BookingAddonSetDto>>();
+        result.Should().BeOfType<BookingNotFoundResult<BookingAddonSetResponse>>();
         result.Errors.Should().Contain("Booking not found.");
     }
 

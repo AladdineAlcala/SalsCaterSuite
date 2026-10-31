@@ -1,6 +1,8 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Application.Features.Packages.Services;
 using SalsCaterSuite.Domain.Entities;
 
@@ -43,7 +45,7 @@ public class GetPackageCourseRulesetQuery
         _clock = clock;
     }
 
-    public async Task<Result<PackageCourseRulesetDto>> ExecuteAsync(
+    public async Task<Result<PackageCourseRulesetResponse>> ExecuteAsync(
         int packageId,
         CancellationToken cancellationToken = default)
     {
@@ -51,7 +53,7 @@ public class GetPackageCourseRulesetQuery
 
         if (package is null)
         {
-            return Result<PackageCourseRulesetDto>.Failure("Package not found.");
+            return Result<PackageCourseRulesetResponse>.Failure("Package not found.");
         }
 
         // The benchmark is read once for the whole request (DEC-040).
@@ -77,7 +79,7 @@ public class GetPackageCourseRulesetQuery
         var standardRun = PackageCostingCalculator.StandardRunFoodCostPerPax(
             rules.Select(rule => rule.Pool.Select(dish => dish.FoodCost)));
 
-        var ruleset = new PackageCourseRulesetDto
+        var ruleset = new PackageCourseRulesetResponse
         {
             PackageId = package.PackageId,
             PackageName = package.Description,
@@ -103,11 +105,11 @@ public class GetPackageCourseRulesetQuery
             GeneratedAt = _clock.UtcNow
         };
 
-        return Result<PackageCourseRulesetDto>.Success(ruleset);
+        return Result<PackageCourseRulesetResponse>.Success(ruleset);
     }
 
     /// <summary>Maps one rule and derives its qualified pool.</summary>
-    private static PackageCourseRuleDto MapRule(
+    private static PackageCourseRuleResponse MapRule(
         PackageCourseRuleProjection projection,
         IReadOnlyDictionary<int, List<Menu>> pools)
     {
@@ -118,7 +120,7 @@ public class GetPackageCourseRulesetQuery
         var poolDtos = pool
             .OrderBy(menu => menu.MenuName, StringComparer.OrdinalIgnoreCase)
             .ThenBy(menu => menu.MenuId, StringComparer.OrdinalIgnoreCase)
-            .Select(menu => new PackageCoursePoolDishDto
+            .Select(menu => new PackageCoursePoolDishResponse
             {
                 MenuId = menu.MenuId,
                 MenuName = menu.MenuName,
@@ -127,7 +129,7 @@ public class GetPackageCourseRulesetQuery
             })
             .ToList();
 
-        return new PackageCourseRuleDto
+        return new PackageCourseRuleResponse
         {
             PackageCourseRuleId = projection.PackageCourseRuleId,
             CourseId = projection.CourseId,

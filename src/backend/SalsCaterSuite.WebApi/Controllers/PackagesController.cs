@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using QuestPDF.Fluent;
 using SalsCaterSuite.Application.Features.Packages;
 using SalsCaterSuite.Application.Features.Packages.Commands;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Application.Features.Packages.Queries;
 using SalsCaterSuite.Infrastructure.Documents;
 
@@ -89,7 +91,7 @@ public class PackagesController : ControllerBase
     /// </para>
     /// </summary>
     [HttpGet("summary")]
-    [ProducesResponseType(typeof(PackageCatalogueSummaryDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PackageCatalogueSummaryResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetSummary(CancellationToken cancellationToken)
     {
         var result = await _getCatalogueSummary.ExecuteAsync(cancellationToken);
@@ -106,7 +108,7 @@ public class PackagesController : ControllerBase
     /// </para>
     /// </summary>
     [HttpGet("pax-applicables")]
-    [ProducesResponseType(typeof(List<PackagePaxApplicableDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(List<PackagePaxApplicableResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetPaxApplicables(CancellationToken cancellationToken)
     {
         var result = await _getPaxApplicables.ExecuteAsync(cancellationToken);
@@ -125,7 +127,7 @@ public class PackagesController : ControllerBase
 
     /// <summary>POST /api/packages — Create new package</summary>
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreatePackageRequestDto request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Create([FromBody] CreatePackageRequest request, CancellationToken cancellationToken)
     {
         var result = await _createPackage.ExecuteAsync(request, cancellationToken);
         if (!result.Succeeded)
@@ -140,7 +142,7 @@ public class PackagesController : ControllerBase
 
     /// <summary>PUT /api/packages/{id} — Update package</summary>
     [HttpPut("{id:int}")]
-    public async Task<IActionResult> Update(int id, [FromBody] CreatePackageRequestDto request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Update(int id, [FromBody] CreatePackageRequest request, CancellationToken cancellationToken)
     {
         var result = await _updatePackage.ExecuteAsync(id, request, cancellationToken);
         if (result.Succeeded)
@@ -173,7 +175,7 @@ public class PackagesController : ControllerBase
     /// pools and its planning figures (contract §13.1).
     /// </summary>
     [HttpGet("{id:int}/course-rules")]
-    [ProducesResponseType(typeof(PackageCourseRulesetDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PackageCourseRulesetResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetCourseRules(int id, CancellationToken cancellationToken)
     {
@@ -194,7 +196,7 @@ public class PackagesController : ControllerBase
     /// </para>
     /// </summary>
     [HttpPut("{id:int}/course-rules")]
-    [ProducesResponseType(typeof(PackageCourseRulesetDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PackageCourseRulesetResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ReplaceCourseRules(
@@ -211,7 +213,7 @@ public class PackagesController : ControllerBase
 
         // A rejected payload is a validation failure (400); a missing tier is a 404. The two are
         // distinguished by the result type, never by the message text.
-        return result is PackageNotFoundResult<PackageCourseRulesetDto>
+        return result is PackageNotFoundResult<PackageCourseRulesetResponse>
             ? NotFound(new { errors = result.Errors })
             : BadRequest(new { errors = result.Errors });
     }
@@ -221,7 +223,7 @@ public class PackagesController : ControllerBase
     /// forecast (contract §13.3).
     /// </summary>
     [HttpPost("{id:int}/course-rules/preview")]
-    [ProducesResponseType(typeof(PackageCourseRulePreviewDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PackageCourseRulePreviewResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> PreviewCourseRules(
@@ -236,7 +238,7 @@ public class PackagesController : ControllerBase
             return Ok(result.Data);
         }
 
-        return result is PackageNotFoundResult<PackageCourseRulePreviewDto>
+        return result is PackageNotFoundResult<PackageCourseRulePreviewResponse>
             ? NotFound(new { errors = result.Errors })
             : BadRequest(new { errors = result.Errors });
     }
@@ -245,7 +247,7 @@ public class PackagesController : ControllerBase
     /// GET /api/packages/{id}/areas — the tier's coverage matrix (contract §13.4).
     /// </summary>
     [HttpGet("{id:int}/areas")]
-    [ProducesResponseType(typeof(PackageAreaCoverageMatrixDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PackageAreaCoverageMatrixResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetAreaCoverage(int id, CancellationToken cancellationToken)
     {
@@ -260,7 +262,7 @@ public class PackagesController : ControllerBase
     /// PUT /api/packages/{id}/areas — replace the tier's coverage set (contract §13.5).
     /// </summary>
     [HttpPut("{id:int}/areas")]
-    [ProducesResponseType(typeof(PackageAreaCoverageMatrixDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PackageAreaCoverageMatrixResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ReplaceAreaCoverage(
@@ -275,7 +277,7 @@ public class PackagesController : ControllerBase
             return Ok(result.Data);
         }
 
-        return result is PackageNotFoundResult<PackageAreaCoverageMatrixDto>
+        return result is PackageNotFoundResult<PackageAreaCoverageMatrixResponse>
             ? NotFound(new { errors = result.Errors })
             : BadRequest(new { errors = result.Errors });
     }
@@ -289,7 +291,7 @@ public class PackagesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> AttachAreaCoverage(
         int id,
-        [FromBody] PackageAreaCoverageAttachDto request,
+        [FromBody] PackageAreaCoverageAttachRequest request,
         CancellationToken cancellationToken)
     {
         var result = await _attachCoverage.ExecuteAsync(id, request, cancellationToken);
@@ -310,7 +312,7 @@ public class PackagesController : ControllerBase
     /// POST /api/packages/{id}/areas/preview — the out-of-town pricing simulator (contract §13.7).
     /// </summary>
     [HttpPost("{id:int}/areas/preview")]
-    [ProducesResponseType(typeof(PackageLocationPreviewDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PackageLocationPreviewResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> PreviewLocation(
@@ -326,8 +328,8 @@ public class PackagesController : ControllerBase
         }
 
         // A missing tier and a missing municipality are both 404s; a rejected payload is a 400.
-        return result is PackageNotFoundResult<PackageLocationPreviewDto>
-            || result is AreaNotFoundResult<PackageLocationPreviewDto>
+        return result is PackageNotFoundResult<PackageLocationPreviewResponse>
+            || result is AreaNotFoundResult<PackageLocationPreviewResponse>
                 ? NotFound(new { errors = result.Errors })
                 : BadRequest(new { errors = result.Errors });
     }

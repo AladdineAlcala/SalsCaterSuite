@@ -17,7 +17,7 @@
 | **Database Engine** | SQL Server (Development target: LocalDB `MSSQLLocalDB`) |
 | **Test Projects** | `src/backend/SalsCaterSuite.UnitTests` (xUnit), `src/backend/SalsCaterSuite.IntegrationTests` (xUnit + `WebApplicationFactory`) |
 | **Status** | Living document — aligned to the **as-built** repository state |
-| **Last aligned** | 2026-10-31 (AGENT 01 — REQ-PKG-04 / DEC-176 applicable-pax display delivered. As-built frontend remains within existing package and booking feature/test folders; no project, route, endpoint, DTO, dependency, or database structure changed. Independent frontend validation: focused packages + bookings 11 files/321 tests; full Vitest 27 files/512 tests; TypeScript and production build passed with the existing Vite chunk-size advisory. No live browser E2E, clean remote clone, commit, or push; see §11.) |
+| **Last aligned** | 2026-10-31 (AGENT 02 / DEC-179 — Application feature DTOs aligned to `DTOs/Request` and `DTOs/Response`; `LedgerSummaryDto` retains its name, file, and namespace as the owner-approved exception. Its `Payments` property references `PaymentEntryResponse`; serialized JSON shape is unchanged. Backend build: 0 warnings / 0 errors; unit tests 1,028/1,028 and integration tests 160/160 passed; see §11.) |
 
 > **Read this document before acting.** If the code and this document disagree, **the code is the current truth and this document is stale**. AGENT 01 realigns the document as part of closing the work cycle. A sub-agent that finds a discrepancy must report it to AGENT 01 and must **not** silently treat either side as correct.
 
@@ -284,9 +284,10 @@ SalsCaterSuite.Application/
 │   ├── Bookings/
 │   │   ├── BookingCreateCapabilities.cs (the extended create path's collaborators — DEC-114)
 │   │   ├── Commands/     (CancelBookingCommand, CreateBookingCommand, PreviewBookingQuoteCommand)
-│   │   ├── DTOs/        (BookingDto, BookingQuoteDto, BookingRegisterPageDto,
-│   │   │                BookingRegisterSummaryDto, CreateBookingResponseDto)
-│   │   ├── Models/      (BookingRegisterFilter, BookingRegisterFilterRequest, BookingRegisterSort)
+│   │   ├── DTOs/
+│   │   │   ├── Request/  (booking request types, including BookingRegisterFilterRequest)
+│   │   │   └── Response/ (booking details, quote, menu/add-on, register and supporting response types)
+│   │   ├── Models/      (BookingRegisterFilter, BookingRegisterExportData, BookingRegisterSort)
 │   │   ├── Queries/     (GetBookingDetailsQuery, GetBookingLedgerQuery, GetBookingRegisterQuery,
 │   │   │                GetBookingRegisterSummaryQuery)
 │   │   ├── Services/    (BookingCapacityWindow, BookingPaymentPopulation, BookingPaymentStateClassifier,
@@ -295,24 +296,28 @@ SalsCaterSuite.Application/
 │   │   └── Validators/  (BookingQuoteValidator.cs, BookingRegisterFilterValidator.cs,
 │   │                    CreateBookingValidator.cs)
 │   ├── Calendar/
-│   │   ├── DTOs/        (CalendarEventDto)
+│   │   ├── DTOs/Response/ (CalendarEventResponse, ExtendedEventPropsResponse)
 │   │   └── Queries/     (GetCalendarEventsQuery)
 │   ├── Customers/
 │   │   ├── Commands/    (CreateCustomerCommand, UpdateCustomerCommand)
-│   │   ├── DTOs/        (CustomerDirectoryDto, CustomerDto)
+│   │   ├── DTOs/
+│   │   │   ├── Request/  (CreateCustomerRequest)
+│   │   │   └── Response/ (Customer and customer-directory response types)
 │   │   ├── Queries/     (GetCustomerByIdQuery, GetCustomerDirectoryQuery, GetCustomersQuery, GetCustomerStatementQuery)
 │   │   ├── Services/    (CustomerAgingService.cs — the single aging vocabulary)
 │   │   ├── Validators/  (CreateCustomerValidator.cs)
 │   │   └── (CustomerClassification.cs, CustomerNotFoundResult.cs)
 │   ├── Dashboard/
-│   │   ├── DTOs/        (DashboardDto)
+│   │   ├── DTOs/Response/ (Dashboard and supporting response types)
 │   │   ├── Models/      (DashboardPeriod)
 │   │   ├── Queries/     (GetDashboardQuery)
 │   │   ├── Services/    (DashboardService.cs, IDashboardService.cs)
 │   │   └── (DashboardErrors.cs, DashboardNotFoundResult.cs)
 │   ├── Menus/
 │   │   ├── Commands/    (CreateMenuCommand, DeleteMenuCommand, UpdateMenuCommand)
-│   │   ├── DTOs/        (MenuDto, MenuMasterDto)
+│   │   ├── DTOs/
+│   │   │   ├── Request/  (CreateMenuRequest, MenuCostingPreviewRequest)
+│   │   │   └── Response/ (Menu, menu-master, costing and course response types)
 │   │   ├── Models/      (MenuMasterDataSet, MenuMasterFilter, MenuMasterSort, MenuMasterStatus)
 │   │   ├── Queries/     (GetCoursesQuery, GetMenuByIdQuery, GetMenuMasterQuery, GetMenusQuery, PreviewMenuCostingQuery)
 │   │   ├── Services/    (IMenuCostingService.cs, MenuCostingCalculator.cs)
@@ -322,11 +327,11 @@ SalsCaterSuite.Application/
 │   │   ├── Commands/    (AttachPackageAreaCoverageCommand, CreateAreaCommand, CreatePackageCommand,
 │   │   │                ReplacePackageAreaCoverageCommand, ReplacePackageCourseRulesCommand,
 │   │   │                TogglePackageActiveCommand, UpdateAreaCommand, UpdatePackageCommand)
-│   │   ├── DTOs/        (AreaDto.cs, PackageAreaCoverageDto.cs, PackageCatalogueSummaryDto.cs,
-│   │   │                PackageCourseRulePreviewDto.cs, PackageCourseRulesetDto.cs, PackageDto.cs,
-│   │   │                PackageLocationPreviewDto.cs, PackagePaxApplicableDto.cs,
-│   │   │                PackageRepositoryProjections.cs,
-│   │   │                PackageSpecSheetModel.cs)
+│   │   ├── DTOs/
+│   │   │   ├── Request/  (area, package, coverage, course-rule and location-preview request types)
+│   │   │   └── Response/ (area, package catalogue, coverage, course-rule and preview response types)
+│   │   ├── Models/      (PackageCourseRuleProjection, PackageAreaCoverageProjection,
+│   │   │                PackageSpecSheetModel)
 │   │   ├── Queries/     (GetAreasQuery, GetPackageAreaCoverageMatrixQuery, GetPackageByIdQuery,
 │   │   │                GetPackageCatalogueSummaryQuery, GetPackageCourseRulesetQuery,
 │   │   │                GetPackageSpecSheetQuery, GetPackagesQuery, PreviewPackageCourseRuleQuery,
@@ -341,13 +346,18 @@ SalsCaterSuite.Application/
 │   ├── Addons/                        (the 2026-10-24 Settings → Add-ons administration)
 │   │   ├── Commands/    (CreateAddonCommand, UpdateAddonCommand, DeleteAddonCommand,
 │   │   │                AddonReferenceGuard.cs)
-│   │   ├── DTOs/        (AddonAdminDto.cs — the admin item, the upsert request, DepartmentDto)
+│   │   ├── DTOs/
+│   │   │   ├── Request/  (AddonUpsertRequest)
+│   │   │   └── Response/ (AddonAdminItemResponse, DepartmentResponse)
 │   │   ├── Queries/     (GetAddonManagementListQuery, GetAddonManagementDetailQuery,
 │   │   │                GetDepartmentsQuery)
 │   │   ├── Validators/  (AddonUpsertValidator.cs)
 │   │   └── (AddonNotFoundResult.cs, AddonAdminMapper.cs)
 │   └── Payments/
-│       ├── DTOs/        (PaymentEntryDto)
+│       ├── DTOs/
+│       │   ├── Request/  (RecordPaymentRequest)
+│       │   ├── Response/ (PaymentEntryResponse)
+│       │   └── PaymentEntryDto.cs (LedgerSummaryDto — owner-approved type/file/namespace exception, DEC-179)
 │       ├── Services/    (IPaymentLedgerService.cs, PaymentLedgerService.cs — the authoritative ledger,
 │       │                ReceiptNumberGenerator.cs — the one receipt-number generator, DEC-112)
 │       └── Validators/  (RecordPaymentValidator.cs)
@@ -359,6 +369,7 @@ SalsCaterSuite.Application/
 **Rules:**
 
 - A use case never touches EF Core, `DbContext` or SQL. It composes repository calls and returns an `Application` result/DTO.
+- Feature API DTOs live one type per file under `Features/{Feature}/DTOs/Request` or `DTOs/Response`; names end in `Request` or `Response` (DEC-179). The sole owner-approved placement/naming exception is `Payments/DTOs/PaymentEntryDto.cs`: `LedgerSummaryDto` retains its type name, file, and namespace, while its `Payments` property references `PaymentEntryResponse`. This CLR element-type update does not change the property's serialized JSON shape.
 - A financial calculation that appears in more than one place lives in **one** shared class (`BookingAmountDueCalculator`, `MenuCostingCalculator`, `CustomerAgingService`) and is reused by every caller.
 - A validator is executed by the use case before persistence; a `DomainException` maps to **HTTP 400** (DEC-014).
 
@@ -1147,8 +1158,11 @@ The authoritative per-feature status, test evidence and outstanding gaps live in
 | Date | Agent | Change | Sections touched |
 | :--- | :--- | :--- | :--- |
 | 2026-10-31 | AGENT 01 | **REQ-PKG-04 applicable-pax classification display delivered (DEC-176).** Existing API-fed labels are displayed on package catalogue cards and the selected-tier inspector, and in the existing `/bookings/new` buffet-tier options and selected-tier panel. The booking query stays inside the existing bookings feature and shares the lookup cache key; labels are verbatim, loading/error/unmatched states are non-blocking, and no booking edit surface is added. No backend, endpoint, DTO, database, route, project, dependency, or shared component change. AGENT 01 independently verified focused packages + bookings **11 files / 321 tests**, full Vitest **27 files / 512 tests**, TypeScript and production build (existing Vite chunk advisory). No live browser E2E, clean remote clone, commit or push. | 3.2, 9–11 |
+| 2026-10-31 | AGENT 02 | **Application feature DTO organization aligned (DEC-179).** Enumerated feature DTOs; moved request/response types into one-file-per-type `DTOs/Request` and `DTOs/Response` folders, applied kind suffixes, moved four non-DTO models to feature `Models`, and updated references. `LedgerSummaryDto` retains its type name, file, and namespace as the owner-approved exception; its `Payments` property references `PaymentEntryResponse` without changing the JSON payload shape. Endpoint paths, persistence, and database structure are unchanged. `npm run build:api`: 0 warnings / 0 errors; `npm run test:api`: 1,028 unit and 160 integration tests passed. | 2.3, 10–11 |
 
 ## 11. Verification Checklist
+
+**Verification — 2026-10-31 (AGENT 02, DEC-179 DTO alignment).** Enumerated the Application feature DTO tree: 24 request DTO files and 82 response DTO files, each under the matching `DTOs/Request` or `DTOs/Response` folder with one public DTO declaration and a matching kind suffix. The only feature DTO outside those folders is the explicitly exempt `Payments/DTOs/PaymentEntryDto.cs`, which contains `LedgerSummaryDto`; its name, file, and namespace are unchanged, and its `Payments` property uses `PaymentEntryResponse` with unchanged JSON members. Shared `Application/Common/Models` remain unchanged. The four moved internal models are under their feature `Models` folders. Solution-wide references were updated, including WebApi and tests. `npm run build:api` succeeded with **0 warnings / 0 errors**. `npm run test:api` passed **1,028/1,028 unit tests** and **160/160 integration tests**. DTO JSON payload members and endpoint paths are unchanged. No EF configuration, migration, database, or frontend files were changed. `git diff --check` was clean. A clean remote clone and browser E2E were not performed.
 
 **Verification — 2026-10-31 (AGENT 01, REQ-PKG-04 / DEC-176 Close).** Enumerated the affected existing frontend package and booking feature trees and confirmed that all changed product and test files remain under §3.2; no new file category, project, feature folder, route, endpoint, dependency or layer boundary was added. The package lookup endpoint in §3.4 and the `/packages` and `/bookings/new` routes in §3.3 are unchanged. **Independent frontend validation:** `npm --prefix src/frontend/salscatersuite-ui run test -- src/features/packages src/features/bookings` → **11 files / 321 tests passed**; `npm --prefix src/frontend/salscatersuite-ui run test` → **27 files / 512 tests passed**; `npm --prefix src/frontend/salscatersuite-ui run build` → TypeScript passed and Vite built 2,169 modules successfully with the existing >500 kB chunk-size advisory. Scoped `git diff --check` for the workflow, business/governance/implementation docs and affected frontend folders was clean. No backend/API/database behavior changed, so backend suites and persistent databases were not touched. No live browser E2E, viewport measurement, clean remote clone, commit or push was performed. The pre-existing modified `docs/userchangerequest.txt` was left untouched.
 

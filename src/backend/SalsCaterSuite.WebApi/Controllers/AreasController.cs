@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SalsCaterSuite.Application.Features.Packages;
 using SalsCaterSuite.Application.Features.Packages.Commands;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Application.Features.Packages.Queries;
 
 namespace SalsCaterSuite.WebApi.Controllers;
@@ -36,7 +38,7 @@ public class AreasController : ControllerBase
 
     /// <summary>GET /api/areas — the municipality catalogue (contract §13.9).</summary>
     [HttpGet]
-    [ProducesResponseType(typeof(AreaDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(AreaResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
         var result = await _getAreas.ExecuteAsync(cancellationToken);
@@ -47,7 +49,7 @@ public class AreasController : ControllerBase
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Create([FromBody] AreaRequestDto request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Create([FromBody] AreaRequest request, CancellationToken cancellationToken)
     {
         var result = await _createArea.ExecuteAsync(request, cancellationToken);
 
@@ -67,7 +69,7 @@ public class AreasController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Update(
         int id,
-        [FromBody] AreaRequestDto request,
+        [FromBody] AreaRequest request,
         CancellationToken cancellationToken)
     {
         var result = await _updateArea.ExecuteAsync(id, request, cancellationToken);

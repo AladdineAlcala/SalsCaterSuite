@@ -1,13 +1,16 @@
+using SalsCaterSuite.Application.Features.Payments.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QuestPDF.Fluent;
 using SalsCaterSuite.Application.Common.Authorization;
 using SalsCaterSuite.Application.Features.Bookings;
 using SalsCaterSuite.Application.Features.Bookings.Commands;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
 using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Features.Bookings.Queries;
-using SalsCaterSuite.Application.Features.Payments.DTOs;
+using SalsCaterSuite.Application.Features.Payments.DTOs.Request;
+using SalsCaterSuite.Application.Features.Payments.DTOs.Response;
 using SalsCaterSuite.Domain.Enums;
 using SalsCaterSuite.Infrastructure.Documents;
 using SalsCaterSuite.Infrastructure.Exports;
@@ -65,7 +68,7 @@ public class BookingsController : ControllerBase
 
     /// <summary>GET /api/bookings/{id} — Get booking details</summary>
     [HttpGet("{id:int}")]
-    [ProducesResponseType(typeof(BookingDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(BookingResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetDetails(int id, CancellationToken cancellationToken)
     {
@@ -80,7 +83,7 @@ public class BookingsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> UpdateCore(int id, [FromBody] UpdateBookingCoreRequestDto request, CancellationToken cancellationToken)
+    public async Task<IActionResult> UpdateCore(int id, [FromBody] UpdateBookingCoreRequest request, CancellationToken cancellationToken)
     {
         var result = await _updateBookingCore.ExecuteAsync(id, request, cancellationToken);
 
@@ -114,7 +117,7 @@ public class BookingsController : ControllerBase
     /// its totals strip and its facet counts (contract §14.1).
     /// </summary>
     [HttpGet]
-    [ProducesResponseType(typeof(BookingRegisterPageDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(BookingRegisterPageResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetRegister(
         [FromQuery] string? search,
@@ -144,7 +147,7 @@ public class BookingsController : ControllerBase
     /// distribution and the capacity load (contract §14.2).
     /// </summary>
     [HttpGet("summary")]
-    [ProducesResponseType(typeof(BookingRegisterSummaryDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(BookingRegisterSummaryResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetSummary(
         [FromQuery] string? search,
@@ -212,10 +215,10 @@ public class BookingsController : ControllerBase
     /// persists nothing (contract §14.3, BR-31).
     /// </summary>
     [HttpPost("quote")]
-    [ProducesResponseType(typeof(BookingQuoteDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(BookingQuoteResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Quote(
-        [FromBody] BookingQuoteRequestDto request,
+        [FromBody] BookingQuoteRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await _quoteBooking.ExecuteAsync(request, cancellationToken);
@@ -256,7 +259,7 @@ public class BookingsController : ControllerBase
     /// live qualified pools, and the menu-change window (contract §15.1, REQ-BKG-06).
     /// </summary>
     [HttpGet("{id:int}/menus")]
-    [ProducesResponseType(typeof(BookingMenuSelectionDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(BookingMenuSelectionResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMenuSelection(int id, CancellationToken cancellationToken)
     {
@@ -273,7 +276,7 @@ public class BookingsController : ControllerBase
     /// <c>null</c> member is a <c>400</c>.
     /// </summary>
     [HttpPut("{id:int}/menus")]
-    [ProducesResponseType(typeof(BookingMenuSelectionDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(BookingMenuSelectionResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ReplaceMenuSelection(
@@ -288,7 +291,7 @@ public class BookingsController : ControllerBase
             return Ok(result.Data);
         }
 
-        return result is BookingNotFoundResult<BookingMenuSelectionDto>
+        return result is BookingNotFoundResult<BookingMenuSelectionResponse>
             ? NotFound(new { errors = result.Errors })
             : BadRequest(new { errors = result.Errors });
     }
@@ -298,7 +301,7 @@ public class BookingsController : ControllerBase
     /// window (contract §16.3, REQ-BKG-07).
     /// </summary>
     [HttpGet("{id:int}/addons")]
-    [ProducesResponseType(typeof(BookingAddonSetDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(BookingAddonSetResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetAddonSet(int id, CancellationToken cancellationToken)
     {
@@ -314,7 +317,7 @@ public class BookingsController : ControllerBase
     /// the money (contract §16.4, DEC-152).
     /// </summary>
     [HttpPut("{id:int}/addons")]
-    [ProducesResponseType(typeof(BookingAddonSetDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(BookingAddonSetResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ReplaceAddons(
@@ -329,7 +332,7 @@ public class BookingsController : ControllerBase
             return Ok(result.Data);
         }
 
-        return result is BookingNotFoundResult<BookingAddonSetDto>
+        return result is BookingNotFoundResult<BookingAddonSetResponse>
             ? NotFound(new { errors = result.Errors })
             : BadRequest(new { errors = result.Errors });
     }
@@ -377,10 +380,10 @@ public class BookingsController : ControllerBase
     /// payment (contract §14.4, BR-33).
     /// </summary>
     [HttpPost]
-    [ProducesResponseType(typeof(CreateBookingResponseDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(CreateBookingResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> Create([FromBody] CreateBookingRequestDto request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Create([FromBody] CreateBookingRequest request, CancellationToken cancellationToken)
     {
         // The authorization is two-level (BR-12, contract §14.4): a draft needs only an
         // authenticated user, but a confirmed booking that carries an initial payment
@@ -403,7 +406,7 @@ public class BookingsController : ControllerBase
         return CreatedAtAction(
             nameof(GetDetails),
             new { id = result.Data },
-            new CreateBookingResponseDto
+            new CreateBookingResponse
             {
                 TransactionId = result.Data,
                 BookingNumber = created.Data?.BookingNumber ?? string.Empty,

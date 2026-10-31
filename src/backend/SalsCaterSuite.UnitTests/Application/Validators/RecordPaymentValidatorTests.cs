@@ -2,7 +2,8 @@ namespace SalsCaterSuite.UnitTests.Application.Validators;
 
 using FluentAssertions;
 using FluentValidation.TestHelper;
-using SalsCaterSuite.Application.Features.Payments.DTOs;
+using SalsCaterSuite.Application.Features.Payments.DTOs.Request;
+using SalsCaterSuite.Application.Features.Payments.DTOs.Response;
 using SalsCaterSuite.Application.Features.Payments.Validators;
 using SalsCaterSuite.Domain.Enums;
 using Xunit;
@@ -21,7 +22,7 @@ public class RecordPaymentValidatorTests
     [InlineData(-1)]
     public void Validate_WhenTransactionIdIsZeroOrNegative_ShouldHaveValidationError(int txId)
     {
-        var model = new RecordPaymentRequestDto { TransactionId = txId };
+        var model = new RecordPaymentRequest { TransactionId = txId };
         var result = _validator.TestValidate(model);
         result.ShouldHaveValidationErrorFor(x => x.TransactionId)
               .WithErrorMessage("Valid transaction ID is required.");
@@ -32,7 +33,7 @@ public class RecordPaymentValidatorTests
     [InlineData(-100)]
     public void Validate_WhenAmountPaidIsZeroOrNegative_ShouldHaveValidationError(decimal amount)
     {
-        var model = new RecordPaymentRequestDto { AmountPaid = amount };
+        var model = new RecordPaymentRequest { AmountPaid = amount };
         var result = _validator.TestValidate(model);
         result.ShouldHaveValidationErrorFor(x => x.AmountPaid)
               .WithErrorMessage("Payment amount must be greater than zero.");
@@ -44,7 +45,7 @@ public class RecordPaymentValidatorTests
     [InlineData("   ")]
     public void Validate_WhenParticularIsNullOrEmpty_ShouldHaveValidationError(string? particular)
     {
-        var model = new RecordPaymentRequestDto { Particular = particular! };
+        var model = new RecordPaymentRequest { Particular = particular! };
         var result = _validator.TestValidate(model);
         result.ShouldHaveValidationErrorFor(x => x.Particular);
     }
@@ -52,7 +53,7 @@ public class RecordPaymentValidatorTests
     [Fact]
     public void Validate_WhenParticularExceeds150Chars_ShouldHaveValidationError()
     {
-        var model = new RecordPaymentRequestDto { Particular = new string('P', 151) };
+        var model = new RecordPaymentRequest { Particular = new string('P', 151) };
         var result = _validator.TestValidate(model);
         result.ShouldHaveValidationErrorFor(x => x.Particular)
               .WithErrorMessage("Payment particular / description is required.");
@@ -61,7 +62,7 @@ public class RecordPaymentValidatorTests
     [Fact]
     public void Validate_WhenPaymentMeansIsUndefinedEnumValue_ShouldHaveValidationError()
     {
-        var model = new RecordPaymentRequestDto
+        var model = new RecordPaymentRequest
         {
             PaymentMeans = (PaymentMeans)99
         };
@@ -79,7 +80,7 @@ public class RecordPaymentValidatorTests
     [InlineData(PaymentMeans.CreditCard)]
     public void Validate_WhenPaymentMeansIsDefinedEnumValue_ShouldAcceptIt(PaymentMeans means)
     {
-        var model = new RecordPaymentRequestDto
+        var model = new RecordPaymentRequest
         {
             TransactionId = 101,
             AmountPaid = 1000m,
@@ -94,7 +95,7 @@ public class RecordPaymentValidatorTests
     [Fact]
     public void Validate_WhenAllFieldsAreValid_ShouldPassValidation()
     {
-        var model = new RecordPaymentRequestDto
+        var model = new RecordPaymentRequest
         {
             TransactionId = 101,
             AmountPaid = 25000.50m,

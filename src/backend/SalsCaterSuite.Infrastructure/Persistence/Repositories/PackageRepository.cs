@@ -2,7 +2,9 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Repositories;
 
 using Microsoft.EntityFrameworkCore;
 using SalsCaterSuite.Application.Common.Interfaces;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Domain.Entities;
 
 /// <summary>
@@ -39,7 +41,7 @@ public class PackageRepository : IPackageRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<List<PackageDto>> GetProjectionListAsync(
+    public async Task<List<PackageResponse>> GetProjectionListAsync(
         bool? activeOnly,
         int? areaId = null,
         CancellationToken cancellationToken = default)
@@ -68,7 +70,7 @@ public class PackageRepository : IPackageRepository
 
         return await query
             .OrderBy(p => p.PackageType).ThenBy(p => p.Description)
-            .Select(p => new PackageDto
+            .Select(p => new PackageResponse
             {
                 PackageId = p.PackageId,
                 PackageCode = p.PackageCode ?? string.Empty,
@@ -83,14 +85,14 @@ public class PackageRepository : IPackageRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<PackageDto?> GetProjectionByIdAsync(int packageId, CancellationToken cancellationToken = default)
+    public async Task<PackageResponse?> GetProjectionByIdAsync(int packageId, CancellationToken cancellationToken = default)
     {
         // The same scoped population as the list (DEC-074): a soft-deleted tier is not part of
         // the catalogue and answers 404 on the detail endpoint.
         return await _context.Packages
             .AsNoTracking()
             .Where(p => p.PackageId == packageId && !p.IsDeleted)
-            .Select(p => new PackageDto
+            .Select(p => new PackageResponse
             {
                 PackageId = p.PackageId,
                 PackageCode = p.PackageCode ?? string.Empty,
@@ -122,7 +124,7 @@ public class PackageRepository : IPackageRepository
     /// queries exclude them (DEC-045 / DEC-050 — there is no global query filter).
     /// </para>
     /// </summary>
-    public async Task<PackageCatalogueSummaryDto> GetCatalogueSummaryAsync(CancellationToken cancellationToken = default)
+    public async Task<PackageCatalogueSummaryResponse> GetCatalogueSummaryAsync(CancellationToken cancellationToken = default)
     {
         var population = _context.Packages
             .AsNoTracking()
@@ -151,7 +153,7 @@ public class PackageRepository : IPackageRepository
         {
             // An empty catalogue: the counts are real measurements and are zero; the rate and
             // the floor aggregates are unknown and stay null (contract §9.2 rule 6).
-            return new PackageCatalogueSummaryDto
+            return new PackageCatalogueSummaryResponse
             {
                 TotalPackages = 0,
                 ActivePackages = 0,
@@ -162,7 +164,7 @@ public class PackageRepository : IPackageRepository
 
         var aggregate = groups[0];
 
-        return new PackageCatalogueSummaryDto
+        return new PackageCatalogueSummaryResponse
         {
             TotalPackages = aggregate.TotalPackages,
             ActivePackages = aggregate.ActivePackages,

@@ -1,7 +1,9 @@
 namespace SalsCaterSuite.UnitTests.Common.Fakes;
 
 using SalsCaterSuite.Application.Common.Interfaces;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Domain.Entities;
 
 /// <summary>
@@ -36,7 +38,7 @@ public sealed class FakePackageRepository : IPackageRepository
         return Task.FromResult(codes);
     }
 
-    public Task<List<PackageDto>> GetProjectionListAsync(
+    public Task<List<PackageResponse>> GetProjectionListAsync(
         bool? activeOnly,
         int? areaId = null,
         CancellationToken cancellationToken = default)
@@ -65,7 +67,7 @@ public sealed class FakePackageRepository : IPackageRepository
         return Task.FromResult(result);
     }
 
-    public Task<PackageDto?> GetProjectionByIdAsync(int packageId, CancellationToken cancellationToken = default)
+    public Task<PackageResponse?> GetProjectionByIdAsync(int packageId, CancellationToken cancellationToken = default)
     {
         // The same scoped population as the list (DEC-074).
         var package = _store.Packages.FirstOrDefault(p => p.PackageId == packageId && !p.IsDeleted);
@@ -86,7 +88,7 @@ public sealed class FakePackageRepository : IPackageRepository
     /// an empty population publishes <see langword="null"/> — never zero.
     /// </para>
     /// </summary>
-    public Task<PackageCatalogueSummaryDto> GetCatalogueSummaryAsync(CancellationToken cancellationToken = default)
+    public Task<PackageCatalogueSummaryResponse> GetCatalogueSummaryAsync(CancellationToken cancellationToken = default)
     {
         var population = _store.Packages.Where(p => !p.IsDeleted).ToList();
         var rates = population.Where(p => p.AmountPax.HasValue).Select(p => p.AmountPax!.Value).ToList();
@@ -95,7 +97,7 @@ public sealed class FakePackageRepository : IPackageRepository
         var totalPackages = population.Count;
         var activePackages = population.Count(p => p.IsActive);
 
-        var summary = new PackageCatalogueSummaryDto
+        var summary = new PackageCatalogueSummaryResponse
         {
             TotalPackages = totalPackages,
             ActivePackages = activePackages,
@@ -124,7 +126,7 @@ public sealed class FakePackageRepository : IPackageRepository
         return Task.FromResult(1);
     }
 
-    private static PackageDto Map(Package package) => new()
+    private static PackageResponse Map(Package package) => new()
     {
         PackageId = package.PackageId,
         PackageCode = package.PackageCode ?? string.Empty,

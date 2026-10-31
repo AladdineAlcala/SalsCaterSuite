@@ -1,5 +1,7 @@
 using FluentValidation;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 
 namespace SalsCaterSuite.Application.Features.Bookings.Validators;
 
@@ -10,7 +12,7 @@ namespace SalsCaterSuite.Application.Features.Bookings.Validators;
 /// apply — a quote that could never be created would be a misleading figure.
 /// </para>
 /// </summary>
-public class BookingQuoteValidator : AbstractValidator<BookingQuoteRequestDto>
+public class BookingQuoteValidator : AbstractValidator<BookingQuoteRequest>
 {
     public BookingQuoteValidator()
     {

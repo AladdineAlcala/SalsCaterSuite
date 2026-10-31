@@ -1,5 +1,7 @@
 using FluentValidation;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 
 namespace SalsCaterSuite.Application.Features.Packages.Validators;
 
@@ -15,7 +17,7 @@ namespace SalsCaterSuite.Application.Features.Packages.Validators;
 /// because a negative money figure has no meaning.
 /// </para>
 /// </summary>
-public class AreaRequestValidator : AbstractValidator<AreaRequestDto>
+public class AreaRequestValidator : AbstractValidator<AreaRequest>
 {
     public AreaRequestValidator()
     {

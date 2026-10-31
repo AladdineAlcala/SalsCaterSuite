@@ -1,7 +1,7 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
 using SalsCaterSuite.Application.Features.Bookings.Services;
-using SalsCaterSuite.Application.Features.Calendar.DTOs;
+using SalsCaterSuite.Application.Features.Calendar.DTOs.Response;
 using SalsCaterSuite.Application.Services;
 using SalsCaterSuite.Domain.Enums;
 
@@ -19,7 +19,7 @@ public class GetCalendarEventsQuery
         _calculator = calculator;
     }
 
-    public async Task<Result<List<CalendarEventDto>>> ExecuteAsync(
+    public async Task<Result<List<CalendarEventResponse>>> ExecuteAsync(
         DateTime? start,
         DateTime? end,
         CancellationToken cancellationToken = default)
@@ -50,7 +50,7 @@ public class GetCalendarEventsQuery
             var eventStart = b.EventDate.ToDateTime(TimeOnly.FromTimeSpan(b.EventStartTime));
             var eventEnd = b.EventDate.ToDateTime(TimeOnly.FromTimeSpan(b.EventEndTime));
 
-            return new CalendarEventDto
+            return new CalendarEventResponse
             {
                 Id = b.TransactionId.ToString(),
                 Title = $"{b.Customer?.FullName ?? "Unknown"} - {b.Occasion}",
@@ -60,7 +60,7 @@ public class GetCalendarEventsQuery
                 BorderColor = b.EventColor ?? "#1d4ed8",
                 TextColor = "#ffffff",
                 AllDay = false,
-                ExtendedProps = new ExtendedEventProps
+                ExtendedProps = new ExtendedEventPropsResponse
                 {
                     TransactionId = b.TransactionId,
                     CustomerName = b.Customer?.FullName ?? "Unknown",
@@ -73,6 +73,6 @@ public class GetCalendarEventsQuery
             };
         }).ToList();
 
-        return Result<List<CalendarEventDto>>.Success(events);
+        return Result<List<CalendarEventResponse>>.Success(events);
     }
 }

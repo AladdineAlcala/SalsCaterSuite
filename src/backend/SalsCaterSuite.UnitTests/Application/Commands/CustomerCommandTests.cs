@@ -2,7 +2,8 @@ namespace SalsCaterSuite.UnitTests.Application.Commands;
 
 using FluentAssertions;
 using SalsCaterSuite.Application.Features.Customers.Commands;
-using SalsCaterSuite.Application.Features.Customers.DTOs;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Request;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Response;
 using SalsCaterSuite.Application.Features.Customers.Validators;
 using SalsCaterSuite.Domain.Entities;
 using SalsCaterSuite.UnitTests.Common.Fakes;
@@ -29,7 +30,7 @@ public class CustomerCommandTests
         _update = new UpdateCustomerCommand(_customers, new CreateCustomerValidator());
     }
 
-    private static CreateCustomerRequestDto ValidRequest() =>
+    private static CreateCustomerRequest ValidRequest() =>
         new("Santos", "Maria", null, "12 Rizal St, Manila", "09171234567", null, null);
 
     [Fact]

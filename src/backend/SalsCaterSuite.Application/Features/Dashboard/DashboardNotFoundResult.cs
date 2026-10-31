@@ -1,5 +1,6 @@
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Dashboard.DTOs;
+using SalsCaterSuite.Application.Features.Dashboard.DTOs.Response;
+using SalsCaterSuite.Application.Features.Dashboard.Models;
 
 namespace SalsCaterSuite.Application.Features.Dashboard;
 
@@ -12,7 +13,7 @@ namespace SalsCaterSuite.Application.Features.Dashboard;
 /// message text, which the error contract explicitly advises against.
 /// </para>
 /// </summary>
-public sealed class DashboardNotFoundResult : Result<DashboardDto>
+public sealed class DashboardNotFoundResult : Result<DashboardResponse>
 {
     public DashboardNotFoundResult(string error)
         : base(false, null, new[] { error })

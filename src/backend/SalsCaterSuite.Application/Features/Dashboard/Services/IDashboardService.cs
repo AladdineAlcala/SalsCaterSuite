@@ -1,5 +1,5 @@
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Dashboard.DTOs;
+using SalsCaterSuite.Application.Features.Dashboard.DTOs.Response;
 using SalsCaterSuite.Application.Features.Dashboard.Models;
 
 namespace SalsCaterSuite.Application.Features.Dashboard.Services;
@@ -18,5 +18,5 @@ public interface IDashboardService
     /// <returns>
     /// The aggregate, or a failed result when the dashboard cannot be produced.
     /// </returns>
-    Task<Result<DashboardDto>> GetAsync(DashboardPeriod period, CancellationToken cancellationToken = default);
+    Task<Result<DashboardResponse>> GetAsync(DashboardPeriod period, CancellationToken cancellationToken = default);
 }

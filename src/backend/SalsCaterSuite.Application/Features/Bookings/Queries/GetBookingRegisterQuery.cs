@@ -1,7 +1,8 @@
 using FluentValidation;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
 using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Features.Bookings.Services;
 
@@ -42,14 +43,14 @@ public class GetBookingRegisterQuery
         _validator = validator;
     }
 
-    public async Task<Result<BookingRegisterPageDto>> ExecuteAsync(
+    public async Task<Result<BookingRegisterPageResponse>> ExecuteAsync(
         BookingRegisterFilterRequest request,
         CancellationToken cancellationToken = default)
     {
         var validation = await _validator.ValidateAsync(request, cancellationToken);
         if (!validation.IsValid)
         {
-            return Result<BookingRegisterPageDto>.Failure(
+            return Result<BookingRegisterPageResponse>.Failure(
                 validation.Errors.Select(error => error.ErrorMessage));
         }
 
@@ -68,7 +69,7 @@ public class GetBookingRegisterQuery
             page.Select(row => row.Booking).ToList(),
             cancellationToken);
 
-        var dto = new BookingRegisterPageDto
+        var dto = new BookingRegisterPageResponse
         {
             Items = page.Select(row => Map(row, estimates)).ToList(),
             TotalCount = filtered.Count,
@@ -80,7 +81,7 @@ public class GetBookingRegisterQuery
             GeneratedAt = _clock.UtcNow
         };
 
-        return Result<BookingRegisterPageDto>.Success(dto);
+        return Result<BookingRegisterPageResponse>.Success(dto);
     }
 
     /// <summary>
@@ -116,7 +117,7 @@ public class GetBookingRegisterQuery
     }
 
     /// <summary>The totals strip — over the whole filtered population (BR-32).</summary>
-    private static BookingRegisterTotalsDto BuildTotals(List<BookingRegisterRow> filtered) => new()
+    private static BookingRegisterTotalsResponse BuildTotals(List<BookingRegisterRow> filtered) => new()
     {
         BookingCount = filtered.Count,
         NetContractedValue = filtered.Sum(row => row.NetAmountDue),
@@ -126,7 +127,7 @@ public class GetBookingRegisterQuery
     };
 
     /// <summary>Maps one row onto the dossier card.</summary>
-    private static BookingRegisterItemDto Map(
+    private static BookingRegisterItemResponse Map(
         BookingRegisterRow row,
         IReadOnlyDictionary<int, decimal?> estimates)
     {
@@ -140,7 +141,7 @@ public class GetBookingRegisterQuery
         var liveSelection = booking.Menus.Any(menu => !menu.IsDeleted);
         var liveAddons = booking.AddOns.Where(line => !line.IsDeleted).ToList();
 
-        return new BookingRegisterItemDto
+        return new BookingRegisterItemResponse
         {
             TransactionId = booking.TransactionId,
             BookingNumber = booking.BookingNumber,

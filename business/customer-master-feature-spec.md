@@ -351,7 +351,7 @@ footer can show a real generation time rather than a client clock (§4.10).
 
 ### 5.2 `GET /api/customers/{id}`
 
-`200` with the `CustomerDto` extended by: `customerType`, `bookingCounts`,
+`200` with the `CustomerResponse` extended by: `customerType`, `bookingCounts`,
 `totalContractedValue`, `totalPaid`, `outstandingBalance`, `ledgerState`,
 `ledgerStateLabel`, `upcomingBooking` (`{ transactionId, bookingNumber, occasion,
 eventDate, amountDue }` or `null`). `404` when the customer does not exist.

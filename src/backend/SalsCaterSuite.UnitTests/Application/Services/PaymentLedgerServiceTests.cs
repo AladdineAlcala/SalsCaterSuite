@@ -4,7 +4,8 @@ using FluentAssertions;
 using Moq;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Features.Bookings.Queries;
-using SalsCaterSuite.Application.Features.Payments.DTOs;
+using SalsCaterSuite.Application.Features.Payments.DTOs.Request;
+using SalsCaterSuite.Application.Features.Payments.DTOs.Response;
 using SalsCaterSuite.Application.Features.Payments.Services;
 using SalsCaterSuite.Application.Services;
 using SalsCaterSuite.Domain.Entities;
@@ -59,7 +60,7 @@ public class PaymentLedgerServiceTests
     public async Task RecordPaymentAsync_WhenBookingNotFound_ShouldReturnFailure()
     {
         // Arrange
-        var request = new RecordPaymentRequestDto
+        var request = new RecordPaymentRequest
         {
             TransactionId = 999,
             AmountPaid = 5000m,
@@ -83,7 +84,7 @@ public class PaymentLedgerServiceTests
         await _bookings.AddAsync(booking);
         await _bookings.SaveChangesAsync();
 
-        var request = new RecordPaymentRequestDto
+        var request = new RecordPaymentRequest
         {
             TransactionId = booking.TransactionId,
             AmountPaid = 15000m,
@@ -168,7 +169,7 @@ public class PaymentLedgerServiceTests
         await _bookings.AddAsync(booking);
         await _bookings.SaveChangesAsync();
 
-        var request = new RecordPaymentRequestDto
+        var request = new RecordPaymentRequest
         {
             TransactionId = booking.TransactionId,
             AmountPaid = 15000m,
@@ -197,7 +198,7 @@ public class PaymentLedgerServiceTests
         await _bookings.AddAsync(booking);
         await _bookings.SaveChangesAsync();
 
-        var request = new RecordPaymentRequestDto
+        var request = new RecordPaymentRequest
         {
             TransactionId = booking.TransactionId,
             AmountPaid = 5000m,
@@ -222,7 +223,7 @@ public class PaymentLedgerServiceTests
         await _bookings.AddAsync(booking);
         await _bookings.SaveChangesAsync();
 
-        var request = new RecordPaymentRequestDto
+        var request = new RecordPaymentRequest
         {
             TransactionId = booking.TransactionId,
             AmountPaid = 0m,

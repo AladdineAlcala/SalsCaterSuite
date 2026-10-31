@@ -238,10 +238,10 @@ The margin benchmark is **deployment configuration**, not a hardcoded constant.
 - `TargetMarginPercentage = 100 − TargetFoodCostPercentage`.
 - The default `35.0` is the conservative end of the BR-07 band (food cost should not exceed 35–40% of
   selling price) and **preserves the current behaviour** of `MenuCostingService` (which hardcodes
-  `35.0m` in two places and in `MenuCostingSummaryDto`).
+  `35.0m` in two places and in `MenuCostingSummaryResponse`).
 - The benchmark is **returned by the API** in the payload. The frontend renders the returned value and
   never hardcodes it. If configuration is absent, the API returns the default and `isConfigured: false`.
-- `MenuCostingService` and `MenuCostingSummaryDto.TargetFoodCostPercentage` must read the same
+- `MenuCostingService` and `MenuCostingSummaryResponse.TargetFoodCostPercentage` must read the same
   configured value so that the menu screen and the dashboard can never disagree.
 
 ### 6.13 Soft-deleted rows
@@ -290,7 +290,7 @@ interfaces must not expose `DbSet`, `IQueryable`, `DbContext` or any EF type (DE
 
 Full contract: `architecture/approved-api-contracts.md` §9. Summary:
 
-- `GET /api/dashboard?period=YYYY-MM` → `200` `DashboardDto`.
+- `GET /api/dashboard?period=YYYY-MM` → `200` `DashboardResponse`.
 - `[Authorize]`. Read-only. No role policy.
 - `period` is optional; defaults to the current UTC calendar month. An unparseable value → `400`
   `{ "errors": ["Period must be in the format YYYY-MM."] }`.
@@ -415,7 +415,7 @@ Rules:
 
 | # | Criterion |
 | :--- | :--- |
-| AC-B1 | `GET /api/dashboard` returns `200` with the full `DashboardDto` for a valid `period`, and `400` `{errors:[...]}` for a malformed `period`. |
+| AC-B1 | `GET /api/dashboard` returns `200` with the full `DashboardResponse` for a valid `period`, and `400` `{errors:[...]}` for a malformed `period`. |
 | AC-B2 | The endpoint requires authentication: no token → `401 {errors:["Authentication is required."]}`; a valid token → `200`. |
 | AC-B3 | Dashboard AR equals the sum of the per-booking ledger `balanceDue` for the same bookings (DEC-025 reconciliation). Proven by a test. |
 | AC-B4 | Collections equal `Σ Payment.AmountPaid` for the period, verified against the same payments the payments-ledger service reads. |

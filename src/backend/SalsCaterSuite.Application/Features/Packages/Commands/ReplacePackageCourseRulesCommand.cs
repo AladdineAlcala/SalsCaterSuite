@@ -1,7 +1,9 @@
 using FluentValidation;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Application.Features.Packages.Queries;
 using SalsCaterSuite.Domain.Entities;
 
@@ -43,7 +45,7 @@ public class ReplacePackageCourseRulesCommand
         _ruleset = ruleset;
     }
 
-    public async Task<Result<PackageCourseRulesetDto>> ExecuteAsync(
+    public async Task<Result<PackageCourseRulesetResponse>> ExecuteAsync(
         int packageId,
         PackageCourseRulesetRequest request,
         CancellationToken cancellationToken = default)
@@ -53,7 +55,7 @@ public class ReplacePackageCourseRulesCommand
 
         if (!validationResult.IsValid)
         {
-            return Result<PackageCourseRulesetDto>.Failure(
+            return Result<PackageCourseRulesetResponse>.Failure(
                 validationResult.Errors.Select(error => error.ErrorMessage).ToArray());
         }
 
@@ -63,7 +65,7 @@ public class ReplacePackageCourseRulesCommand
 
         if (package is null)
         {
-            return new PackageNotFoundResult<PackageCourseRulesetDto>("Package not found.");
+            return new PackageNotFoundResult<PackageCourseRulesetResponse>("Package not found.");
         }
 
         // Every row the tier holds, the soft-deleted ones included, so a re-added course can

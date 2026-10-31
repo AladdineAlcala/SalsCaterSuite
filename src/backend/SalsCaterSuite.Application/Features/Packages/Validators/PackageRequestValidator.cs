@@ -1,6 +1,8 @@
 using FluentValidation;
 using SalsCaterSuite.Application.Features.Bookings.Services;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 
 namespace SalsCaterSuite.Application.Features.Packages.Validators;
 
@@ -35,7 +37,7 @@ namespace SalsCaterSuite.Application.Features.Packages.Validators;
 /// <c>400 { "errors": [ ... ] }</c> envelope and neither persists anything.
 /// </para>
 /// </summary>
-public class PackageRequestValidator : AbstractValidator<CreatePackageRequestDto>
+public class PackageRequestValidator : AbstractValidator<CreatePackageRequest>
 {
     public PackageRequestValidator()
     {

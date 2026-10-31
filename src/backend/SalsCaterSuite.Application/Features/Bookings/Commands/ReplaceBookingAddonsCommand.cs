@@ -1,6 +1,8 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Features.Bookings.Services;
 using SalsCaterSuite.Application.Services;
 using SalsCaterSuite.Domain.Entities;
@@ -47,7 +49,7 @@ public class ReplaceBookingAddonsCommand
         _clock = clock;
     }
 
-    public async Task<Result<BookingAddonSetDto>> ExecuteAsync(
+    public async Task<Result<BookingAddonSetResponse>> ExecuteAsync(
         int transactionId,
         BookingAddonsRequest request,
         CancellationToken cancellationToken = default)
@@ -56,7 +58,7 @@ public class ReplaceBookingAddonsCommand
         // "clear every line". An explicitly empty array is the client's clear.
         if (request.Addons is null)
         {
-            return Result<BookingAddonSetDto>.Failure(
+            return Result<BookingAddonSetResponse>.Failure(
                 "The 'addons' member is required. Send an empty array to clear the lines.");
         }
 
@@ -64,18 +66,18 @@ public class ReplaceBookingAddonsCommand
 
         if (booking is null)
         {
-            return new BookingNotFoundResult<BookingAddonSetDto>("Booking not found.");
+            return new BookingNotFoundResult<BookingAddonSetResponse>("Booking not found.");
         }
 
         if (booking.Status == BookingStatus.Cancelled)
         {
-            return Result<BookingAddonSetDto>.Failure(
+            return Result<BookingAddonSetResponse>.Failure(
                 "A cancelled booking's add-on lines cannot be changed.");
         }
 
         if (booking.Status == BookingStatus.Completed)
         {
-            return Result<BookingAddonSetDto>.Failure(
+            return Result<BookingAddonSetResponse>.Failure(
                 "A completed booking's add-on lines cannot be changed.");
         }
 
@@ -86,7 +88,7 @@ public class ReplaceBookingAddonsCommand
 
         if (window.IsLocked)
         {
-            return Result<BookingAddonSetDto>.Failure(
+            return Result<BookingAddonSetResponse>.Failure(
                 $"The add-on lines cannot be changed: the menu-change window closed on " +
                 $"{window.LockDate:yyyy-MM-dd}.");
         }
@@ -100,7 +102,7 @@ public class ReplaceBookingAddonsCommand
 
         if (!resolved.Succeeded)
         {
-            return Result<BookingAddonSetDto>.Failure(resolved.Errors);
+            return Result<BookingAddonSetResponse>.Failure(resolved.Errors);
         }
 
         var addonsTotal = resolved.Data!.AddonsTotal;
@@ -120,7 +122,7 @@ public class ReplaceBookingAddonsCommand
 
         if (collected > newAmountDue)
         {
-            return Result<BookingAddonSetDto>.Failure(
+            return Result<BookingAddonSetResponse>.Failure(
                 $"The add-on lines would leave the net amount due at {newAmountDue:0.00}, below the " +
                 $"{collected:0.00} already collected. Settle the credit before reducing the lines.");
         }
@@ -142,7 +144,7 @@ public class ReplaceBookingAddonsCommand
         // which would publish a null category for a line added by this write (contract §16.3).
         var saved = await _bookings.GetWithLineItemsAsync(booking.TransactionId, cancellationToken);
 
-        return Result<BookingAddonSetDto>.Success(
+        return Result<BookingAddonSetResponse>.Success(
             _presenter.Build(saved ?? booking));
     }
 

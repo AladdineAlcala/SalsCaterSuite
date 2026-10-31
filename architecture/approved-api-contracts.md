@@ -106,7 +106,7 @@ Security: Bearer JWT (`Authorization: Bearer <token>`)
 }
 ```
 - **Response `400 Bad Request`:** `{ "errors": ["Number of persons must be greater than 0."] }` - validation and domain rule violations (BR-11).
-- The `201` body is the named `CreateBookingResponseDto`, declared on the action so the OpenAPI document is schema-accurate. It publishes booking number, lifecycle `status`, and separate ledger-derived `paymentState` (DEC-177); the `transactionId` field is unchanged.
+- The `201` body is the named `CreateBookingResponse`, declared on the action so the OpenAPI document is schema-accurate. It publishes booking number, lifecycle `status`, and separate ledger-derived `paymentState` (DEC-177); the `transactionId` field is unchanged.
 - **The authorization is two-level.** Creating a **draft** needs only an authenticated user; creating a **confirmed** booking that carries an `initialPayment` additionally requires the `Payments.Record` policy (Administrator, Manager, Cashier - BR-12). A confirmed booking **without** an initial payment needs only an authenticated user. The server enforces the second level; the client only hides what the server refuses.
 
 ### `POST /api/bookings/{id}/cancel`
@@ -212,7 +212,7 @@ Security: Bearer JWT (`Authorization: Bearer <token>`)
 
 ## 5. Booking Lifecycle Status Contract (BR-10, DEC-177)
 
-`BookingDto.status` is the single **event lifecycle** field. Payment progress is separate in `paymentState`; payment recording never overwrites `status`. `DepositPaid` and `FullyPaid` are payment-state values, not `BookingStatus` values. The legacy `serveStatus` / `isCancelled` booleans are retired and must not appear in any contract.
+`BookingResponse.status` is the single **event lifecycle** field. Payment progress is separate in `paymentState`; payment recording never overwrites `status`. `DepositPaid` and `FullyPaid` are payment-state values, not `BookingStatus` values. The legacy `serveStatus` / `isCancelled` booleans are retired and must not appear in any contract.
 
 | Value | Meaning |
 | :--- | :--- |
@@ -468,7 +468,7 @@ Business and validation failures return a consistent shape:
 5. **AR is never reported as collections** (BR-08), and the two are separate fields.
 6. **No null-as-zero.** Undefined ratios are `null`, never `0` and never `100`.
 7. **The benchmark travels with the payload.** The frontend renders the returned benchmark and never
-   hardcodes it. `MenuCostingService` and `MenuCostingSummaryDto.TargetFoodCostPercentage` must read
+   hardcodes it. `MenuCostingService` and `MenuCostingSummaryResponse.TargetFoodCostPercentage` must read
    the same configured value so the menu screen and the dashboard cannot disagree.
 
 
@@ -885,7 +885,7 @@ real margin figures are published by `GET /api/menus/master` (§11.1) and by
 
 ### 11.7 `GET /api/menus/{id}/costing` and `GET /api/menus/costing/all` — the gross margin
 
-`MenuCostingSummaryDto` publishes the gross margin percentage alongside the gross profit
+`MenuCostingSummaryResponse` publishes the gross margin percentage alongside the gross profit
 and the food-cost percentage:
 
 ```json
@@ -916,7 +916,7 @@ from computing a margin (DEC-002), so the server publishes it.
 
 `isWithinTarget` is a get-only computed property, and it works here: this DTO is built in
 the service layer, never projected by EF Core. That is exactly why the removed
-`MenuDto.ProfitMargin` (an EF projection) had to go and this one did not (RSK-030).
+`MenuResponse.ProfitMargin` (an EF projection) had to go and this one did not (RSK-030).
 
 ---
 
@@ -1059,7 +1059,7 @@ Issued 2026-10-22 with `business/package-configuration-workbench-feature-spec.md
 **A null collection member is a rejected payload, never an empty set (F7).** The request records declare their collection members **nullable** and the validator rejects a null explicitly. An absent or explicitly `null` `rules` / `coverages` / `selections` member is a `400`, because an **empty** set has a destructive, documented meaning (§13.2, §13.5).
 
 ### 13.1 `GET /api/packages/{id}/course-rules` - the course-coverage ruleset
-- **Response `200 OK`:** `PackageCourseRulesetDto`.
+- **Response `200 OK`:** `PackageCourseRulesetResponse`.
 
 | Field | Type | Definition |
 | :--- | :--- | :--- |
@@ -1079,10 +1079,10 @@ Issued 2026-10-22 with `business/package-configuration-workbench-feature-spec.md
 | `standardRunFoodCostPerPax` | `decimal?` | The mean food cost of each rule's qualified **costed** pool, summed (DEC-083). The pool means are computed at full precision and the sum is rounded **once**. `null` when there is no rule, or when no rule's pool holds a costed dish. |
 | `standardRunFoodCostPercentage` | `decimal?` | `standardRunFoodCostPerPax / amountPax * 100`. `null` when the standard run is null, or `amountPax` is null or `<= 0`. |
 | `baseGrossProfitPercentage` | `decimal?` | `(amountPax - standardRunFoodCostPerPax) / amountPax * 100`. `null` when the standard run is null, or `amountPax` is null or `<= 0`. |
-| `rules` | `PackageCourseRuleDto[]` | The tier's rules, ordered by course name. Soft-deleted rules are excluded. |
+| `rules` | `PackageCourseRuleResponse[]` | The tier's rules, ordered by course name. Soft-deleted rules are excluded. |
 | `generatedAt` | `DateTime` | Server UTC timestamp. |
 
-`PackageCourseRuleDto`
+`PackageCourseRuleResponse`
 
 | Field | Type | Definition |
 | :--- | :--- | :--- |
@@ -1095,16 +1095,16 @@ Issued 2026-10-22 with `business/package-configuration-workbench-feature-spec.md
 | `poolSize` | `int` | The non-soft-deleted dishes of the course. |
 | `poolCostedCount` | `int` | The pool's dishes whose food cost is **greater than zero** (DEC-087). |
 | `poolAverageFoodCost` | `decimal?` | The mean food cost of the pool's **costed** dishes. `null` when none is costed. |
-| `pool` | `PackageCoursePoolDishDto[]` | The pool's dishes. |
+| `pool` | `PackageCoursePoolDishResponse[]` | The pool's dishes. |
 
-`PackageCoursePoolDishDto`: `menuId` (`string`), `menuName` (`string`), `foodCost` (`decimal?`), `price` (`decimal?`).
+`PackageCoursePoolDishResponse`: `menuId` (`string`), `menuName` (`string`), `foodCost` (`decimal?`), `price` (`decimal?`).
 
 - **Response `404 Not Found`:** `{ "errors": [ "Package not found." ] }`.
 
 ### 13.2 `PUT /api/packages/{id}/course-rules` - replace the ruleset
 - **Request body:** `{ "rules": [ { "courseId": 0, "requiredQuota": 0, "portionGrams": 0, "ruleDescription": "..." } ] }`. `portionGrams` may be `null`. The `rules` member itself is **nullable**, and a `null` is a `400`, never an empty set. Retired `inclusionTag` and `upgradeAddonId` members are not part of the contract (DEC-172).
 - **Compatibility:** unknown JSON members sent by an older client are ignored by the default serializer; they are not a validation error. Clients should use the current request shape.
-- **Response `200 OK`:** the new `PackageCourseRulesetDto`, exactly as 13.1 publishes it.
+- **Response `200 OK`:** the new `PackageCourseRulesetResponse`, exactly as 13.1 publishes it.
 - **Response `400 Bad Request`:** the validator's messages, verbatim - a `null` `rules` member, a duplicate `courseId` inside the set, an unknown or soft-deleted course, a quota below 1, a negative portion, or a missing or over-long description. Nothing is persisted.
 - **Response `404 Not Found`:** `{ "errors": [ "Package not found." ] }` - including for a **soft-deleted** tier, which is also refused by the write.
 
@@ -1116,7 +1116,7 @@ The submitted set **replaces** the tier's ruleset; an entry that is not submitte
 
 ### 13.3 `POST /api/packages/{id}/course-rules/preview` - the selection simulator
 - **Request body:** `{ "selections": [ { "courseId": 0, "menuId": "DS-101" } ], "stressPercentage": 0.00, "pax": 100 }`. `stressPercentage` and `pax` may be `null` or omitted. The `selections` member is **nullable**, and a `null` is a `400`, never an empty selection.
-- **Response `200 OK`:** `PackageCourseRulePreviewDto`.
+- **Response `200 OK`:** `PackageCourseRulePreviewResponse`.
 
 | Field | Type | Definition |
 | :--- | :--- | :--- |
@@ -1142,13 +1142,13 @@ The submitted set **replaces** the tier's ruleset; an entry that is not submitte
 | `grossProfitPercentage` | `decimal?` | `grossProfit / grossRevenue * 100`. `null` when `grossRevenue` is null or `<= 0`. |
 | `isQuotaCompliant` | `bool` | `true` when every rule is satisfied **and** no selection names an unruled course. |
 | `isCompliant` | `bool` | The **overall** verdict: `isQuotaCompliant` **and** the selection does not breach the cost ceiling. A breach **marks the selection non-compliant** (DEC-080). |
-| `compliance` | `PackageCourseComplianceDto[]` | One entry per rule, plus one per unruled course named by the selection. |
-| `selections` | `PackageCourseSelectionResultDto[]` | The selected dishes and their food costs. |
+| `compliance` | `PackageCourseComplianceResponse[]` | One entry per rule, plus one per unruled course named by the selection. |
+| `selections` | `PackageCourseSelectionResultResponse[]` | The selected dishes and their food costs. |
 | `generatedAt` | `DateTime` | Server UTC timestamp. |
 
-`PackageCourseComplianceDto`: `courseId` (`int`), `courseName` (`string`), `requiredQuota` (`int`), `selectedCount` (`int`), `isCompliant` (`bool`), `hasRule` (`bool` - `false` when the selection names a course the tier has no rule for).
+`PackageCourseComplianceResponse`: `courseId` (`int`), `courseName` (`string`), `requiredQuota` (`int`), `selectedCount` (`int`), `isCompliant` (`bool`), `hasRule` (`bool` - `false` when the selection names a course the tier has no rule for).
 
-`PackageCourseSelectionResultDto`: `courseId` (`int`), `courseName` (`string`), `menuId` (`string`), `menuName` (`string`), `foodCost` (`decimal?`).
+`PackageCourseSelectionResultResponse`: `courseId` (`int`), `courseName` (`string`), `menuId` (`string`), `menuName` (`string`), `foodCost` (`decimal?`).
 
 - **Response `400 Bad Request`:** `{ "errors": [ ... ] }`. The exact messages are:
 
@@ -1165,7 +1165,7 @@ Nothing is persisted (a preview persists nothing).
 - **Response `404 Not Found`:** `{ "errors": [ "Package not found." ] }`.
 
 ### 13.4 `GET /api/packages/{id}/areas` - the coverage matrix
-- **Response `200 OK`:** `PackageAreaCoverageMatrixDto`.
+- **Response `200 OK`:** `PackageAreaCoverageMatrixResponse`.
 
 | Field | Type | Definition |
 | :--- | :--- | :--- |
@@ -1185,10 +1185,10 @@ Nothing is persisted (a preview persists nothing).
 | `lowestGrossProfitPercentage` | `decimal?` | The smallest gross-profit percentage across the **active** coverage, at the tier's floor headcount. **Derivation:** the food cost per pax is the **standard run**, the headcount is the tier's `minPax` (the floor), and the gross profit is `totalContractValue - foodCostTotal - logisticsCost` for that municipality. A coverage row that yields no computable figure (no standard run, or no `logisticsCost`) is **excluded from the range** rather than counted as zero. The range is `null` when `minPax` is null, when there is no active coverage, or when no active coverage yields a computable figure. |
 | `highestGrossProfitPercentage` | `decimal?` | The largest gross-profit percentage across the same population and the same derivation. |
 | `grossProfitCoverageCount` | `int` | How many active coverage rows yielded a computable gross-profit figure. It is `0` when the range is `null`, and it is a real measurement, never `null`. |
-| `areas` | `PackageAreaCoverageRowDto[]` | The coverage rows. |
+| `areas` | `PackageAreaCoverageRowResponse[]` | The coverage rows. |
 | `generatedAt` | `DateTime` | Server UTC timestamp. |
 
-`PackageAreaCoverageRowDto`: `packageAreaCoverageId` (`int`), `areaId` (`int`), `areaName` (`string` - `Area.AreaDetails`), `additionalRate` (`decimal?` - `Area.AdditionalRate`, the **municipality's** rate, DEC-078), `distanceKm` (`int?`), `logisticsNote` (`string?`), `logisticsCost` (`decimal?` - the per-event cost), `isActive` (`bool`).
+`PackageAreaCoverageRowResponse`: `packageAreaCoverageId` (`int`), `areaId` (`int`), `areaName` (`string` - `Area.AreaDetails`), `additionalRate` (`decimal?` - `Area.AdditionalRate`, the **municipality's** rate, DEC-078), `distanceKm` (`int?`), `logisticsNote` (`string?`), `logisticsCost` (`decimal?` - the per-event cost), `isActive` (`bool`).
 
 A coverage row whose **municipality** is soft-deleted is **excluded** from `areas` and from every count: the municipality catalogue is the population (M5). Course rules have no add-on relationship (DEC-172).
 
@@ -1196,7 +1196,7 @@ A coverage row whose **municipality** is soft-deleted is **excluded** from `area
 
 ### 13.5 `PUT /api/packages/{id}/areas` - replace the coverage set
 - **Request body:** `{ "coverages": [ { "areaId": 0, "isActive": true } ] }`. The `coverages` member is **nullable**, and a `null` is a `400`, never an empty set.
-- **Response `200 OK`:** the new `PackageAreaCoverageMatrixDto`, exactly as 13.4 publishes it.
+- **Response `200 OK`:** the new `PackageAreaCoverageMatrixResponse`, exactly as 13.4 publishes it.
 - **Response `400 Bad Request`:** the validator's messages - a `null` `coverages` member, a duplicate `areaId` inside the set, an unknown or soft-deleted area. Nothing is persisted.
 - **Response `404 Not Found`:** `{ "errors": [ "Package not found." ] }` - including for a **soft-deleted** tier, which is also refused by the write.
 
@@ -1210,7 +1210,7 @@ The submitted set **replaces** the tier's coverage; an entry that is not submitt
 
 ### 13.7 `POST /api/packages/{id}/areas/preview` - the out-of-town pricing simulator
 - **Request body:** `{ "pax": 0, "areaId": 0, "selections": [ { "courseId": 0, "menuId": "DS-101" } ] }`. `areaId` and `selections` may be `null` or omitted. A `null` `selections` member is a `400`; an **empty** array is a valid "no selection" request.
-- **Response `200 OK`:** `PackageLocationPreviewDto`.
+- **Response `200 OK`:** `PackageLocationPreviewResponse`.
 
 | Field | Type | Definition |
 | :--- | :--- | :--- |
@@ -1242,7 +1242,7 @@ The submitted set **replaces** the tier's coverage; an entry that is not submitt
 - **Response `404 Not Found`:** `{ "errors": [ "Package not found." ] }`.
 
 ### 13.9 `GET /api/areas` - the municipality catalogue
-- **Response `200 OK`:** `AreaDto[]` - `areaId` (`int`), `areaDetails` (`string`), `additionalRate` (`decimal?`), `distanceKm` (`int?`), `logisticsNote` (`string?`), `logisticsCost` (`decimal?`). Soft-deleted municipalities are excluded.
+- **Response `200 OK`:** `AreaResponse[]` - `areaId` (`int`), `areaDetails` (`string`), `additionalRate` (`decimal?`), `distanceKm` (`int?`), `logisticsNote` (`string?`), `logisticsCost` (`decimal?`). Soft-deleted municipalities are excluded.
 
 ### 13.10 `POST /api/areas` - add a municipality
 - **Request body:** `{ "areaDetails": "...", "additionalRate": 0.00, "distanceKm": 0, "logisticsNote": "...", "logisticsCost": 0.00 }`. Every member except `areaDetails` may be `null`.
@@ -1301,26 +1301,26 @@ These eight rules bind every endpoint in section 14. They mirror the Customer Ma
 | `pageSize` | int | `10`, `25` or `50`. Default `10`. Anything else is a `400`. |
 | `sort` | enum | `EventDateAsc` (default), `EventDateDesc`, `ContractValueDesc`, `ContractValueAsc`, `BookingNumberAsc`. |
 
-- **Response `200 OK`** - `BookingRegisterPageDto`:
+- **Response `200 OK`** - `BookingRegisterPageResponse`:
 
 ```
-items           : BookingRegisterItemDto[]
+items           : BookingRegisterItemResponse[]
 totalCount      : int          <- the filtered population, not the page
 page            : int
 pageSize        : int
 totalPages      : int
-summary         : BookingRegisterTotalsDto
-quickViewCounts : BookingRegisterFacetsDto
+summary         : BookingRegisterTotalsResponse
+quickViewCounts : BookingRegisterFacetsResponse
 generatedAt     : DateTime
 ```
 
-- **`BookingRegisterTotalsDto`** - the totals strip. Every figure is over the **whole filtered population**:
+- **`BookingRegisterTotalsResponse`** - the totals strip. Every figure is over the **whole filtered population**:
 
 ```
 bookingCount, netContractedValue, collectedAmount, outstandingAmount, totalPax
 ```
 
-- **`BookingRegisterFacetsDto`** - each facet is computed with **its own dimension removed** (BR-32):
+- **`BookingRegisterFacetsResponse`** - each facet is computed with **its own dimension removed** (BR-32):
 
 ```
 packageTypes : [{ key, count }]
@@ -1329,7 +1329,7 @@ statuses     : [{ key, count }]
 paymentStates: [{ key, count }]
 ```
 
-- **`BookingRegisterItemDto`** - one dossier card:
+- **`BookingRegisterItemResponse`** - one dossier card:
 
 ```
 transactionId, bookingNumber,
@@ -1361,7 +1361,7 @@ discountSource, selectionState, addonCount, addonsTotal
 ### 14.2 `GET /api/bookings/summary` - the register aggregate
 
 - **Query parameters:** exactly those of 14.1. The summary describes the **same filtered population** as the list.
-- **Response `200 OK`** - `BookingRegisterSummaryDto`:
+- **Response `200 OK`** - `BookingRegisterSummaryResponse`:
 
 ```
 pipeline     : { bookingCount, confirmedCount, tentativeCount, completedCount, otherCount, committedPax }
@@ -1391,7 +1391,7 @@ generatedAt  : DateTime
 
 ### 14.3 `POST /api/bookings/quote` - the server-computed quote
 
-- **Request body** - `BookingQuoteRequestDto`:
+- **Request body** - `BookingQuoteRequest`:
 
 ```
 customerId, packageId, noOfPerson, occasion, venue,
@@ -1404,7 +1404,7 @@ addons?     : [ { addonId, amount? } ]
 
 `selections` and `addons` are **optional** and carry **exactly the same shapes** as the create request (contract 15.2 and 16.4). The quote prices them through the **same code path** the create uses, so the quote's figures and the created booking's figures agree (BR-31, DEC-153).
 
-- **Response `200 OK`** - `BookingQuoteDto`:
+- **Response `200 OK`** - `BookingQuoteResponse`:
 
 ```
 packageName, packageCode, packageType, minPax, isTierActive,
@@ -1451,7 +1451,7 @@ selection        : { isLocked, lockDate, courses: [{ courseId, courseName,
 
 ### 14.4 `POST /api/bookings` - create a draft or a confirmed booking
 
-- **Request body** - `CreateBookingRequestDto`. The **existing** fields (`customerId`, `bookType`, `typeOfService`, `noOfPerson`, `occasion`, `venue`, `startDate`, `endDate`, `eventColor`, `packageId`, `reference`, `extendedAreaId`, `applyExtendedAmount`, `specialInstructions`, `overridePricePerHead`) **plus**:
+- **Request body** - `CreateBookingRequest`. The **existing** fields (`customerId`, `bookType`, `typeOfService`, `noOfPerson`, `occasion`, `venue`, `startDate`, `endDate`, `eventColor`, `packageId`, `reference`, `extendedAreaId`, `applyExtendedAmount`, `specialInstructions`, `overridePricePerHead`) **plus**:
 
 ```
 callTime?, packoutTime?, discountCode?, depositAmount?,
@@ -1467,7 +1467,7 @@ addons?          : [ { addonId, amount? } ]
   - The **dispatch schedule is ordered against the full event interval** (BR-34): `callTime` is combined with `startDate` and must not be later than the programme start; `packoutTime` is combined with `endDate` and must not be earlier than programme end. A violation is a **`400`**.
   - Overnight events are supported. `startDate` and `endDate` can fall on different local dates; both dates and times are persisted. BG-04 interprets these local schedule instants in Asia/Manila.
 
-- **Response `201 Created`** - `CreateBookingResponseDto`:
+- **Response `201 Created`** - `CreateBookingResponse`:
 
 ```
 transactionId, bookingNumber, status, paymentState
@@ -1532,7 +1532,7 @@ transactionId, bookingNumber, status, paymentState
 
 ### 15.1 `GET /api/bookings/{id}/menus` - the selection, the pools and the lock state
 
-- **Response `200 OK`** - `BookingMenuSelectionDto`:
+- **Response `200 OK`** - `BookingMenuSelectionResponse`:
 
 | Field | Type | Definition |
 | :--- | :--- | :--- |
@@ -1574,7 +1574,7 @@ transactionId, bookingNumber, status, paymentState
 
 - `prepInstruction` is **optional** free text of at most **500** characters. It is stored **on the selection row** and **frozen** with it (DEC-146) - it is never taken from the catalogue and never touches another booking's row.
 - The write is a **full replace** (DEC-134), so an **omitted** `prepInstruction` **clears** the instruction (DEC-155). The client always sends the instruction it is showing, so a chef's note is never wiped by a save that did not carry it.
-- **Response `200 OK`:** the **saved** selection, in the `BookingMenuSelectionDto` shape of 15.1 - not the request.
+- **Response `200 OK`:** the **saved** selection, in the `BookingMenuSelectionResponse` shape of 15.1 - not the request.
 - **Response `400 Bad Request`:** the BR-15 breach (naming the course and the quota), a dish that is not a live member of the pool, a duplicate dish, a `null` or absent `selections`, a **cancelled** booking, or a write **after** the lock date (naming the date).
 - **Response `404 Not Found`:** the booking does not exist.
 - **Concurrency:** the replace is **last write wins** (M9). `Booking.RowVersion` guards the booking, not the selection rows, and a stale booking version is a `400`.
@@ -1582,7 +1582,7 @@ transactionId, bookingNumber, status, paymentState
 
 ### 15.3 `POST /api/bookings` - the extended create
 
-`CreateBookingRequestDto` gains **two** optional members:
+`CreateBookingRequest` gains **two** optional members:
 
 ```
 selections? : [{ courseId, menuId, prepInstruction? }]
@@ -1637,7 +1637,7 @@ addons?     : [{ addonId, amount? }]
 | `categoryId` | `int?` | Optional - the category to filter by. Absent applies no category filter. |
 | `headcount` | `int` | **Required.** The headcount `lineAmountForBooking` is computed for (DEC-158) - the booking's `NumberOfHeads` from the picker's context. Absent or `< 1` is a `400`: the endpoint prices a line for a booking, and a default of one guest would publish a per-guest unit price indistinguishable from a genuine one-guest booking (BR-20). |
 
-- **Response `200 OK`** - `List<AddonMasterItemDto>`:
+- **Response `200 OK`** - `List<AddonMasterItemResponse>`:
 
 | Field | Type | Definition |
 | :--- | :--- | :--- |
@@ -1655,7 +1655,7 @@ addons?     : [{ addonId, amount? }]
 
 ### 16.2 `GET /api/addons/categories` - the category master
 
-- **Response `200 OK`** - `List<AddonCategoryDto>`: `addonCategoryId`, `addonCategoryName`.
+- **Response `200 OK`** - `List<AddonCategoryResponse>`: `addonCategoryId`, `addonCategoryName`.
 
 ### 16.2a The add-on administration surface (Settings → Add-ons, 2026-10-24)
 
@@ -1663,7 +1663,7 @@ The administration surface is separate from the booking picker: it publishes **a
 
 #### `GET /api/addons/manage` - the administration list
 
-- **Response `200 OK`** - `List<AddonAdminItemDto>`:
+- **Response `200 OK`** - `List<AddonAdminItemResponse>`:
 
 | Field | Type | Definition |
 | :--- | :--- | :--- |
@@ -1680,7 +1680,7 @@ The administration surface is separate from the booking picker: it publishes **a
 
 #### `GET /api/addons/manage/{id}` - one add-on
 
-- **Response `200 OK`:** one `AddonAdminItemDto`.
+- **Response `200 OK`:** one `AddonAdminItemResponse`.
 - **Response `404 Not Found`:** `{ "errors": [ "Add-on not found." ] }` - no live add-on carries that id.
 
 #### `POST /api/addons` - create an add-on
@@ -1714,11 +1714,11 @@ The administration surface is separate from the booking picker: it publishes **a
 
 ### 16.2b `GET /api/departments` - the department lookup
 
-- **Response `200 OK`** - `List<DepartmentDto>`: `deptId`, `deptName`. It is read-only; the master ships empty (BR-13), so an empty list is a valid answer and the add-on form leaves the selector empty.
+- **Response `200 OK`** - `List<DepartmentResponse>`: `deptId`, `deptName`. It is read-only; the master ships empty (BR-13), so an empty list is a valid answer and the add-on form leaves the selector empty.
 
 ### 16.3 `GET /api/bookings/{id}/addons` - the booking's add-on lines
 
-- **Response `200 OK`** - `BookingAddonSetDto`:
+- **Response `200 OK`** - `BookingAddonSetResponse`:
 
 ```
 transactionId, bookingNumber, eventDate,
@@ -1739,7 +1739,7 @@ addons : [{ addonId, description, amount, unit, pricingBasis,
   - `addonId` is **required** and must be an **active** catalogue row.
   - `amount` is **optional** and is the **line total** the operator confirms (DEC-158). When it is **absent**, the server derives the default from the catalogue's amount and the basis - `PerGuest` gives `amount x NumberOfHeads`, `Flat` gives `amount`. When it is **present**, it is the line total, and the server does **not** multiply it again.
   - The request carries **no** quantity and **no** basis. Both are the catalogue's business; the operator states the commercial truth of the line.
-- **Response `200 OK`:** the **saved** lines, in the `BookingAddonSetDto` shape of 16.3 - not the request.
+- **Response `200 OK`:** the **saved** lines, in the `BookingAddonSetResponse` shape of 16.3 - not the request.
 - **Response `400 Bad Request`:** a `null` or absent `addons` member; an add-on that is not **active** in the catalogue; a negative line total; a **duplicate** add-on on one booking; a **cancelled** booking; a write **after** the lock date (naming the date); or a write that would leave the **collected amount above the new net amount due** (DEC-152).
 - **Response `404 Not Found`:** the booking does not exist.
 - **The write re-freezes the money** (DEC-152): the add-on total is recomputed, `Subtotal`, `DiscountAmount` and `AmountDue` are re-frozen, the frozen discount is **re-capped** at the new gross but **not** recomputed, the **deposit is not** changed, and the write is **refused** when it would overpay the booking.

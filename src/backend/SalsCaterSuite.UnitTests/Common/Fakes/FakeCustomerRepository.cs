@@ -2,7 +2,8 @@ namespace SalsCaterSuite.UnitTests.Common.Fakes;
 
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Features.Customers;
-using SalsCaterSuite.Application.Features.Customers.DTOs;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Request;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Response;
 using SalsCaterSuite.Application.Features.Customers.Services;
 using SalsCaterSuite.Application.Services;
 using SalsCaterSuite.Domain.Entities;
@@ -83,7 +84,7 @@ public sealed class FakeCustomerRepository : ICustomerRepository
         return Task.FromResult<Customer?>(customer);
     }
 
-    public Task<List<CustomerDto>> GetListProjectionAsync(string? search, CancellationToken cancellationToken = default)
+    public Task<List<CustomerResponse>> GetListProjectionAsync(string? search, CancellationToken cancellationToken = default)
     {
         IEnumerable<Customer> customers = _store.Customers;
 
@@ -105,13 +106,13 @@ public sealed class FakeCustomerRepository : ICustomerRepository
         return Task.FromResult(result);
     }
 
-    public Task<CustomerDto?> GetProjectionByIdAsync(int customerId, CancellationToken cancellationToken = default)
+    public Task<CustomerResponse?> GetProjectionByIdAsync(int customerId, CancellationToken cancellationToken = default)
     {
         var customer = _store.Customers.FirstOrDefault(c => c.CustomerId == customerId);
         return Task.FromResult(customer is null ? null : ProjectDetail(customer));
     }
 
-    public Task<CustomerDirectoryDto> GetDirectoryProjectionAsync(
+    public Task<CustomerDirectoryResponse> GetDirectoryProjectionAsync(
         string? search,
         string? customerType,
         string? arState,
@@ -130,7 +131,7 @@ public sealed class FakeCustomerRepository : ICustomerRepository
         var totalCount = filtered.Count;
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
-        return Task.FromResult(new CustomerDirectoryDto
+        return Task.FromResult(new CustomerDirectoryResponse
         {
             Summary = BuildSummary(filtered),
             QuickViewCounts = quickViewCounts,
@@ -143,7 +144,7 @@ public sealed class FakeCustomerRepository : ICustomerRepository
         });
     }
 
-    public Task<List<CustomerDirectoryItemDto>> GetDirectoryItemsAsync(
+    public Task<List<CustomerDirectoryItemResponse>> GetDirectoryItemsAsync(
         string? search,
         string? customerType,
         string? arState,
@@ -155,7 +156,7 @@ public sealed class FakeCustomerRepository : ICustomerRepository
     }
 
     /// <summary>The search-filtered population of the directory (spec §4.3).</summary>
-    private List<CustomerDirectoryItemDto> GetDirectoryPopulation(string? search)
+    private List<CustomerDirectoryItemResponse> GetDirectoryPopulation(string? search)
     {
         var today = _aging.Today;
 
@@ -179,8 +180,8 @@ public sealed class FakeCustomerRepository : ICustomerRepository
             .ToList();
     }
 
-    private List<CustomerDirectoryItemDto> ApplyDirectoryFilters(
-        List<CustomerDirectoryItemDto> population,
+    private List<CustomerDirectoryItemResponse> ApplyDirectoryFilters(
+        List<CustomerDirectoryItemResponse> population,
         string? customerType,
         string? arState)
     {
@@ -208,7 +209,7 @@ public sealed class FakeCustomerRepository : ICustomerRepository
         return rows;
     }
 
-    private CustomerQuickViewCountsDto BuildQuickViewCounts(List<CustomerDirectoryItemDto> population) => new()
+    private CustomerQuickViewCountsResponse BuildQuickViewCounts(List<CustomerDirectoryItemResponse> population) => new()
     {
         All = population.Count,
         Corporate = population.Count(r => string.Equals(r.CustomerType, CustomerClassification.Corporate, StringComparison.Ordinal)),
@@ -236,7 +237,7 @@ public sealed class FakeCustomerRepository : ICustomerRepository
         return Task.FromResult(1);
     }
 
-    private CustomerDto Project(Customer customer)
+    private CustomerResponse Project(Customer customer)
     {
         var activeBookings = _store.Bookings
             .Where(b => b.CustomerId == customer.CustomerId && b.Status != BookingStatus.Cancelled)
@@ -254,7 +255,7 @@ public sealed class FakeCustomerRepository : ICustomerRepository
             .Where(x => x.AmountDue > x.AmountPaid)
             .Sum(x => x.AmountDue - x.AmountPaid);
 
-        return new CustomerDto
+        return new CustomerResponse
         {
             CustomerId = customer.CustomerId,
             LastName = customer.LastName,
@@ -272,9 +273,9 @@ public sealed class FakeCustomerRepository : ICustomerRepository
     }
 
     /// <summary>
-    /// The single-customer projection — the Customer Master's extended <see cref="CustomerDto"/>.
+    /// The single-customer projection — the Customer Master's extended <see cref="CustomerResponse"/>.
     /// </summary>
-    private CustomerDto ProjectDetail(Customer customer)
+    private CustomerResponse ProjectDetail(Customer customer)
     {
         var today = _aging.Today;
         var allBookings = _store.Bookings.Where(b => b.CustomerId == customer.CustomerId).ToList();
@@ -313,7 +314,7 @@ public sealed class FakeCustomerRepository : ICustomerRepository
             .ThenBy(b => b.TransactionId)
             .FirstOrDefault();
 
-        return new CustomerDto
+        return new CustomerResponse
         {
             CustomerId = customer.CustomerId,
             LastName = customer.LastName,
@@ -328,7 +329,7 @@ public sealed class FakeCustomerRepository : ICustomerRepository
             TotalBookings = activeBookings.Count,
             TotalReceivables = outstanding,
             CustomerType = CustomerClassification.Derive(customer.Company),
-            BookingCounts = new CustomerBookingCountsDto
+            BookingCounts = new CustomerBookingCountsResponse
             {
                 Total = activeBookings.Count,
                 Past = activeBookings.Count(b => b.EventDate < today),
@@ -343,7 +344,7 @@ public sealed class FakeCustomerRepository : ICustomerRepository
             LedgerStateLabel = _aging.GetBucketLabel(state),
             UpcomingBooking = upcoming is null
                 ? null
-                : new CustomerUpcomingBookingDto
+                : new CustomerUpcomingBookingResponse
                 {
                     TransactionId = upcoming.TransactionId,
                     BookingNumber = upcoming.BookingNumber,
@@ -354,7 +355,7 @@ public sealed class FakeCustomerRepository : ICustomerRepository
         };
     }
 
-    private CustomerDirectoryItemDto ProjectDirectoryItem(Customer customer, DateOnly today)
+    private CustomerDirectoryItemResponse ProjectDirectoryItem(Customer customer, DateOnly today)
     {
         var allBookings = _store.Bookings.Where(b => b.CustomerId == customer.CustomerId).ToList();
         var activeBookings = allBookings
@@ -386,7 +387,7 @@ public sealed class FakeCustomerRepository : ICustomerRepository
 
         var state = _aging.GetWorstBucketKey(agingBalances, today);
 
-        return new CustomerDirectoryItemDto
+        return new CustomerDirectoryItemResponse
         {
             CustomerId = customer.CustomerId,
             LastName = customer.LastName,
@@ -399,7 +400,7 @@ public sealed class FakeCustomerRepository : ICustomerRepository
             Contact2 = customer.Contact2,
             DateRegistered = customer.DateRegistered,
             CustomerType = CustomerClassification.Derive(customer.Company),
-            BookingCounts = new CustomerBookingCountsDto
+            BookingCounts = new CustomerBookingCountsResponse
             {
                 Total = activeBookings.Count,
                 Past = activeBookings.Count(b => b.EventDate < today),
@@ -415,13 +416,13 @@ public sealed class FakeCustomerRepository : ICustomerRepository
         };
     }
 
-    private CustomerDirectorySummaryDto BuildSummary(List<CustomerDirectoryItemDto> rows)
+    private CustomerDirectorySummaryResponse BuildSummary(List<CustomerDirectoryItemResponse> rows)
     {
         var totalClients = rows.Count;
         var contracted = rows.Sum(r => r.TotalContractedValue);
         var overdueRows = rows.Where(r => _aging.IsOverdue30(r.LedgerState)).ToList();
 
-        return new CustomerDirectorySummaryDto
+        return new CustomerDirectorySummaryResponse
         {
             TotalClients = totalClients,
             ActiveArAmount = rows.Sum(r => r.OutstandingBalance),
@@ -435,7 +436,7 @@ public sealed class FakeCustomerRepository : ICustomerRepository
         };
     }
 
-    private bool MatchesArState(CustomerDirectoryItemDto row, string arState) => arState switch
+    private bool MatchesArState(CustomerDirectoryItemResponse row, string arState) => arState switch
     {
         CustomerAgingBucket.ArStateClean => row.LedgerState == CustomerAgingBucket.Clean,
         CustomerAgingBucket.ArStateOpen => row.OutstandingBalance > 0m,

@@ -1,6 +1,8 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 
 namespace SalsCaterSuite.Application.Features.Packages.Queries;
 
@@ -22,13 +24,13 @@ public class GetPackagePaxApplicablesQuery
         _paxApplicables = paxApplicables;
     }
 
-    public async Task<Result<List<PackagePaxApplicableDto>>> ExecuteAsync(
+    public async Task<Result<List<PackagePaxApplicableResponse>>> ExecuteAsync(
         CancellationToken cancellationToken = default)
     {
         var rows = await _paxApplicables.GetAllAsync(cancellationToken);
 
-        return Result<List<PackagePaxApplicableDto>>.Success(rows
-            .Select(row => new PackagePaxApplicableDto
+        return Result<List<PackagePaxApplicableResponse>>.Success(rows
+            .Select(row => new PackagePaxApplicableResponse
             {
                 NumPaxId = row.NumPaxId,
                 PackageApplicablePax = row.PackageApplicablePax

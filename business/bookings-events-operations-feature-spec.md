@@ -336,7 +336,7 @@ A write **after** the lock is refused with a **`400`** that names the lock date,
 | 15.1 | `GET /api/bookings/{id}/menus` | The selection, the tier's pools, the quota verdict and the lock state. |
 | 15.2 | `PUT /api/bookings/{id}/menus` | **Replace** the selection. Validates BR-15 and the lock. |
 
-**Response `BookingMenuSelectionDto`**: `transactionId`, `bookingNumber`, `eventDate`, `packageId`, `packageName`, `menuSelectionLockDate` (**never null**), `menuSelectionLockDays` (`int?`), `isLocked`, `selectionState`, `selections[]`, `courses[]` (the tier's rules with their pools), `isCompliant`, `complianceMessage`, `selectedFoodCostPerPax`, `standardRunFoodCostPerPax`, `selectedGrossProfitPercentage`, `standardRunGrossProfitPercentage`, `includedVatAmount`, `vatPercentage`, `addonCount`, `addonsTotal`, `discountSource`, `discountBandLabel`, `discountBandRatePerHead`.
+**Response `BookingMenuSelectionResponse`**: `transactionId`, `bookingNumber`, `eventDate`, `packageId`, `packageName`, `menuSelectionLockDate` (**never null**), `menuSelectionLockDays` (`int?`), `isLocked`, `selectionState`, `selections[]`, `courses[]` (the tier's rules with their pools), `isCompliant`, `complianceMessage`, `selectedFoodCostPerPax`, `standardRunFoodCostPerPax`, `selectedGrossProfitPercentage`, `standardRunGrossProfitPercentage`, `includedVatAmount`, `vatPercentage`, `addonCount`, `addonsTotal`, `discountSource`, `discountBandLabel`, `discountBandRatePerHead`.
 
 **The payload also carries, per course rule:**
 
@@ -537,7 +537,7 @@ Gains: the **"Menu selection"** action, the **add-on count**, and the **selectio
 | `BookingAddonTests` | The frozen description/**line total**/unit/**pricing basis**; the replacement semantics; an inactive catalogue row refused; a negative line total refused; a `PerGuest` add-on on 120 guests yields `18,000.00` and a `Flat` one `1,500.00`; a **not-stated** basis is `Flat`. |
 | `BookingAddonMoneyReactionTests` | An add-on write **re-freezes** the snapshot; the frozen discount is **re-capped** and **not** recomputed; the **deposit is unchanged**; a write that would overpay is **refused**. |
 | `ExtendedAreaTierRestrictionTests` | `Regular` and `Premier` allowed - matched **trimmed** and **case-insensitively**; every other type refused **including** "Premier Buffet"; the type column only, never the description; the band calculation unchanged. |
-| `BookingMenuSelectionDtoTests` | The null semantics of `selectedFoodCostPerPax` (nothing selected; an uncosted dish); `batchMassKg` rounds to two decimals away from the midpoint and is `null` for a zero or absent portion. |
+| `BookingMenuSelectionResponseTests` | The null semantics of `selectedFoodCostPerPax` (nothing selected; an uncosted dish); `batchMassKg` rounds to two decimals away from the midpoint and is `null` for a zero or absent portion. |
 | `IncludedVatTests` | `Net - Net / (1 + p/100)`; `null` when the rate is absent or the net is zero; the tax never changes `NetAmountDue`. |
 | `BookingAmountDueCalculatorAddOnTests` | The calculator **reads `Booking.AddonsTotal`** and the add-on total joins the gross - the regression that the `0m` placeholder made impossible to express. |
 

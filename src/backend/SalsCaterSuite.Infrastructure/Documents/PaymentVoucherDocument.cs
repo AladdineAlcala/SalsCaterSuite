@@ -1,16 +1,17 @@
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
-using SalsCaterSuite.Application.Features.Payments.DTOs;
+using SalsCaterSuite.Application.Features.Payments.DTOs.Request;
+using SalsCaterSuite.Application.Features.Payments.DTOs.Response;
 
 namespace SalsCaterSuite.Infrastructure.Documents;
 
 public class PaymentVoucherDocument : IDocument
 {
-    public PaymentEntryDto Payment { get; }
+    public PaymentEntryResponse Payment { get; }
     public string CustomerName { get; }
 
-    public PaymentVoucherDocument(PaymentEntryDto payment, string customerName)
+    public PaymentVoucherDocument(PaymentEntryResponse payment, string customerName)
     {
         Payment = payment;
         CustomerName = customerName;

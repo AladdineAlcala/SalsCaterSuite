@@ -1,6 +1,7 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Menus.DTOs;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Request;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Response;
 using SalsCaterSuite.Application.Features.Menus.Models;
 using SalsCaterSuite.Application.Features.Menus.Services;
 
@@ -45,11 +46,11 @@ public class GetMenuMasterQuery
     }
 
     /// <summary>
-    /// The paged master. The <see cref="MenuMasterDto.Summary"/> describes the whole filtered
-    /// result set, not the returned page, while the <see cref="MenuMasterDto.Courses"/> describe
+    /// The paged master. The <see cref="MenuMasterResponse.Summary"/> describes the whole filtered
+    /// result set, not the returned page, while the <see cref="MenuMasterResponse.Courses"/> describe
     /// the whole catalogue so the tab counts stay stable while a scope is selected.
     /// </summary>
-    public async Task<Result<MenuMasterDto>> ExecuteAsync(
+    public async Task<Result<MenuMasterResponse>> ExecuteAsync(
         string? search,
         int? courseId,
         string? status,
@@ -67,7 +68,7 @@ public class GetMenuMasterQuery
         var benchmark = _benchmarks.Current;
         var target = benchmark.TargetFoodCostPercentage;
 
-        return Result<MenuMasterDto>.Success(new MenuMasterDto
+        return Result<MenuMasterResponse>.Success(new MenuMasterResponse
         {
             Summary = BuildSummary(data, benchmark),
             Courses = data.Courses,
@@ -84,7 +85,7 @@ public class GetMenuMasterQuery
     /// The whole filtered result set, without paging. The XLSX export is the current filtered
     /// result set, not the current page (spec §6.3).
     /// </summary>
-    public async Task<Result<List<MenuMasterItemDto>>> ExecuteUnpagedAsync(
+    public async Task<Result<List<MenuMasterItemResponse>>> ExecuteUnpagedAsync(
         string? search,
         int? courseId,
         string? status,
@@ -96,7 +97,7 @@ public class GetMenuMasterQuery
 
         var target = _benchmarks.Current.TargetFoodCostPercentage;
 
-        return Result<List<MenuMasterItemDto>>.Success(
+        return Result<List<MenuMasterItemResponse>>.Success(
             rows.Select(row => ComposeItem(row, target)).ToList());
     }
 
@@ -128,7 +129,7 @@ public class GetMenuMasterQuery
     /// The KPI cards of the master (spec §4.2). Every figure is measured over the whole filtered
     /// result set.
     /// </summary>
-    private MenuMasterSummaryDto BuildSummary(MenuMasterDataSet data, FoodCostBenchmark benchmark)
+    private MenuMasterSummaryResponse BuildSummary(MenuMasterDataSet data, FoodCostBenchmark benchmark)
     {
         var aggregate = data.Aggregate;
 
@@ -150,7 +151,7 @@ public class GetMenuMasterQuery
             ? 100m - catalogueMarginPercentage.Value
             : null;
 
-        return new MenuMasterSummaryDto
+        return new MenuMasterSummaryResponse
         {
             TotalDishes = aggregate.TotalCount,
             CostedDishes = aggregate.CostedCount,
@@ -177,7 +178,7 @@ public class GetMenuMasterQuery
     /// course is grouped under <c>"Uncategorised"</c>, exactly as KPI-16 does, and may be the
     /// reported course.
     /// </summary>
-    private MenuBestMarginCourseDto? BuildBestMarginCourse(MenuMasterDataSet data)
+    private MenuBestMarginCourseResponse? BuildBestMarginCourse(MenuMasterDataSet data)
     {
         var courseNames = data.Courses.Items.ToDictionary(c => c.CourseId, c => c.CourseName);
 
@@ -201,7 +202,7 @@ public class GetMenuMasterQuery
             return null;
         }
 
-        return new MenuBestMarginCourseDto
+        return new MenuBestMarginCourseResponse
         {
             CourseId = best.CourseId,
             CourseName = ResolveCourseName(best.CourseId, courseNames),
@@ -212,13 +213,13 @@ public class GetMenuMasterQuery
     }
 
     /// <summary>One dish card — every figure derived through the shared calculator.</summary>
-    private static MenuMasterItemDto ComposeItem(MenuMasterRow row, decimal targetFoodCostPercentage)
+    private static MenuMasterItemResponse ComposeItem(MenuMasterRow row, decimal targetFoodCostPercentage)
     {
         var sellingPrice = row.Price ?? 0m;
         var foodCost = row.FoodCost ?? 0m;
         var foodCostPercentage = MenuCostingCalculator.FoodCostPercentage(sellingPrice, foodCost);
 
-        return new MenuMasterItemDto
+        return new MenuMasterItemResponse
         {
             MenuId = row.MenuId,
             MenuName = row.MenuName,

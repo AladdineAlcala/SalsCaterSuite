@@ -1,7 +1,8 @@
 namespace SalsCaterSuite.Application.Common.Interfaces;
 
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Menus.DTOs;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Request;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Response;
 using SalsCaterSuite.Application.Features.Menus.Models;
 using SalsCaterSuite.Domain.Entities;
 
@@ -26,13 +27,13 @@ public interface IMenuRepository
     Task<IReadOnlyList<Menu>> GetOrderedByNameAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Menu list projection (course name included), optionally filtered by course.</summary>
-    Task<List<MenuDto>> GetProjectionListAsync(int? courseId, CancellationToken cancellationToken = default);
+    Task<List<MenuResponse>> GetProjectionListAsync(int? courseId, CancellationToken cancellationToken = default);
 
     /// <summary>Single-menu projection (course name included).</summary>
-    Task<MenuDto?> GetProjectionByIdAsync(string menuId, CancellationToken cancellationToken = default);
+    Task<MenuResponse?> GetProjectionByIdAsync(string menuId, CancellationToken cancellationToken = default);
 
     /// <summary>Course-category projection used by GET /api/menus/courses.</summary>
-    Task<List<CourseDto>> GetCourseProjectionsAsync(CancellationToken cancellationToken = default);
+    Task<List<CourseResponse>> GetCourseProjectionsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// The menu-catalogue costing aggregate used by the operations dashboard: the total menu

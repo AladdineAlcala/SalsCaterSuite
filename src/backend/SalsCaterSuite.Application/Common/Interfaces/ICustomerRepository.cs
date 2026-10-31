@@ -1,6 +1,7 @@
 namespace SalsCaterSuite.Application.Common.Interfaces;
 
-using SalsCaterSuite.Application.Features.Customers.DTOs;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Request;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Response;
 using SalsCaterSuite.Domain.Entities;
 
 /// <summary>
@@ -40,10 +41,10 @@ public interface ICustomerRepository
     /// Customer list projection with the DEC-025 receivables aggregate, optionally filtered
     /// by a case-insensitive search term over last name, first name, company and contact.
     /// </summary>
-    Task<List<CustomerDto>> GetListProjectionAsync(string? search, CancellationToken cancellationToken = default);
+    Task<List<CustomerResponse>> GetListProjectionAsync(string? search, CancellationToken cancellationToken = default);
 
     /// <summary>Single-customer projection carrying the DEC-025 receivables aggregate.</summary>
-    Task<CustomerDto?> GetProjectionByIdAsync(int customerId, CancellationToken cancellationToken = default);
+    Task<CustomerResponse?> GetProjectionByIdAsync(int customerId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// The paged Customer Master directory (spec §5.1). The returned summary describes the
@@ -56,7 +57,7 @@ public interface ICustomerRepository
     /// <param name="page">The 1-based page number.</param>
     /// <param name="pageSize">The page size.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<CustomerDirectoryDto> GetDirectoryProjectionAsync(
+    Task<CustomerDirectoryResponse> GetDirectoryProjectionAsync(
         string? search,
         string? customerType,
         string? arState,
@@ -68,7 +69,7 @@ public interface ICustomerRepository
     /// The whole filtered directory result set, without paging — the XLSX export of the
     /// current filtered result set (spec §5.5).
     /// </summary>
-    Task<List<CustomerDirectoryItemDto>> GetDirectoryItemsAsync(
+    Task<List<CustomerDirectoryItemResponse>> GetDirectoryItemsAsync(
         string? search,
         string? customerType,
         string? arState,

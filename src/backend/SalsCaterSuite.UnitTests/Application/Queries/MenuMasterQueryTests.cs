@@ -2,7 +2,9 @@ namespace SalsCaterSuite.UnitTests.Application.Queries;
 
 using FluentAssertions;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Menus.DTOs;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Request;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Response;
+using SalsCaterSuite.Application.Features.Menus.Models;
 using SalsCaterSuite.Application.Features.Menus.Queries;
 using SalsCaterSuite.Domain.Entities;
 using SalsCaterSuite.UnitTests.Common.Fakes;
@@ -64,7 +66,7 @@ public class MenuMasterQueryTests
         return menu;
     }
 
-    private Task<Result<MenuMasterDto>> ExecuteAsync(
+    private Task<Result<MenuMasterResponse>> ExecuteAsync(
         string? search = null,
         int? courseId = null,
         string? status = null,

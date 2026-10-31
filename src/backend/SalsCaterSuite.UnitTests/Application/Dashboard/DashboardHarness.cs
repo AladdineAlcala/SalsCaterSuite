@@ -3,7 +3,8 @@ namespace SalsCaterSuite.UnitTests.Application.Dashboard;
 using System.Reflection;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Dashboard.DTOs;
+using SalsCaterSuite.Application.Features.Dashboard.DTOs.Response;
+using SalsCaterSuite.Application.Features.Dashboard.Models;
 using SalsCaterSuite.Application.Features.Dashboard.Queries;
 using SalsCaterSuite.Application.Features.Dashboard.Services;
 using SalsCaterSuite.Application.Services;
@@ -183,6 +184,6 @@ internal sealed class DashboardHarness
         Store.CourseCategories.Add(new CourseCategory { CourseId = courseId, CourseName = courseName });
     }
 
-    public Task<Result<DashboardDto>> GetAsync(string? period = null) =>
+    public Task<Result<DashboardResponse>> GetAsync(string? period = null) =>
         Query.ExecuteAsync(period);
 }

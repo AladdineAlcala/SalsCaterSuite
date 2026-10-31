@@ -1,6 +1,8 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Features.Bookings.Services;
 using SalsCaterSuite.Application.Services;
 using SalsCaterSuite.Domain.Entities;
@@ -18,13 +20,13 @@ public class GetBookingDetailsQuery
         _calculator = calculator;
     }
 
-    public async Task<Result<BookingDto>> ExecuteAsync(int transactionId, CancellationToken cancellationToken = default)
+    public async Task<Result<BookingResponse>> ExecuteAsync(int transactionId, CancellationToken cancellationToken = default)
     {
         var booking = await _bookings.GetWithDetailsAsync(transactionId, cancellationToken);
 
         if (booking == null)
         {
-            return Result<BookingDto>.Failure("Booking not found.");
+            return Result<BookingResponse>.Failure("Booking not found.");
         }
 
         // The sum of Payment rows is the authoritative "amount paid" (DEC-012).
@@ -39,7 +41,7 @@ public class GetBookingDetailsQuery
         // The shared overload keeps the argument set in one place (DEC-042).
         var breakdown = _calculator.Calculate(booking, totalPayments);
 
-        var dto = new BookingDto
+        var dto = new BookingResponse
         {
             TransactionId = booking.TransactionId,
             BookingNumber = booking.BookingNumber,
@@ -93,7 +95,7 @@ public class GetBookingDetailsQuery
             ReminderSent = booking.ReminderSent,
         };
 
-        return Result<BookingDto>.Success(dto);
+        return Result<BookingResponse>.Success(dto);
     }
 
     /// <summary>

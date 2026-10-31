@@ -1,7 +1,9 @@
 using FluentValidation;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Menus.DTOs;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Request;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Response;
+using SalsCaterSuite.Application.Features.Menus.Models;
 using SalsCaterSuite.Application.Features.Menus.Services;
 
 namespace SalsCaterSuite.Application.Features.Menus.Queries;
@@ -16,11 +18,11 @@ namespace SalsCaterSuite.Application.Features.Menus.Queries;
 /// </summary>
 public class PreviewMenuCostingQuery
 {
-    private readonly IValidator<MenuCostingPreviewRequestDto> _validator;
+    private readonly IValidator<MenuCostingPreviewRequest> _validator;
     private readonly IFoodCostBenchmarkProvider _benchmarks;
 
     public PreviewMenuCostingQuery(
-        IValidator<MenuCostingPreviewRequestDto> validator,
+        IValidator<MenuCostingPreviewRequest> validator,
         IFoodCostBenchmarkProvider benchmarks)
     {
         _validator = validator;
@@ -32,14 +34,14 @@ public class PreviewMenuCostingQuery
     /// rejected payload returns the validation messages, which the API renders as
     /// <c>400 { "errors": [ ... ] }</c>.
     /// </summary>
-    public async Task<Result<MenuCostingPreviewDto>> ExecuteAsync(
-        MenuCostingPreviewRequestDto request,
+    public async Task<Result<MenuCostingPreviewResponse>> ExecuteAsync(
+        MenuCostingPreviewRequest request,
         CancellationToken cancellationToken = default)
     {
         var validationResult = await _validator.ValidateAsync(request, cancellationToken);
         if (!validationResult.IsValid)
         {
-            return Result<MenuCostingPreviewDto>.Failure(
+            return Result<MenuCostingPreviewResponse>.Failure(
                 validationResult.Errors.Select(e => e.ErrorMessage).ToArray());
         }
 
@@ -48,7 +50,7 @@ public class PreviewMenuCostingQuery
         var foodCost = request.FoodCost;
         var foodCostPercentage = MenuCostingCalculator.FoodCostPercentage(sellingPrice, foodCost);
 
-        return Result<MenuCostingPreviewDto>.Success(new MenuCostingPreviewDto
+        return Result<MenuCostingPreviewResponse>.Success(new MenuCostingPreviewResponse
         {
             SellingPrice = sellingPrice,
             FoodCost = foodCost,

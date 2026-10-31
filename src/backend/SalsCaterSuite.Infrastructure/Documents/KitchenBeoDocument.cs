@@ -1,7 +1,9 @@
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Domain.Enums;
 
 namespace SalsCaterSuite.Infrastructure.Documents;
@@ -60,18 +62,18 @@ public class KitchenBeoDocument : IDocument
     public const string NoSelectionStatement =
         "No dish selection has been recorded for this event. The kitchen prepares the tier's standard run.";
 
-    public BookingDto Booking { get; }
+    public BookingResponse Booking { get; }
 
     /// <summary>The booking's stored selection and the tier's live ruleset (contract §15.1).</summary>
-    public BookingMenuSelectionDto Selection { get; }
+    public BookingMenuSelectionResponse Selection { get; }
 
     /// <summary>The booking's frozen add-on lines (contract §16.3).</summary>
-    public BookingAddonSetDto Addons { get; }
+    public BookingAddonSetResponse Addons { get; }
 
     public KitchenBeoDocument(
-        BookingDto booking,
-        BookingMenuSelectionDto selection,
-        BookingAddonSetDto addons)
+        BookingResponse booking,
+        BookingMenuSelectionResponse selection,
+        BookingAddonSetResponse addons)
     {
         Booking = booking;
         Selection = selection;

@@ -1,7 +1,9 @@
 namespace SalsCaterSuite.UnitTests.Application.Validators;
 
 using FluentAssertions;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Application.Features.Packages.Validators;
 using Xunit;
 
@@ -12,7 +14,7 @@ public class AreaRequestValidatorTests
 {
     private readonly AreaRequestValidator _validator = new();
 
-    private static AreaRequestDto Valid() =>
+    private static AreaRequest Valid() =>
         new("Clark", 150m, 42, "Reefer Truck & Mobile Gen", 3200m);
 
     [Fact]
@@ -25,7 +27,7 @@ public class AreaRequestValidatorTests
     public async Task A_municipality_without_a_stated_rate_should_pass()
     {
         // A null rate is "no rate has been stated" — not an error (DEC-086).
-        var request = new AreaRequestDto("Municipality", null, null, null, null);
+        var request = new AreaRequest("Municipality", null, null, null, null);
 
         (await _validator.ValidateAsync(request)).IsValid.Should().BeTrue();
     }

@@ -1,7 +1,9 @@
 using FluentValidation;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Features.Bookings.Services;
 using SalsCaterSuite.Application.Features.Payments.Services;
 using SalsCaterSuite.Application.Services;
@@ -16,7 +18,7 @@ public class CreateBookingCommand
     private readonly IPackageRepository _packages;
     private readonly IBookingRepository _bookings;
     private readonly ICurrentUserService _currentUser;
-    private readonly IValidator<CreateBookingRequestDto> _validator;
+    private readonly IValidator<CreateBookingRequest> _validator;
     private readonly BookingCreateCapabilities? _capabilities;
 
     /// <summary>
@@ -39,7 +41,7 @@ public class CreateBookingCommand
         IPackageRepository packages,
         IBookingRepository bookings,
         ICurrentUserService currentUser,
-        IValidator<CreateBookingRequestDto> validator,
+        IValidator<CreateBookingRequest> validator,
         BookingCreateCapabilities? capabilities = null)
     {
         _customers = customers;
@@ -50,7 +52,7 @@ public class CreateBookingCommand
         _capabilities = capabilities;
     }
 
-    public async Task<Result<int>> ExecuteAsync(CreateBookingRequestDto request, CancellationToken cancellationToken = default)
+    public async Task<Result<int>> ExecuteAsync(CreateBookingRequest request, CancellationToken cancellationToken = default)
     {
         // ── 0. Validate the request before any persistence (DEC-014) ─────────
         var validation = await _validator.ValidateAsync(request, cancellationToken);

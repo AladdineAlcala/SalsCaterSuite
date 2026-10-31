@@ -1,7 +1,9 @@
 using FluentValidation;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Features.Bookings.Services;
 using SalsCaterSuite.Application.Services;
 using SalsCaterSuite.Domain.Entities;
@@ -20,7 +22,7 @@ namespace SalsCaterSuite.Application.Features.Bookings.Commands;
 /// </summary>
 public class PreviewBookingQuoteCommand
 {
-    private readonly IValidator<BookingQuoteRequestDto> _validator;
+    private readonly IValidator<BookingQuoteRequest> _validator;
     private readonly ICustomerRepository _customers;
     private readonly IPackageRepository _packages;
     private readonly IAreaRepository _areas;
@@ -35,7 +37,7 @@ public class PreviewBookingQuoteCommand
     private readonly IDateTime _clock;
 
     public PreviewBookingQuoteCommand(
-        IValidator<BookingQuoteRequestDto> validator,
+        IValidator<BookingQuoteRequest> validator,
         ICustomerRepository customers,
         IPackageRepository packages,
         IAreaRepository areas,
@@ -64,14 +66,14 @@ public class PreviewBookingQuoteCommand
         _clock = clock;
     }
 
-    public async Task<Result<BookingQuoteDto>> ExecuteAsync(
-        BookingQuoteRequestDto request,
+    public async Task<Result<BookingQuoteResponse>> ExecuteAsync(
+        BookingQuoteRequest request,
         CancellationToken cancellationToken = default)
     {
         var validation = await _validator.ValidateAsync(request, cancellationToken);
         if (!validation.IsValid)
         {
-            return Result<BookingQuoteDto>.Failure(
+            return Result<BookingQuoteResponse>.Failure(
                 validation.Errors.Select(error => error.ErrorMessage));
         }
 
@@ -81,7 +83,7 @@ public class PreviewBookingQuoteCommand
         var customer = await _customers.GetByIdAsync(request.CustomerId, cancellationToken);
         if (customer is null)
         {
-            return Result<BookingQuoteDto>.Failure("Customer not found.");
+            return Result<BookingQuoteResponse>.Failure("Customer not found.");
         }
 
         var clientIsValid = !customer.IsDeleted;
@@ -90,7 +92,7 @@ public class PreviewBookingQuoteCommand
         var package = await _packages.GetByIdAsync(request.PackageId, cancellationToken);
         if (package is null)
         {
-            return Result<BookingQuoteDto>.Failure($"Package with ID {request.PackageId} not found.");
+            return Result<BookingQuoteResponse>.Failure($"Package with ID {request.PackageId} not found.");
         }
 
         var tierIsActive = package.IsActive && !package.IsDeleted;
@@ -102,7 +104,7 @@ public class PreviewBookingQuoteCommand
             area = await _areas.GetLiveByIdAsync(request.ExtendedAreaId.Value, cancellationToken);
             if (area is null)
             {
-                return Result<BookingQuoteDto>.Failure(
+                return Result<BookingQuoteResponse>.Failure(
                     $"Municipality with ID {request.ExtendedAreaId} not found.");
             }
         }
@@ -118,7 +120,7 @@ public class PreviewBookingQuoteCommand
             && carriesExtendedAmount
             && !PackageSurchargeEligibility.IsEligible(package.PackageType))
         {
-            return Result<BookingQuoteDto>.Failure(
+            return Result<BookingQuoteResponse>.Failure(
                 PackageSurchargeEligibility.RejectionMessage(package.PackageType));
         }
 
@@ -131,12 +133,12 @@ public class PreviewBookingQuoteCommand
 
             if (matches.Count == 0)
             {
-                return Result<BookingQuoteDto>.Failure("The discount code was not found.");
+                return Result<BookingQuoteResponse>.Failure("The discount code was not found.");
             }
 
             if (matches.Count > 1)
             {
-                return Result<BookingQuoteDto>.Failure("The discount code is ambiguous.");
+                return Result<BookingQuoteResponse>.Failure("The discount code is ambiguous.");
             }
 
             discount = matches[0];
@@ -155,7 +157,7 @@ public class PreviewBookingQuoteCommand
 
         if (!lineItems.Succeeded)
         {
-            return Result<BookingQuoteDto>.Failure(lineItems.Errors);
+            return Result<BookingQuoteResponse>.Failure(lineItems.Errors);
         }
 
         var pricePerHead = package.AmountPax ?? 0m;
@@ -212,7 +214,7 @@ public class PreviewBookingQuoteCommand
             request.ExtendedAreaId,
             pricing);
 
-        var quote = new BookingQuoteDto
+        var quote = new BookingQuoteResponse
         {
             PackageName = package.Description,
             PackageCode = package.PackageCode,
@@ -255,7 +257,7 @@ public class PreviewBookingQuoteCommand
             StandardRunFoodCostPerPax = estimate?.StandardRunFoodCostPerPax,
             BaseGrossProfitPercentage = estimate?.BaseGrossProfitPercentage,
 
-            Coverage = new BookingQuoteCoverageDto
+            Coverage = new BookingQuoteCoverageResponse
             {
                 IsCovered = isCovered,
                 CoveredAreaCount = coverages.Count
@@ -267,21 +269,21 @@ public class PreviewBookingQuoteCommand
             Selection = selection
         };
 
-        return Result<BookingQuoteDto>.Success(quote);
+        return Result<BookingQuoteResponse>.Success(quote);
     }
 
     /// <summary>
     /// The five named checks of BR-29. Four are advisory — they warn and never block. Only
     /// <c>TierActive</c> blocks, because a deactivated tier is not offered.
     /// </summary>
-    private static List<BookingQuoteCheckDto> BuildChecks(
+    private static List<BookingQuoteCheckResponse> BuildChecks(
         bool clientIsValid,
         bool tierIsActive,
         int courseRuleCount,
         bool? isCovered,
         int? extendedAreaId,
         BookingPricingResult pricing) =>
-        new List<BookingQuoteCheckDto>
+        new List<BookingQuoteCheckResponse>
         {
             new()
             {
@@ -361,8 +363,8 @@ public class PreviewBookingQuoteCommand
     /// proposal's own headcount is included when its event date falls inside the window,
     /// because the gauge answers "can the commissary serve this event?".
     /// </summary>
-    private async Task<BookingRegisterCapacityDto> BuildCapacityAsync(
-        BookingQuoteRequestDto request,
+    private async Task<BookingRegisterCapacityResponse> BuildCapacityAsync(
+        BookingQuoteRequest request,
         DateOnly today,
         CancellationToken cancellationToken)
     {
@@ -380,7 +382,7 @@ public class PreviewBookingQuoteCommand
 
         var capacity = _policy.MaximumCapacityPax;
 
-        return new BookingRegisterCapacityDto
+        return new BookingRegisterCapacityResponse
         {
             CommittedPax = committedPax,
             CapacityPax = capacity,

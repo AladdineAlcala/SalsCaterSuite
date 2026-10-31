@@ -1,7 +1,9 @@
 namespace SalsCaterSuite.UnitTests.Application.Queries;
 
 using FluentAssertions;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Application.Features.Packages.Queries;
 using SalsCaterSuite.Domain.Entities;
 using SalsCaterSuite.UnitTests.Common.Fakes;
@@ -58,13 +60,13 @@ public class PackageCourseRulePreviewTests
             new FakeDateTime(new DateTime(2026, 10, 22, 9, 0, 0, DateTimeKind.Utc)));
     }
 
-    private static PackageCourseRulePreviewRequest Request(params PackageCourseSelectionDto[] selections) =>
+    private static PackageCourseRulePreviewRequest Request(params PackageCourseSelectionRequest[] selections) =>
         new(selections);
 
     [Fact]
     public async Task A_satisfied_selection_should_be_compliant()
     {
-        var preview = (await _query.ExecuteAsync(1, Request(new PackageCourseSelectionDto(1, "DS-1")))).Data!;
+        var preview = (await _query.ExecuteAsync(1, Request(new PackageCourseSelectionRequest(1, "DS-1")))).Data!;
 
         preview.SelectedFoodCostPerPax.Should().Be(100.00m);
         preview.IsCostKnown.Should().BeTrue();
@@ -92,8 +94,8 @@ public class PackageCourseRulePreviewTests
     {
         // A quota of one is not satisfied by two dishes.
         var preview = (await _query.ExecuteAsync(1, Request(
-            new PackageCourseSelectionDto(1, "DS-1"),
-            new PackageCourseSelectionDto(1, "DS-2")))).Data!;
+            new PackageCourseSelectionRequest(1, "DS-1"),
+            new PackageCourseSelectionRequest(1, "DS-2")))).Data!;
 
         preview.IsQuotaCompliant.Should().BeFalse();
         preview.Compliance[0].SelectedCount.Should().Be(2);
@@ -102,7 +104,7 @@ public class PackageCourseRulePreviewTests
     [Fact]
     public async Task A_selection_naming_an_unruled_course_should_not_be_compliant()
     {
-        var preview = (await _query.ExecuteAsync(1, Request(new PackageCourseSelectionDto(2, "DS-4")))).Data!;
+        var preview = (await _query.ExecuteAsync(1, Request(new PackageCourseSelectionRequest(2, "DS-4")))).Data!;
 
         preview.IsQuotaCompliant.Should().BeFalse();
         preview.IsCompliant.Should().BeFalse();
@@ -118,7 +120,7 @@ public class PackageCourseRulePreviewTests
     public async Task A_ceiling_breach_should_warn_without_blocking_the_quota_verdict()
     {
         // The ceiling is 1000 × 35 % = 350.00 and the selected dish costs 400.00 (DEC-080).
-        var preview = (await _query.ExecuteAsync(1, Request(new PackageCourseSelectionDto(1, "DS-2")))).Data!;
+        var preview = (await _query.ExecuteAsync(1, Request(new PackageCourseSelectionRequest(1, "DS-2")))).Data!;
 
         preview.CostCeilingPerPax.Should().Be(350.00m);
         preview.IsCeilingBreached.Should().BeTrue();
@@ -136,7 +138,7 @@ public class PackageCourseRulePreviewTests
     [Fact]
     public async Task An_uncosted_selected_dish_should_make_the_food_cost_unknown()
     {
-        var preview = (await _query.ExecuteAsync(1, Request(new PackageCourseSelectionDto(1, "DS-3")))).Data!;
+        var preview = (await _query.ExecuteAsync(1, Request(new PackageCourseSelectionRequest(1, "DS-3")))).Data!;
 
         // Unknown — never zero (DEC-087).
         preview.SelectedFoodCostPerPax.Should().BeNull();
@@ -153,7 +155,7 @@ public class PackageCourseRulePreviewTests
     public async Task The_stress_preview_should_multiply_the_selected_cost()
     {
         var request = new PackageCourseRulePreviewRequest(
-            new[] { new PackageCourseSelectionDto(1, "DS-1") },
+            new[] { new PackageCourseSelectionRequest(1, "DS-1") },
             10m);
 
         var preview = (await _query.ExecuteAsync(1, request)).Data!;
@@ -167,7 +169,7 @@ public class PackageCourseRulePreviewTests
     public async Task The_headcount_should_be_the_requested_one_otherwise_the_tier_floor()
     {
         var requested = new PackageCourseRulePreviewRequest(
-            new[] { new PackageCourseSelectionDto(1, "DS-1") },
+            new[] { new PackageCourseSelectionRequest(1, "DS-1") },
             null,
             120);
 
@@ -183,7 +185,7 @@ public class PackageCourseRulePreviewTests
     [Fact]
     public async Task The_headcount_should_fall_back_to_the_tier_floor()
     {
-        var preview = (await _query.ExecuteAsync(1, Request(new PackageCourseSelectionDto(1, "DS-1")))).Data!;
+        var preview = (await _query.ExecuteAsync(1, Request(new PackageCourseSelectionRequest(1, "DS-1")))).Data!;
 
         preview.Pax.Should().Be(50);
         preview.GrossRevenue.Should().Be(50000.00m);
@@ -195,7 +197,7 @@ public class PackageCourseRulePreviewTests
     [Fact]
     public async Task An_unknown_dish_should_be_rejected()
     {
-        var result = await _query.ExecuteAsync(1, Request(new PackageCourseSelectionDto(1, "DS-999")));
+        var result = await _query.ExecuteAsync(1, Request(new PackageCourseSelectionRequest(1, "DS-999")));
 
         result.Succeeded.Should().BeFalse();
         result.Errors.Should().Contain("Dish DS-999 does not exist.");
@@ -204,7 +206,7 @@ public class PackageCourseRulePreviewTests
     [Fact]
     public async Task A_dish_of_another_course_should_be_rejected()
     {
-        var result = await _query.ExecuteAsync(1, Request(new PackageCourseSelectionDto(1, "DS-4")));
+        var result = await _query.ExecuteAsync(1, Request(new PackageCourseSelectionRequest(1, "DS-4")));
 
         result.Succeeded.Should().BeFalse();
         result.Errors.Should().Contain("Dish DS-4 does not belong to course 1.");
@@ -214,8 +216,8 @@ public class PackageCourseRulePreviewTests
     public async Task A_repeated_dish_should_be_rejected()
     {
         var result = await _query.ExecuteAsync(1, Request(
-            new PackageCourseSelectionDto(1, "DS-1"),
-            new PackageCourseSelectionDto(1, "DS-1")));
+            new PackageCourseSelectionRequest(1, "DS-1"),
+            new PackageCourseSelectionRequest(1, "DS-1")));
 
         result.Succeeded.Should().BeFalse();
         result.Errors.Should().Contain("Dish DS-1 is selected more than once.");
@@ -235,7 +237,7 @@ public class PackageCourseRulePreviewTests
     {
         _store.Packages[0].IsDeleted = true;
 
-        var result = await _query.ExecuteAsync(1, Request(new PackageCourseSelectionDto(1, "DS-1")));
+        var result = await _query.ExecuteAsync(1, Request(new PackageCourseSelectionRequest(1, "DS-1")));
 
         result.Succeeded.Should().BeFalse();
         result.Errors.Should().ContainSingle().Which.Should().Be("Package not found.");

@@ -1,6 +1,8 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Features.Packages.Services;
 using SalsCaterSuite.Application.Services;
 using SalsCaterSuite.Domain.Entities;
@@ -74,8 +76,8 @@ public class BookingLineItemResolver
     public async Task<Result<ResolvedBookingLineItems>> ResolveAsync(
         int? packageId,
         int numberOfHeads,
-        IReadOnlyList<BookingMenuSelectionEntryDto>? selections,
-        IReadOnlyList<BookingAddonRequestDto>? addons,
+        IReadOnlyList<BookingMenuSelectionEntryRequest>? selections,
+        IReadOnlyList<BookingAddonRequest>? addons,
         CancellationToken cancellationToken = default)
     {
         var addonResult = await ResolveAddonsAsync(numberOfHeads, addons, cancellationToken);
@@ -107,7 +109,7 @@ public class BookingLineItemResolver
     private async Task<Result<List<ResolvedSelectionRow>>> ResolveSelectionsAsync(
         int? packageId,
         int numberOfHeads,
-        IReadOnlyList<BookingMenuSelectionEntryDto>? selections,
+        IReadOnlyList<BookingMenuSelectionEntryRequest>? selections,
         CancellationToken cancellationToken)
     {
         var rows = new List<ResolvedSelectionRow>();
@@ -201,7 +203,7 @@ public class BookingLineItemResolver
     /// </summary>
     private async Task<Result<List<ResolvedAddonLine>>> ResolveAddonsAsync(
         int numberOfHeads,
-        IReadOnlyList<BookingAddonRequestDto>? addons,
+        IReadOnlyList<BookingAddonRequest>? addons,
         CancellationToken cancellationToken)
     {
         var lines = new List<ResolvedAddonLine>();

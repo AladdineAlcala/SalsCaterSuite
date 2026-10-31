@@ -1,7 +1,8 @@
 namespace SalsCaterSuite.UnitTests.Application.Dashboard;
 
 using FluentAssertions;
-using SalsCaterSuite.Application.Features.Dashboard.DTOs;
+using SalsCaterSuite.Application.Features.Dashboard.DTOs.Response;
+using SalsCaterSuite.Application.Features.Dashboard.Models;
 using SalsCaterSuite.Domain.Enums;
 using Xunit;
 
@@ -568,7 +569,7 @@ public class DashboardServiceTests
         harness.AddPayment(3, 20_000m, October1);
     }
 
-    private static async Task<DashboardDto> GetDashboardAsync(DashboardHarness harness)
+    private static async Task<DashboardResponse> GetDashboardAsync(DashboardHarness harness)
     {
         var result = await harness.GetAsync();
 

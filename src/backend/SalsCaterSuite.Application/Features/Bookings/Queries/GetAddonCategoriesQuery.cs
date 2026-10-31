@@ -1,6 +1,8 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 
 namespace SalsCaterSuite.Application.Features.Bookings.Queries;
 
@@ -17,13 +19,13 @@ public class GetAddonCategoriesQuery
         _addons = addons;
     }
 
-    public async Task<Result<List<AddonCategoryDto>>> ExecuteAsync(
+    public async Task<Result<List<AddonCategoryResponse>>> ExecuteAsync(
         CancellationToken cancellationToken = default)
     {
         var rows = await _addons.GetCategoriesAsync(cancellationToken);
 
-        return Result<List<AddonCategoryDto>>.Success(rows
-            .Select(category => new AddonCategoryDto
+        return Result<List<AddonCategoryResponse>>.Success(rows
+            .Select(category => new AddonCategoryResponse
             {
                 AddonCategoryId = category.AddonCategoryId,
                 AddonCategoryName = category.AddonCategoryName

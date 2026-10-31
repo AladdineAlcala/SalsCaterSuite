@@ -1,6 +1,6 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Dashboard.DTOs;
+using SalsCaterSuite.Application.Features.Dashboard.DTOs.Response;
 using SalsCaterSuite.Application.Features.Dashboard.Models;
 using SalsCaterSuite.Application.Services;
 using SalsCaterSuite.Domain.Entities;
@@ -59,7 +59,7 @@ public class DashboardService : IDashboardService
         _dateTime = dateTime;
     }
 
-    public async Task<Result<DashboardDto>> GetAsync(DashboardPeriod period, CancellationToken cancellationToken = default)
+    public async Task<Result<DashboardResponse>> GetAsync(DashboardPeriod period, CancellationToken cancellationToken = default)
     {
         var today = DateOnly.FromDateTime(_dateTime.UtcNow);
         var benchmark = _benchmarks.Current;
@@ -163,7 +163,7 @@ public class DashboardService : IDashboardService
         // ── KPI-16 — food cost by course category ───────────────────────────────────────
         var totalCategoryFoodCost = courseAggregates.Sum(c => c.FoodCostAmount);
         var foodCostByCategory = courseAggregates
-            .Select(c => new DashboardFoodCostByCategoryDto
+            .Select(c => new DashboardFoodCostByCategoryResponse
             {
                 CourseId = c.CourseId,
                 CourseName = ResolveCourseName(c.CourseId, courseNames),
@@ -187,9 +187,9 @@ public class DashboardService : IDashboardService
             .Where(e => e.AmountPaid == 0m)
             .ToList();
 
-        var dto = new DashboardDto
+        var dto = new DashboardResponse
         {
-            Period = new DashboardPeriodDto
+            Period = new DashboardPeriodResponse
             {
                 Year = period.Year,
                 Month = period.Month,
@@ -197,13 +197,13 @@ public class DashboardService : IDashboardService
                 StartDate = period.StartDate,
                 EndDate = period.EndDate
             },
-            Benchmarks = new DashboardBenchmarksDto
+            Benchmarks = new DashboardBenchmarksResponse
             {
                 TargetFoodCostPercentage = benchmark.TargetFoodCostPercentage,
                 TargetMarginPercentage = benchmark.TargetMarginPercentage,
                 IsConfigured = benchmark.IsConfigured
             },
-            Bookings = new DashboardBookingsDto
+            Bookings = new DashboardBookingsResponse
             {
                 TotalCount = bookingCount,
                 CommittedCount = committedCount,
@@ -212,13 +212,13 @@ public class DashboardService : IDashboardService
                 ContractedValue = contractedValue,
                 TotalPax = periodEntries.Sum(e => e.Booking.NumberOfHeads)
             },
-            Revenue = new DashboardRevenueDto
+            Revenue = new DashboardRevenueResponse
             {
                 NetContractedRevenue = contractedValue,
                 AverageBookingValue = averageBookingValue,
                 BookingCount = bookingCount
             },
-            Collections = new DashboardCollectionsDto
+            Collections = new DashboardCollectionsResponse
             {
                 Amount = collectionsAmount,
                 ReceiptCount = periodCollections.PaymentCount,
@@ -226,7 +226,7 @@ public class DashboardService : IDashboardService
                 ChangePercentage = changePercentage,
                 CollectionRatioPercentage = collectionRatioPercentage
             },
-            Receivables = new DashboardReceivablesDto
+            Receivables = new DashboardReceivablesResponse
             {
                 OutstandingAmount = outstandingAmount,
                 BookingCount = receivableEntries.Count,
@@ -234,14 +234,14 @@ public class DashboardService : IDashboardService
                 OverdueAmount = overdueAmount,
                 AgingBuckets = agingBuckets
             },
-            DishCosting = new DashboardDishCostingDto
+            DishCosting = new DashboardDishCostingResponse
             {
                 TotalMenuCount = totalMenuCount,
                 CostedMenuCount = costedMenuCount,
                 UncostedMenuCount = totalMenuCount - costedMenuCount,
                 CoveragePercentage = coveragePercentage
             },
-            Margin = new DashboardMarginDto
+            Margin = new DashboardMarginResponse
             {
                 CatalogueRevenueAmount = catalogueRevenue,
                 CatalogueFoodCostAmount = catalogueFoodCost,
@@ -256,7 +256,7 @@ public class DashboardService : IDashboardService
                 {
                     var paid = AmountPaid(b);
                     var net = NetAmountDue(b, paid);
-                    return new DashboardUpcomingBookingDto
+                    return new DashboardUpcomingBookingResponse
                     {
                         TransactionId = b.TransactionId,
                         BookingNumber = b.BookingNumber,
@@ -272,7 +272,7 @@ public class DashboardService : IDashboardService
                     };
                 })
                 .ToList(),
-            Ledger = new DashboardLedgerDto
+            Ledger = new DashboardLedgerResponse
             {
                 CollectedLast7DaysAmount = trailingCollections.TotalAmount,
                 CollectedLast7DaysReceiptCount = trailingCollections.PaymentCount,
@@ -284,7 +284,7 @@ public class DashboardService : IDashboardService
             GeneratedAt = _dateTime.UtcNow
         };
 
-        return Result<DashboardDto>.Success(dto);
+        return Result<DashboardResponse>.Success(dto);
     }
 
     /// <summary>
@@ -302,7 +302,7 @@ public class DashboardService : IDashboardService
     private decimal NetAmountDue(Booking booking, decimal amountPaid) =>
         _calculator.Calculate(booking, amountPaid).NetAmountDue;
 
-    private static IReadOnlyList<DashboardAgingBucketDto> BuildAgingBuckets(
+    private static IReadOnlyList<DashboardAgingBucketResponse> BuildAgingBuckets(
         IReadOnlyList<BookingEntry> entries,
         DateOnly today)
     {
@@ -418,7 +418,7 @@ public class DashboardService : IDashboardService
             Amount += amount;
         }
 
-        public DashboardAgingBucketDto ToDto() => new()
+        public DashboardAgingBucketResponse ToDto() => new()
         {
             Key = _key,
             Label = _label,

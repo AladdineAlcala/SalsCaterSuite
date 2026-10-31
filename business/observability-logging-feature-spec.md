@@ -97,7 +97,7 @@ changing the application.
    | :--- | :--- | :--- |
    | **Secrets** (never negotiable) | `password`, `passwordconfirmation`, `newpassword`, `confirmpassword`, `token`, `accesstoken`, `refreshtoken`, `idtoken`, `jwt`, `secret`, `secretkey`, `apikey`, `api_key`, `authorization`, `clientsecret`, `signature`, `privatekey`, `connectionstring` | A credential in a log is reusable until it is rotated. |
    | **Account identifiers** | `username`, `userName`, `createdbyuser` | In this deployment the **username is the administrator's email address** (`Seed:Admin:UserName` = `admin@salscatersuite.local`), so an unredacted username is a contact identifier on disk. `createdByUser` is a user name on every payment and audit record. |
-   | **Customer contact identifiers** (owner-ruled, DEC-093) | `address`, `contact`, `contact1`, `contact2`, `customercontact` | These are the **only** contact-identifier property names in the codebase: `Customer.Address` / `.Contact1` / `.Contact2`, `CustomerStatementDto.Contact` and `BookingDto.CustomerContact`. |
+   | **Customer contact identifiers** (owner-ruled, DEC-093) | `address`, `contact`, `contact1`, `contact2`, `customercontact` | These are the **only** contact-identifier property names in the codebase: `Customer.Address` / `.Contact1` / `.Contact2`, `CustomerStatementResponse.Contact` and `BookingResponse.CustomerContact`. |
    | **Forward-looking** | `email`, `emailaddress`, `tin` | **No property in the current model carries an email address or a TIN** (`Customer` has neither). They are kept so the rule is already correct if the model ever grows one, and the specification says so rather than implying they exist. |
 
 4. The **query string** is redacted by parameter name against the same set, plus `access_token`
@@ -117,8 +117,8 @@ changing the application.
    amount must be visible. This is the deliberate consequence of DEC-093 and it is a **data-exposure
    decision**, not an oversight.
 9. **Free text is a known limitation.** A name-based redactor cannot reach a contact identifier
-   or a credential written inside free text - `CreateBookingRequestDto.SpecialInstructions` and
-   `.Reference`, `CancelBookingRequestDto.Reason`, `RecordPaymentRequestDto.Notes`,
+   or a credential written inside free text - `CreateBookingRequest.SpecialInstructions` and
+   `.Reference`, `CancelBookingRequestDto.Reason`, `RecordPaymentRequest.Notes`,
    `.Particular` and `.CheckNo` are logged verbatim. This is stated here and in RSK-040 rather
    than left implicit. A future free-text field that is expected to carry personal data must be
    added to the set by name.

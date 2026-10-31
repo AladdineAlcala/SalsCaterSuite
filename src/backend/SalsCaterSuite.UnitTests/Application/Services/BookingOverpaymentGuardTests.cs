@@ -4,7 +4,8 @@ using FluentAssertions;
 using Moq;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Features.Bookings.Commands;
-using SalsCaterSuite.Application.Features.Payments.DTOs;
+using SalsCaterSuite.Application.Features.Payments.DTOs.Request;
+using SalsCaterSuite.Application.Features.Payments.DTOs.Response;
 using SalsCaterSuite.Application.Features.Payments.Services;
 using SalsCaterSuite.Application.Services;
 using SalsCaterSuite.Domain.Entities;
@@ -63,7 +64,7 @@ public class BookingOverpaymentGuardTests
 
         var before = _bookings.Bookings.Single(b => b.TransactionId == booking.TransactionId);
 
-        var result = await _ledger.RecordPaymentAsync(new RecordPaymentRequestDto
+        var result = await _ledger.RecordPaymentAsync(new RecordPaymentRequest
         {
             TransactionId = booking.TransactionId,
             AmountPaid = 45_000.01m,
@@ -100,7 +101,7 @@ public class BookingOverpaymentGuardTests
 
         var before = await _ledger.GetLedgerAsync(booking.TransactionId);
 
-        await _ledger.RecordPaymentAsync(new RecordPaymentRequestDto
+        await _ledger.RecordPaymentAsync(new RecordPaymentRequest
         {
             TransactionId = booking.TransactionId,
             AmountPaid = 30_000.01m,
@@ -121,7 +122,7 @@ public class BookingOverpaymentGuardTests
         await _bookings.AddAsync(booking);
         await _bookings.SaveChangesAsync();
 
-        var result = await _ledger.RecordPaymentAsync(new RecordPaymentRequestDto
+        var result = await _ledger.RecordPaymentAsync(new RecordPaymentRequest
         {
             TransactionId = booking.TransactionId,
             AmountPaid = 45_000m,

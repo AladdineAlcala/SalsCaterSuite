@@ -2,7 +2,9 @@ namespace SalsCaterSuite.UnitTests.Api;
 
 using System.Text.Json;
 using FluentAssertions;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Domain.Enums;
 using SalsCaterSuite.WebApi.Serialization;
 using Xunit;
@@ -29,7 +31,7 @@ public class EnumJsonSerializationTests
     [Fact]
     public void Serialize_BookingDto_RendersBookingStatusAsStringName()
     {
-        var dto = new BookingDto
+        var dto = new BookingResponse
         {
             TransactionId = 101,
             BookingNumber = "BK-20261018-00101",
@@ -54,7 +56,7 @@ public class EnumJsonSerializationTests
     [Fact]
     public void Deserialize_BookingStatusFromStringName_ResolvesEnum()
     {
-        var dto = JsonSerializer.Deserialize<BookingDto>("{\"status\":\"DepositPaid\"}", CreateApiOptions());
+        var dto = JsonSerializer.Deserialize<BookingResponse>("{\"status\":\"DepositPaid\"}", CreateApiOptions());
 
         dto.Should().NotBeNull();
         dto!.Status.Should().Be(BookingStatus.DepositPaid);
@@ -68,7 +70,7 @@ public class EnumJsonSerializationTests
     {
         var json = "{\"customerId\":14,\"bookType\":" + rawValue + ",\"noOfPerson\":10}";
 
-        var request = JsonSerializer.Deserialize<CreateBookingRequestDto>(json, CreateApiOptions());
+        var request = JsonSerializer.Deserialize<CreateBookingRequest>(json, CreateApiOptions());
 
         request.Should().NotBeNull();
         request!.BookType.Should().Be(expected);

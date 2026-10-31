@@ -1,4 +1,6 @@
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Features.Packages.Services;
 
 namespace SalsCaterSuite.Application.Features.Bookings.Services;
@@ -22,9 +24,9 @@ public static class BookingSelectionProjector
     /// The quote's <c>courses</c> block: the tier's own rules, one entry per rule, each with the
     /// <b>count</b> of live dishes in its qualified pool (contract §14.3).
     /// </summary>
-    public static List<BookingQuoteCourseDto> QuoteCourses(BookingMenuCourseSet courseSet) =>
+    public static List<BookingQuoteCourseResponse> QuoteCourses(BookingMenuCourseSet courseSet) =>
         courseSet.Courses
-            .Select(course => new BookingQuoteCourseDto
+            .Select(course => new BookingQuoteCourseResponse
             {
                 CourseId = course.CourseId,
                 CourseName = course.CourseName,
@@ -40,7 +42,7 @@ public static class BookingSelectionProjector
     /// The quote's <c>selection</c> block — the request's proposed selection described exactly as
     /// <c>GET /api/bookings/{id}/menus</c> describes a stored one (contract §14.3).
     /// </summary>
-    public static BookingQuoteSelectionDto QuoteSelection(
+    public static BookingQuoteSelectionResponse QuoteSelection(
         BookingMenuCourseSet courseSet,
         IReadOnlyList<ResolvedSelectionRow> selection,
         BookingMenuWindowState window,
@@ -50,7 +52,7 @@ public static class BookingSelectionProjector
             .GroupBy(row => row.CourseId)
             .OrderBy(group => CourseName(courseSet, group.Key), StringComparer.OrdinalIgnoreCase)
             .ThenBy(group => group.Key)
-            .Select(group => new BookingQuoteSelectionCourseDto
+            .Select(group => new BookingQuoteSelectionCourseResponse
             {
                 CourseId = group.Key,
                 CourseName = CourseNameOrNull(courseSet, group.Key),
@@ -62,7 +64,7 @@ public static class BookingSelectionProjector
 
         var selectedFoodCost = SelectedFoodCost(courseSet, selection);
 
-        return new BookingQuoteSelectionDto
+        return new BookingQuoteSelectionResponse
         {
             IsLocked = window.IsLocked,
             LockDate = window.LockDate,
@@ -74,12 +76,12 @@ public static class BookingSelectionProjector
     }
 
     /// <summary>
-    /// Fills a <see cref="BookingMenuSelectionDto"/>'s selection-derived members: the chosen
+    /// Fills a <see cref="BookingMenuSelectionResponse"/>'s selection-derived members: the chosen
     /// dishes, the ruleset with its chosen keys, the compliance verdict and the planning figures.
     /// The caller owns the identity, window and add-on members.
     /// </summary>
     public static void ApplyTo(
-        BookingMenuSelectionDto dto,
+        BookingMenuSelectionResponse dto,
         BookingMenuCourseSet courseSet,
         IReadOnlyList<ResolvedSelectionRow> selection,
         decimal pricePerHead)
@@ -89,7 +91,7 @@ public static class BookingSelectionProjector
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         var courses = courseSet.Courses
-            .Select(course => new BookingMenuCourseDto
+            .Select(course => new BookingMenuCourseResponse
             {
                 CourseId = course.CourseId,
                 CourseName = course.CourseName,
@@ -145,13 +147,13 @@ public static class BookingSelectionProjector
                 : (decimal?)null));
     }
 
-    private static BookingMenuSelectionItemDto ToSelectionItem(
+    private static BookingMenuSelectionItemResponse ToSelectionItem(
         BookingMenuCourseSet courseSet,
         ResolvedSelectionRow row)
     {
         courseSet.MenuById.TryGetValue(row.MenuId, out var menu);
 
-        return new BookingMenuSelectionItemDto
+        return new BookingMenuSelectionItemResponse
         {
             CourseId = row.CourseId,
             CourseName = CourseNameOrNull(courseSet, row.CourseId),
@@ -163,13 +165,13 @@ public static class BookingSelectionProjector
         };
     }
 
-    private static BookingQuoteSelectedMenuDto ToSelectedMenu(
+    private static BookingQuoteSelectedMenuResponse ToSelectedMenu(
         BookingMenuCourseSet courseSet,
         ResolvedSelectionRow row)
     {
         courseSet.MenuById.TryGetValue(row.MenuId, out var menu);
 
-        return new BookingQuoteSelectedMenuDto
+        return new BookingQuoteSelectedMenuResponse
         {
             MenuId = row.MenuId,
             MenuName = menu?.MenuName,

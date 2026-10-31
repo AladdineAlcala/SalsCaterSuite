@@ -3,7 +3,9 @@ namespace SalsCaterSuite.UnitTests.Application.Commands;
 using FluentAssertions;
 using SalsCaterSuite.Application.Features.Bookings;
 using SalsCaterSuite.Application.Features.Bookings.Commands;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Features.Bookings.Services;
 using SalsCaterSuite.Application.Services;
 using SalsCaterSuite.Domain.Entities;
@@ -153,16 +155,16 @@ public class ReplaceBookingMenuSelectionCommandTests
         return booking;
     }
 
-    private static BookingMenuSelectionEntryDto Entry(
+    private static BookingMenuSelectionEntryRequest Entry(
         string menuId,
         int courseId,
         string? prepInstruction = null) =>
         new() { MenuId = menuId, CourseId = courseId, PrepInstruction = prepInstruction };
 
-    private static BookingMenuSelectionRequest Request(params BookingMenuSelectionEntryDto[] entries) =>
+    private static BookingMenuSelectionRequest Request(params BookingMenuSelectionEntryRequest[] entries) =>
         new() { Selections = entries.ToList() };
 
-    private static BookingMenuSelectionRequest CompliantSelection(params BookingMenuSelectionEntryDto[] extra) =>
+    private static BookingMenuSelectionRequest CompliantSelection(params BookingMenuSelectionEntryRequest[] extra) =>
         Request(new[]
         {
             Entry("APP-001", AppetizerCourseId),
@@ -516,7 +518,7 @@ public class ReplaceBookingMenuSelectionCommandTests
     {
         var result = await _command.ExecuteAsync(9_999, CompliantSelection());
 
-        result.Should().BeOfType<BookingNotFoundResult<BookingMenuSelectionDto>>();
+        result.Should().BeOfType<BookingNotFoundResult<BookingMenuSelectionResponse>>();
         result.Errors.Should().Contain("Booking not found.");
     }
 

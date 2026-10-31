@@ -1,7 +1,9 @@
 namespace SalsCaterSuite.UnitTests.Application.Validators;
 
 using FluentAssertions;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Application.Features.Packages.Validators;
 using Xunit;
 
@@ -16,7 +18,7 @@ public class PackageRequestValidatorTests
 {
     private readonly PackageRequestValidator _validator = new();
 
-    private static CreatePackageRequestDto Valid() =>
+    private static CreatePackageRequest Valid() =>
         new("Buffet Premium", "Premium buffet package", 650m, 100, 4);
 
     [Fact]
@@ -209,7 +211,7 @@ public class PackageRequestValidatorTests
     [Fact]
     public async Task Every_broken_rule_should_be_reported_at_once()
     {
-        var request = new CreatePackageRequestDto(string.Empty, string.Empty, -1m, 0, 0);
+        var request = new CreatePackageRequest(string.Empty, string.Empty, -1m, 0, 0);
 
         var result = await _validator.ValidateAsync(request);
 

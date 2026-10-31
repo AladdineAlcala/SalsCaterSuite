@@ -32,7 +32,7 @@ public class BookingCreationTests
 
         var body = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
 
-        // The documented 201 body is the named CreateBookingResponseDto. REQ-BKG-05 extended
+        // The documented 201 body is the named CreateBookingResponse. REQ-BKG-05 extended
         // it additively with the booking number (BR-09) and the status (contract §1 and
         // §14.4); the transactionId field is unchanged.
         body.EnumerateObject().Select(p => p.Name).Should().Equal(

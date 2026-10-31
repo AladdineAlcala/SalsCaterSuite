@@ -1,3 +1,4 @@
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
 namespace SalsCaterSuite.UnitTests.Application.Queries;
 
 using FluentAssertions;

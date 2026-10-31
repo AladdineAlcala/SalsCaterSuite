@@ -6,7 +6,9 @@ using FluentValidation.Results;
 using Moq;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Features.Bookings.Commands;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Features.Bookings.Validators;
 using SalsCaterSuite.Domain.Entities;
 using SalsCaterSuite.Domain.Enums;
@@ -25,7 +27,7 @@ public class CreateBookingCommandTests
     private readonly FakePackageRepository _packages;
     private readonly FakeRefundRepository _refunds;
     private readonly Mock<ICurrentUserService> _currentUserMock;
-    private readonly Mock<IValidator<CreateBookingRequestDto>> _validatorMock;
+    private readonly Mock<IValidator<CreateBookingRequest>> _validatorMock;
     private readonly CreateBookingCommand _command;
 
     public CreateBookingCommandTests()
@@ -44,13 +46,13 @@ public class CreateBookingCommandTests
 
         // A permissive validator is used for the domain-exception path, where the
         // payload must reach Booking.Create() (which enforces the invariant).
-        _validatorMock = new Mock<IValidator<CreateBookingRequestDto>>();
+        _validatorMock = new Mock<IValidator<CreateBookingRequest>>();
         _validatorMock
-            .Setup(v => v.ValidateAsync(It.IsAny<CreateBookingRequestDto>(), It.IsAny<CancellationToken>()))
+            .Setup(v => v.ValidateAsync(It.IsAny<CreateBookingRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ValidationResult());
     }
 
-    private static CreateBookingRequestDto ValidRequest(int customerId = 1, int? packageId = null)
+    private static CreateBookingRequest ValidRequest(int customerId = 1, int? packageId = null)
         => new()
         {
             CustomerId = customerId,

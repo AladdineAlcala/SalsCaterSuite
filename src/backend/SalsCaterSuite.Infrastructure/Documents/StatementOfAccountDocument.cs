@@ -1,15 +1,16 @@
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
-using SalsCaterSuite.Application.Features.Customers.DTOs;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Request;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Response;
 
 namespace SalsCaterSuite.Infrastructure.Documents;
 
 public class StatementOfAccountDocument : IDocument
 {
-    public CustomerStatementDto Statement { get; }
+    public CustomerStatementResponse Statement { get; }
 
-    public StatementOfAccountDocument(CustomerStatementDto statement)
+    public StatementOfAccountDocument(CustomerStatementResponse statement)
     {
         Statement = statement;
     }

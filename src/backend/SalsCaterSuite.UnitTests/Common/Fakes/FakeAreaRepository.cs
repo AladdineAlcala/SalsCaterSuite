@@ -1,7 +1,9 @@
 namespace SalsCaterSuite.UnitTests.Common.Fakes;
 
 using SalsCaterSuite.Application.Common.Interfaces;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Domain.Entities;
 
 /// <summary>
@@ -20,12 +22,12 @@ public sealed class FakeAreaRepository : IAreaRepository
     /// <summary>Number of successful saves, for asserting the commit boundary.</summary>
     public int SaveCount { get; private set; }
 
-    public Task<List<AreaDto>> GetCatalogueAsync(CancellationToken cancellationToken = default)
+    public Task<List<AreaResponse>> GetCatalogueAsync(CancellationToken cancellationToken = default)
     {
         var result = _store.Areas
             .Where(area => !area.IsDeleted)
             .OrderBy(area => area.AreaDetails)
-            .Select(area => new AreaDto
+            .Select(area => new AreaResponse
             {
                 AreaId = area.AreaId,
                 AreaDetails = area.AreaDetails ?? string.Empty,

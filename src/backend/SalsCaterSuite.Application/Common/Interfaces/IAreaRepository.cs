@@ -1,6 +1,8 @@
 namespace SalsCaterSuite.Application.Common.Interfaces;
 
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Domain.Entities;
 
 /// <summary>
@@ -16,7 +18,7 @@ using SalsCaterSuite.Domain.Entities;
 public interface IAreaRepository
 {
     /// <summary>The municipality catalogue — the live municipalities, ordered by name.</summary>
-    Task<List<AreaDto>> GetCatalogueAsync(CancellationToken cancellationToken = default);
+    Task<List<AreaResponse>> GetCatalogueAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// A single <b>live</b> municipality. A soft-deleted municipality does not exist for the

@@ -1,7 +1,9 @@
 using FluentValidation;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 
 namespace SalsCaterSuite.Application.Features.Packages.Commands;
 
@@ -21,9 +23,9 @@ namespace SalsCaterSuite.Application.Features.Packages.Commands;
 public class UpdateAreaCommand
 {
     private readonly IAreaRepository _areas;
-    private readonly IValidator<AreaRequestDto> _validator;
+    private readonly IValidator<AreaRequest> _validator;
 
-    public UpdateAreaCommand(IAreaRepository areas, IValidator<AreaRequestDto> validator)
+    public UpdateAreaCommand(IAreaRepository areas, IValidator<AreaRequest> validator)
     {
         _areas = areas;
         _validator = validator;
@@ -31,7 +33,7 @@ public class UpdateAreaCommand
 
     public async Task<Result> ExecuteAsync(
         int areaId,
-        AreaRequestDto request,
+        AreaRequest request,
         CancellationToken cancellationToken = default)
     {
         var validationResult = await _validator.ValidateAsync(request, cancellationToken);

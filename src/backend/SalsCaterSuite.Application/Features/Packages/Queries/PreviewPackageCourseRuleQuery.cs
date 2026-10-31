@@ -1,7 +1,9 @@
 using FluentValidation;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Application.Features.Packages.Services;
 
 namespace SalsCaterSuite.Application.Features.Packages.Queries;
@@ -39,7 +41,7 @@ public class PreviewPackageCourseRuleQuery
         _clock = clock;
     }
 
-    public async Task<Result<PackageCourseRulePreviewDto>> ExecuteAsync(
+    public async Task<Result<PackageCourseRulePreviewResponse>> ExecuteAsync(
         int packageId,
         PackageCourseRulePreviewRequest request,
         CancellationToken cancellationToken = default)
@@ -48,7 +50,7 @@ public class PreviewPackageCourseRuleQuery
 
         if (!validationResult.IsValid)
         {
-            return Result<PackageCourseRulePreviewDto>.Failure(
+            return Result<PackageCourseRulePreviewResponse>.Failure(
                 validationResult.Errors.Select(error => error.ErrorMessage).ToArray());
         }
 
@@ -56,7 +58,7 @@ public class PreviewPackageCourseRuleQuery
 
         if (!ruleset.Succeeded)
         {
-            return new PackageNotFoundResult<PackageCourseRulePreviewDto>(
+            return new PackageNotFoundResult<PackageCourseRulePreviewResponse>(
                 ruleset.Errors.FirstOrDefault() ?? "Package not found.");
         }
 
@@ -72,14 +74,14 @@ public class PreviewPackageCourseRuleQuery
             course => course.CourseId,
             course => course.CourseName ?? string.Empty);
 
-        var selections = new List<PackageCourseSelectionResultDto>();
+        var selections = new List<PackageCourseSelectionResultResponse>();
         var selectedFoodCosts = new List<decimal?>();
 
-        foreach (var selection in request.Selections ?? Array.Empty<PackageCourseSelectionDto>())
+        foreach (var selection in request.Selections ?? Array.Empty<PackageCourseSelectionRequest>())
         {
             menuById.TryGetValue(selection.MenuId, out var menu);
 
-            selections.Add(new PackageCourseSelectionResultDto
+            selections.Add(new PackageCourseSelectionResultResponse
             {
                 CourseId = selection.CourseId,
                 CourseName = courseNameById.TryGetValue(selection.CourseId, out var courseName)
@@ -118,7 +120,7 @@ public class PreviewPackageCourseRuleQuery
         var stressedFoodCostPerPax = PackageCostingCalculator.StressedFoodCostPerPax(
             selectedFoodCostPerPax, request.StressPercentage);
 
-        var preview = new PackageCourseRulePreviewDto
+        var preview = new PackageCourseRulePreviewResponse
         {
             PackageId = package.PackageId,
             AmountPax = package.AmountPax,
@@ -152,7 +154,7 @@ public class PreviewPackageCourseRuleQuery
             GeneratedAt = _clock.UtcNow
         };
 
-        return Result<PackageCourseRulePreviewDto>.Success(preview);
+        return Result<PackageCourseRulePreviewResponse>.Success(preview);
     }
 
     /// <summary>
@@ -163,9 +165,9 @@ public class PreviewPackageCourseRuleQuery
     /// selection surface can never disagree about whether a selection complies.
     /// </para>
     /// </summary>
-    private static List<PackageCourseComplianceDto> BuildCompliance(
-        PackageCourseRulesetDto package,
-        IReadOnlyCollection<PackageCourseSelectionResultDto> selections,
+    private static List<PackageCourseComplianceResponse> BuildCompliance(
+        PackageCourseRulesetResponse package,
+        IReadOnlyCollection<PackageCourseSelectionResultResponse> selections,
         IReadOnlyDictionary<int, string> courseNameById) =>
         PackageSelectionCompliance.Evaluate(
             package.Rules.Select(rule => (rule.CourseId, rule.CourseName, rule.RequiredQuota)),

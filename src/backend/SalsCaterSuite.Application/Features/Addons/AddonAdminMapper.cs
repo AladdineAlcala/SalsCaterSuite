@@ -1,4 +1,5 @@
-using SalsCaterSuite.Application.Features.Addons.DTOs;
+using SalsCaterSuite.Application.Features.Addons.DTOs.Request;
+using SalsCaterSuite.Application.Features.Addons.DTOs.Response;
 using SalsCaterSuite.Domain.Entities;
 
 namespace SalsCaterSuite.Application.Features.Addons;
@@ -9,7 +10,7 @@ namespace SalsCaterSuite.Application.Features.Addons;
 /// </summary>
 public static class AddonAdminMapper
 {
-    public static AddonAdminItemDto ToDto(AddonDetail addon) => new()
+    public static AddonAdminItemResponse ToDto(AddonDetail addon) => new()
     {
         AddonId = addon.AddonId,
         AddonCategoryId = addon.AddonCategoryId,

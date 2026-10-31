@@ -1,11 +1,12 @@
 using ClosedXML.Excel;
-using SalsCaterSuite.Application.Features.Payments.DTOs;
+using SalsCaterSuite.Application.Features.Payments.DTOs.Request;
+using SalsCaterSuite.Application.Features.Payments.DTOs.Response;
 
 namespace SalsCaterSuite.Infrastructure.Exports;
 
 public class CollectionSummaryExport
 {
-    public byte[] Generate(DateTime startDate, DateTime endDate, IEnumerable<PaymentEntryDto> payments)
+    public byte[] Generate(DateTime startDate, DateTime endDate, IEnumerable<PaymentEntryResponse> payments)
     {
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Collection Summary");
