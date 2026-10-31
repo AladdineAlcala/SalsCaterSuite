@@ -1,6 +1,8 @@
 using FluentValidation;
 using SalsCaterSuite.Application.Common.Interfaces;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 
 namespace SalsCaterSuite.Application.Features.Packages.Validators;
 
@@ -14,7 +16,7 @@ namespace SalsCaterSuite.Application.Features.Packages.Validators;
 /// lookup filters <c>IsDeleted</c> (spec §3.6).
 /// </para>
 /// </summary>
-public class PackageAreaCoverageEntryValidator : AbstractValidator<PackageAreaCoverageEntryDto>
+public class PackageAreaCoverageEntryValidator : AbstractValidator<PackageAreaCoverageEntryRequest>
 {
     private readonly IAreaRepository _areas;
 

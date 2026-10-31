@@ -6,7 +6,9 @@ using Moq;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Features.Bookings;
 using SalsCaterSuite.Application.Features.Bookings.Commands;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Features.Bookings.Services;
 using SalsCaterSuite.Application.Features.Bookings.Validators;
 using SalsCaterSuite.Application.Services;
@@ -89,7 +91,7 @@ public class CreateBookingWorkbenchCommandTests
         _store.Areas.Add(new Area { AreaId = id, AreaDetails = "Batangas City", AdditionalRate = rate });
     }
 
-    private static CreateBookingRequestDto ValidRequest() => new()
+    private static CreateBookingRequest ValidRequest() => new()
     {
         CustomerId = 1,
         PackageId = 10,
@@ -260,7 +262,7 @@ public class CreateBookingWorkbenchCommandTests
         SeedPackage();
 
         var request = ValidRequest();
-        request.InitialPayment = new BookingInitialPaymentRequestDto
+        request.InitialPayment = new BookingInitialPaymentRequest
         {
             AmountPaid = 30_000m,
             PaymentMeans = PaymentMeans.Check,
@@ -289,7 +291,7 @@ public class CreateBookingWorkbenchCommandTests
         SeedPackage();
 
         var request = ValidRequest();
-        request.InitialPayment = new BookingInitialPaymentRequestDto
+        request.InitialPayment = new BookingInitialPaymentRequest
         {
             AmountPaid = 820m * 120 + 1m,
             PaymentMeans = PaymentMeans.Cash
@@ -310,7 +312,7 @@ public class CreateBookingWorkbenchCommandTests
         SeedPackage();
 
         var request = ValidRequest();
-        request.InitialPayment = new BookingInitialPaymentRequestDto
+        request.InitialPayment = new BookingInitialPaymentRequest
         {
             AmountPaid = 820m * 120 - 2_400m,   // exactly the net, band included
             PaymentMeans = PaymentMeans.Cash
@@ -330,7 +332,7 @@ public class CreateBookingWorkbenchCommandTests
 
         var request = ValidRequest();
         request.Confirm = false;
-        request.InitialPayment = new BookingInitialPaymentRequestDto
+        request.InitialPayment = new BookingInitialPaymentRequest
         {
             AmountPaid = 1_000m,
             PaymentMeans = PaymentMeans.Cash

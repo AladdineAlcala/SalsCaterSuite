@@ -1,7 +1,9 @@
 namespace SalsCaterSuite.UnitTests.Application.Validators;
 
 using FluentAssertions;
-using SalsCaterSuite.Application.Features.Menus.DTOs;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Request;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Response;
+using SalsCaterSuite.Application.Features.Menus.Models;
 using SalsCaterSuite.Application.Features.Menus.Validators;
 using SalsCaterSuite.Domain.Entities;
 using SalsCaterSuite.UnitTests.Common.Fakes;
@@ -28,7 +30,7 @@ public class MenuValidatorTests
         _store.CourseCategories.Add(new CourseCategory { CourseId = 1, CourseName = "Main Course" });
     }
 
-    private static CreateMenuRequestDto Valid() => new()
+    private static CreateMenuRequest Valid() => new()
     {
         MenuId = "DS-104",
         CourseId = 1,
@@ -223,7 +225,7 @@ public class MenuValidatorTests
     [Fact]
     public async Task Every_broken_rule_should_be_reported_at_once()
     {
-        var request = new CreateMenuRequestDto
+        var request = new CreateMenuRequest
         {
             MenuId = string.Empty,
             CourseId = 0,
@@ -251,7 +253,7 @@ public class MenuValidatorTests
     public async Task The_preview_should_reject_a_negative_price()
     {
         var result = await new MenuCostingPreviewValidator().ValidateAsync(
-            new MenuCostingPreviewRequestDto { SellingPrice = -1m, FoodCost = 10m });
+            new MenuCostingPreviewRequest { SellingPrice = -1m, FoodCost = 10m });
 
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(e => e.ErrorMessage == "Selling price must be zero or greater.");
@@ -261,7 +263,7 @@ public class MenuValidatorTests
     public async Task The_preview_should_reject_a_negative_food_cost()
     {
         var result = await new MenuCostingPreviewValidator().ValidateAsync(
-            new MenuCostingPreviewRequestDto { SellingPrice = 100m, FoodCost = -0.01m });
+            new MenuCostingPreviewRequest { SellingPrice = 100m, FoodCost = -0.01m });
 
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(e => e.ErrorMessage == "Food cost must be zero or greater.");
@@ -271,7 +273,7 @@ public class MenuValidatorTests
     public async Task The_preview_should_accept_a_zero_price()
     {
         var result = await new MenuCostingPreviewValidator().ValidateAsync(
-            new MenuCostingPreviewRequestDto { SellingPrice = 0m, FoodCost = 0m });
+            new MenuCostingPreviewRequest { SellingPrice = 0m, FoodCost = 0m });
 
         result.IsValid.Should().BeTrue();
     }

@@ -1,7 +1,9 @@
 namespace SalsCaterSuite.UnitTests.Application.Services;
 
 using FluentAssertions;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Application.Features.Packages.Services;
 using Xunit;
 
@@ -125,7 +127,7 @@ public class PackageSelectionComplianceTests
         PackageSelectionCompliance.BuildBreachMessage(compliance).Should().NotBeNull();
 
         // ...but the published message treats "nothing selected" as "no selection".
-        PackageSelectionCompliance.BuildSelectionMessage(new List<PackageCourseComplianceDto>())
+        PackageSelectionCompliance.BuildSelectionMessage(new List<PackageCourseComplianceResponse>())
             .Should().BeNull();
     }
 

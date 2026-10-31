@@ -250,15 +250,15 @@ Base path `/api`. Every response is JSON unless stated.
 
 | Method | Route | Purpose | Result |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/packages/{id}/course-rules` | The tier's course-coverage ruleset, its qualified pools and the package-level planning figures | `200` `PackageCourseRulesetDto` |
-| `PUT` | `/packages/{id}/course-rules` | Replace the tier's ruleset | `200` `PackageCourseRulesetDto` (the new state) |
-| `POST` | `/packages/{id}/course-rules/preview` | The selection simulator **and** the headcount forecast | `200` `PackageCourseRulePreviewDto` |
-| `GET` | `/packages/{id}/areas` | The tier's coverage matrix | `200` `PackageAreaCoverageMatrixDto` |
-| `PUT` | `/packages/{id}/areas` | Replace the tier's coverage set | `200` `PackageAreaCoverageMatrixDto` (the new state) |
+| `GET` | `/packages/{id}/course-rules` | The tier's course-coverage ruleset, its qualified pools and the package-level planning figures | `200` `PackageCourseRulesetResponse` |
+| `PUT` | `/packages/{id}/course-rules` | Replace the tier's ruleset | `200` `PackageCourseRulesetResponse` (the new state) |
+| `POST` | `/packages/{id}/course-rules/preview` | The selection simulator **and** the headcount forecast | `200` `PackageCourseRulePreviewResponse` |
+| `GET` | `/packages/{id}/areas` | The tier's coverage matrix | `200` `PackageAreaCoverageMatrixResponse` |
+| `PUT` | `/packages/{id}/areas` | Replace the tier's coverage set | `200` `PackageAreaCoverageMatrixResponse` (the new state) |
 | `POST` | `/packages/{id}/areas` | Attach a municipality to the tier | `201` `{ "packageAreaCoverageId": n }` |
-| `POST` | `/packages/{id}/areas/preview` | The out-of-town pricing simulator | `200` `PackageLocationPreviewDto` |
+| `POST` | `/packages/{id}/areas/preview` | The out-of-town pricing simulator | `200` `PackageLocationPreviewResponse` |
 | `GET` | `/packages/{id}/spec-sheet` | The tier's printable spec sheet | `200` `application/pdf` |
-| `GET` | `/areas` | The municipality catalogue | `200` `AreaDto[]` |
+| `GET` | `/areas` | The municipality catalogue | `200` `AreaResponse[]` |
 | `POST` | `/areas` | Add a municipality | `201` `{ "areaId": n }` |
 | `PUT` | `/areas/{id}` | Update a municipality | `204` |
 
@@ -272,7 +272,7 @@ Base path `/api`. Every response is JSON unless stated.
 
 ```csharp
 // GET/PUT /api/packages/{id}/course-rules
-public class PackageCourseRulesetDto
+public class PackageCourseRulesetResponse
 {
     public int PackageId { get; set; }
     public string PackageName { get; set; } = string.Empty;   // Package.Description
@@ -288,11 +288,11 @@ public class PackageCourseRulesetDto
     public decimal? StandardRunFoodCostPerPax { get; set; }
     public decimal? StandardRunFoodCostPercentage { get; set; }
     public decimal? BaseGrossProfitPercentage { get; set; }
-    public List<PackageCourseRuleDto> Rules { get; set; } = new();
+    public List<PackageCourseRuleResponse> Rules { get; set; } = new();
     public DateTime GeneratedAt { get; set; }
 }
 
-public class PackageCourseRuleDto
+public class PackageCourseRuleResponse
 {
     public int PackageCourseRuleId { get; set; }
     public int CourseId { get; set; }
@@ -303,10 +303,10 @@ public class PackageCourseRuleDto
      public int PoolSize { get; set; }
     public int PoolCostedCount { get; set; }
     public decimal? PoolAverageFoodCost { get; set; }
-    public List<PackageCoursePoolDishDto> Pool { get; set; } = new();
+    public List<PackageCoursePoolDishResponse> Pool { get; set; } = new();
 }
 
-public class PackageCoursePoolDishDto
+public class PackageCoursePoolDishResponse
 {
     public string MenuId { get; set; } = string.Empty;
     public string MenuName { get; set; } = string.Empty;
@@ -318,13 +318,13 @@ public class PackageCoursePoolDishDto
 ```csharp
 // POST /api/packages/{id}/course-rules/preview
 public record PackageCourseRulePreviewRequest(
-    IReadOnlyList<PackageCourseSelectionDto>? Selections,
+    IReadOnlyList<PackageCourseSelectionRequest>? Selections,
     decimal? StressPercentage = null,
     int? Pax = null);
 
-public record PackageCourseSelectionDto(int CourseId, string MenuId);
+public record PackageCourseSelectionRequest(int CourseId, string MenuId);
 
-public class PackageCourseRulePreviewDto
+public class PackageCourseRulePreviewResponse
 {
     public int PackageId { get; set; }
     public decimal? AmountPax { get; set; }
@@ -348,12 +348,12 @@ public class PackageCourseRulePreviewDto
     public decimal? GrossProfitPercentage { get; set; }
     public bool IsQuotaCompliant { get; set; }                 // the quota verdict alone
     public bool IsCompliant { get; set; }                      // the overall verdict (DEC-080)
-    public List<PackageCourseComplianceDto> Compliance { get; set; } = new();
-    public List<PackageCourseSelectionResultDto> Selections { get; set; } = new();
+    public List<PackageCourseComplianceResponse> Compliance { get; set; } = new();
+    public List<PackageCourseSelectionResultResponse> Selections { get; set; } = new();
     public DateTime GeneratedAt { get; set; }
 }
 
-public class PackageCourseComplianceDto
+public class PackageCourseComplianceResponse
 {
     public int CourseId { get; set; }
     public string CourseName { get; set; } = string.Empty;
@@ -363,7 +363,7 @@ public class PackageCourseComplianceDto
     public bool HasRule { get; set; }        // false = the selection names a course the tier has no rule for
 }
 
-public class PackageCourseSelectionResultDto
+public class PackageCourseSelectionResultResponse
 {
     public int CourseId { get; set; }
     public string CourseName { get; set; } = string.Empty;
@@ -375,7 +375,7 @@ public class PackageCourseSelectionResultDto
 
 ```csharp
 // GET/PUT /api/packages/{id}/areas
-public class PackageAreaCoverageMatrixDto
+public class PackageAreaCoverageMatrixResponse
 {
     public int PackageId { get; set; }
     public string PackageName { get; set; } = string.Empty;
@@ -391,11 +391,11 @@ public class PackageAreaCoverageMatrixDto
     public decimal? LowestGrossProfitPercentage { get; set; }  // over the active coverage, at the floor
     public decimal? HighestGrossProfitPercentage { get; set; }
     public int GrossProfitCoverageCount { get; set; }          // the rows that yielded a figure
-    public List<PackageAreaCoverageRowDto> Areas { get; set; } = new();
+    public List<PackageAreaCoverageRowResponse> Areas { get; set; } = new();
     public DateTime GeneratedAt { get; set; }
 }
 
-public class PackageAreaCoverageRowDto
+public class PackageAreaCoverageRowResponse
 {
     public int PackageAreaCoverageId { get; set; }
     public int AreaId { get; set; }
@@ -413,9 +413,9 @@ public class PackageAreaCoverageRowDto
 public record PackageLocationPreviewRequest(
     int Pax,
     int? AreaId = null,
-    IReadOnlyList<PackageCourseSelectionDto>? Selections = null);
+    IReadOnlyList<PackageCourseSelectionRequest>? Selections = null);
 
-public class PackageLocationPreviewDto
+public class PackageLocationPreviewResponse
 {
     public int PackageId { get; set; }
     public int Pax { get; set; }
@@ -438,7 +438,7 @@ public class PackageLocationPreviewDto
 
 ```csharp
 // GET /api/areas  ·  POST /api/areas
-public class AreaDto
+public class AreaResponse
 {
     public int AreaId { get; set; }
     public string AreaDetails { get; set; } = string.Empty;
@@ -448,7 +448,7 @@ public class AreaDto
     public decimal? LogisticsCost { get; set; }
 }
 
-public record AreaRequestDto(
+public record AreaRequest(
     string AreaDetails,
     decimal? AdditionalRate,
     int? DistanceKm,
@@ -463,9 +463,9 @@ The collection members are **nullable** on purpose: an absent or explicitly `nul
 ```csharp
 // PUT /api/packages/{id}/course-rules
 public record PackageCourseRulesetRequest(
-    IReadOnlyList<PackageCourseRuleRequestDto>? Rules);
+    IReadOnlyList<PackageCourseRuleRequest>? Rules);
 
-public record PackageCourseRuleRequestDto(
+public record PackageCourseRuleRequest(
     int CourseId,
     int RequiredQuota,
     int? PortionGrams,
@@ -473,12 +473,12 @@ public record PackageCourseRuleRequestDto(
 
 // PUT /api/packages/{id}/areas
 public record PackageAreaCoverageRequest(
-    IReadOnlyList<PackageAreaCoverageEntryDto>? Coverages);
+    IReadOnlyList<PackageAreaCoverageEntryRequest>? Coverages);
 
-public record PackageAreaCoverageEntryDto(int AreaId, bool IsActive);
+public record PackageAreaCoverageEntryRequest(int AreaId, bool IsActive);
 
 // POST /api/packages/{id}/areas
-public record PackageAreaCoverageAttachDto(int AreaId, bool IsActive = true);
+public record PackageAreaCoverageAttachRequest(int AreaId, bool IsActive = true);
 ```
 
 ### 4.3 The `pax` guard
@@ -620,7 +620,7 @@ ull or absent ules / coverages / selections member is a 400 with the stated mes
 ull ("not stated") and the money chain treats the absent surcharge as zero (DEC-086). |
 | AC-P2-28 | The preview's headcount figures (gross revenue, food cost total, gross profit and its percentage) are the server's. The browser never multiplies a rate by a headcount. |
 | AC-P2-29 | The coverage matrix's gross-profit range states its inputs: the food cost is the **standard run**, the headcount is the tier's **floor**, and the range is null when MinPax is null, when there is no active coverage, or when no active coverage yields a computable figure. grossProfitCoverageCount says how many rows contributed. |
-| AC-P2-30 | The dead PackageCoverageDto is **deleted**; the real PackageAreaCoverageRowDto replaces it (RSK-032). |
+| AC-P2-30 | The dead PackageCoverageDto is **deleted**; the real PackageAreaCoverageRowResponse replaces it (RSK-032). |
 | AC-P2-31 | Course-rule persistence and API contain only course, quota, portion and description rule data (plus existing identity/audit and derived pool data). The Packages & Buffets add/edit form and rule cards do not expose an inclusion tag or upgrade add-on. Booking quote/menu course projections and the spec sheet do not publish/render those retired fields. The migration drops the columns, FK and index; `Down` restores schema only, not values. Unrelated booking/add-on-master `addonId` behavior is unchanged. |
 
 ---

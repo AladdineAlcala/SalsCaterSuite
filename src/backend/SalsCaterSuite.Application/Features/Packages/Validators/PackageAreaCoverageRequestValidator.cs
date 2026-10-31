@@ -1,5 +1,7 @@
 using FluentValidation;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 
 namespace SalsCaterSuite.Application.Features.Packages.Validators;
 
@@ -18,9 +20,9 @@ namespace SalsCaterSuite.Application.Features.Packages.Validators;
 /// </summary>
 public class PackageAreaCoverageRequestValidator : AbstractValidator<PackageAreaCoverageRequest>
 {
-    private readonly IValidator<PackageAreaCoverageEntryDto> _entryValidator;
+    private readonly IValidator<PackageAreaCoverageEntryRequest> _entryValidator;
 
-    public PackageAreaCoverageRequestValidator(IValidator<PackageAreaCoverageEntryDto> entryValidator)
+    public PackageAreaCoverageRequestValidator(IValidator<PackageAreaCoverageEntryRequest> entryValidator)
     {
         _entryValidator = entryValidator;
 

@@ -2,7 +2,9 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Repositories;
 
 using Microsoft.EntityFrameworkCore;
 using SalsCaterSuite.Application.Common.Interfaces;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Domain.Entities;
 
 /// <summary>

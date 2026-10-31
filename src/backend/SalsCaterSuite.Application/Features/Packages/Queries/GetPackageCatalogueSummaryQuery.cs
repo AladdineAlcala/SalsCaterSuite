@@ -1,6 +1,8 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 
 namespace SalsCaterSuite.Application.Features.Packages.Queries;
 
@@ -31,12 +33,12 @@ public class GetPackageCatalogueSummaryQuery
     /// (DEC-045 / DEC-050 — there is no global query filter), and an empty catalogue publishes
     /// zero counts with <see langword="null"/> aggregates.
     /// </summary>
-    public async Task<Result<PackageCatalogueSummaryDto>> ExecuteAsync(CancellationToken cancellationToken = default)
+    public async Task<Result<PackageCatalogueSummaryResponse>> ExecuteAsync(CancellationToken cancellationToken = default)
     {
         var summary = await _packages.GetCatalogueSummaryAsync(cancellationToken);
 
         summary.GeneratedAt = _clock.UtcNow;
 
-        return Result<PackageCatalogueSummaryDto>.Success(summary);
+        return Result<PackageCatalogueSummaryResponse>.Success(summary);
     }
 }

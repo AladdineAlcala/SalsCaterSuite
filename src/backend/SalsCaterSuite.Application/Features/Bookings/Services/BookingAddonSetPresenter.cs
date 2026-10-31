@@ -1,12 +1,14 @@
 using SalsCaterSuite.Application.Common.Interfaces;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Features.Bookings.Services;
 using SalsCaterSuite.Domain.Entities;
 
 namespace SalsCaterSuite.Application.Features.Bookings.Services;
 
 /// <summary>
-/// The <b>one</b> projection of a booking's add-on lines onto <see cref="BookingAddonSetDto"/>
+/// The <b>one</b> projection of a booking's add-on lines onto <see cref="BookingAddonSetResponse"/>
 /// (contract §16.3).
 /// <para>
 /// <c>description</c>, <c>amount</c>, <c>unit</c> and <c>pricingBasis</c> are the <b>frozen</b>
@@ -28,14 +30,14 @@ public class BookingAddonSetPresenter
     }
 
     /// <summary>Describes the booking's <b>live</b> add-on lines and the menu-change window.</summary>
-    public BookingAddonSetDto Build(Booking booking)
+    public BookingAddonSetResponse Build(Booking booking)
     {
         var window = BookingMenuWindow.Resolve(
             booking.EventDate,
             _policy.MenuSelectionLockDaysBeforeEvent,
             DateOnly.FromDateTime(_clock.UtcNow));
 
-        return new BookingAddonSetDto
+        return new BookingAddonSetResponse
         {
             TransactionId = booking.TransactionId,
             BookingNumber = booking.BookingNumber,
@@ -52,14 +54,14 @@ public class BookingAddonSetPresenter
         };
     }
 
-    private static BookingAddonLineDto Map(BookingAddOn line)
+    private static BookingAddonLineResponse Map(BookingAddOn line)
     {
         // The category is not frozen on the line (the line freezes the commercial truth: the
         // description, the line total, the unit and the basis). It is read from the catalogue
         // row, so it is null when that row is gone — "not stated", never a guess.
         var catalogue = line.AddonDetail is { IsDeleted: false } ? line.AddonDetail : null;
 
-        return new BookingAddonLineDto
+        return new BookingAddonLineResponse
         {
             AddonId = line.AddonId,
             Description = line.Description,

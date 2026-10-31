@@ -1,4 +1,6 @@
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 namespace SalsCaterSuite.Application.Features.Packages.Services;
 
 /// <summary>
@@ -27,7 +29,7 @@ public static class PackageSelectionCompliance
     /// </param>
     /// <param name="courseNameById">Every course's name, so an unruled course can be named.</param>
     /// <param name="selections">The chosen <c>(CourseId, MenuId)</c> pairs.</param>
-    public static List<PackageCourseComplianceDto> Evaluate(
+    public static List<PackageCourseComplianceResponse> Evaluate(
         IEnumerable<(int CourseId, string CourseName, int RequiredQuota)> rules,
         IReadOnlyDictionary<int, string> courseNameById,
         IEnumerable<(int CourseId, string MenuId)> selections)
@@ -39,13 +41,13 @@ public static class PackageSelectionCompliance
             .GroupBy(entry => entry.CourseId)
             .ToDictionary(group => group.Key, group => group.Count());
 
-        var compliance = new List<PackageCourseComplianceDto>();
+        var compliance = new List<PackageCourseComplianceResponse>();
 
         foreach (var rule in ruleList)
         {
             var selectedCount = selectedCounts.TryGetValue(rule.CourseId, out var count) ? count : 0;
 
-            compliance.Add(new PackageCourseComplianceDto
+            compliance.Add(new PackageCourseComplianceResponse
             {
                 CourseId = rule.CourseId,
                 CourseName = rule.CourseName,
@@ -66,7 +68,7 @@ public static class PackageSelectionCompliance
             }
 
             // The selection names a course the tier holds no rule for (BR-15).
-            compliance.Add(new PackageCourseComplianceDto
+            compliance.Add(new PackageCourseComplianceResponse
             {
                 CourseId = group.Key,
                 CourseName = courseNameById.TryGetValue(group.Key, out var courseName)
@@ -87,14 +89,14 @@ public static class PackageSelectionCompliance
     /// when the caller treats it as "no selection" — a selection is an override, never a
     /// requirement (BR-35, DEC-131).
     /// </summary>
-    public static bool IsSatisfied(IEnumerable<PackageCourseComplianceDto> compliance) =>
+    public static bool IsSatisfied(IEnumerable<PackageCourseComplianceResponse> compliance) =>
         compliance.All(entry => entry.IsCompliant);
 
     /// <summary>
     /// The <c>400</c> message of the first breach, naming the course and its quota; <c>null</c>
     /// when nothing is breached.
     /// </summary>
-    public static string? BuildBreachMessage(IEnumerable<PackageCourseComplianceDto> compliance)
+    public static string? BuildBreachMessage(IEnumerable<PackageCourseComplianceResponse> compliance)
     {
         var breach = compliance.FirstOrDefault(entry => !entry.IsCompliant);
 
@@ -118,7 +120,7 @@ public static class PackageSelectionCompliance
     /// otherwise the first breach. A selection that is <b>empty</b> is "no selection" and is
     /// therefore published as compliant — the booking runs the tier's standard run (DEC-131).
     /// </summary>
-    public static string? BuildSelectionMessage(IReadOnlyList<PackageCourseComplianceDto> compliance) =>
+    public static string? BuildSelectionMessage(IReadOnlyList<PackageCourseComplianceResponse> compliance) =>
         compliance.Count == 0 ? null : BuildBreachMessage(compliance);
 
     private static string Describe(string courseName) =>

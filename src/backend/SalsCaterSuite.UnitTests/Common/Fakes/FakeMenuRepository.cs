@@ -2,7 +2,8 @@ namespace SalsCaterSuite.UnitTests.Common.Fakes;
 
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Menus.DTOs;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Request;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Response;
 using SalsCaterSuite.Application.Features.Menus.Models;
 using SalsCaterSuite.Domain.Entities;
 
@@ -46,7 +47,7 @@ public sealed class FakeMenuRepository : IMenuRepository
         return Task.FromResult(result);
     }
 
-    public Task<List<MenuDto>> GetProjectionListAsync(int? courseId, CancellationToken cancellationToken = default)
+    public Task<List<MenuResponse>> GetProjectionListAsync(int? courseId, CancellationToken cancellationToken = default)
     {
         IEnumerable<Menu> menus = _store.Menus.Where(m => !m.IsDeleted);
 
@@ -63,17 +64,17 @@ public sealed class FakeMenuRepository : IMenuRepository
         return Task.FromResult(result);
     }
 
-    public Task<MenuDto?> GetProjectionByIdAsync(string menuId, CancellationToken cancellationToken = default)
+    public Task<MenuResponse?> GetProjectionByIdAsync(string menuId, CancellationToken cancellationToken = default)
     {
         var menu = _store.Menus.FirstOrDefault(m => m.MenuId == menuId && !m.IsDeleted);
         return Task.FromResult(menu is null ? null : Map(menu));
     }
 
-    public Task<List<CourseDto>> GetCourseProjectionsAsync(CancellationToken cancellationToken = default)
+    public Task<List<CourseResponse>> GetCourseProjectionsAsync(CancellationToken cancellationToken = default)
     {
         var result = _store.CourseCategories
             .OrderBy(c => c.CourseId)
-            .Select(c => new CourseDto { CourseId = c.CourseId, CourseName = c.CourseName })
+            .Select(c => new CourseResponse { CourseId = c.CourseId, CourseName = c.CourseName })
             .ToList();
 
         return Task.FromResult(result);
@@ -201,7 +202,7 @@ public sealed class FakeMenuRepository : IMenuRepository
         return Task.FromResult(1);
     }
 
-    private MenuDto Map(Menu menu) => new()
+    private MenuResponse Map(Menu menu) => new()
     {
         MenuId = menu.MenuId,
         CourseId = menu.CourseId,
@@ -325,7 +326,7 @@ public sealed class FakeMenuRepository : IMenuRepository
     /// The course tab strip: the scope's total and one entry per course category with its live
     /// dish count. The scope is everything except the course filter.
     /// </summary>
-    private MenuCoursesDto GetCourseScope(MenuMasterFilter filter)
+    private MenuCoursesResponse GetCourseScope(MenuMasterFilter filter)
     {
         var scope = ApplyScopeFilters(filter);
 
@@ -334,12 +335,12 @@ public sealed class FakeMenuRepository : IMenuRepository
             .GroupBy(m => m.CourseId!.Value)
             .ToDictionary(g => g.Key, g => g.Count());
 
-        return new MenuCoursesDto
+        return new MenuCoursesResponse
         {
             Total = scope.Count(),
             Items = _store.CourseCategories
                 .OrderBy(c => c.CourseId)
-                .Select(c => new MenuCourseCountDto
+                .Select(c => new MenuCourseCountResponse
                 {
                     CourseId = c.CourseId,
                     CourseName = c.CourseName,

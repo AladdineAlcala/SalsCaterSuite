@@ -1,7 +1,9 @@
 namespace SalsCaterSuite.UnitTests.Application.Queries;
 
 using FluentAssertions;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Application.Features.Packages.Queries;
 using SalsCaterSuite.Application.Features.Packages.Validators;
 using SalsCaterSuite.Domain.Entities;
@@ -65,7 +67,7 @@ public class PackageLocationPreviewTests
     [Fact]
     public async Task The_breakdown_at_a_known_headcount_should_be_the_servers_figures()
     {
-        var request = new PackageLocationPreviewRequest(50, 1, Array.Empty<PackageCourseSelectionDto>());
+        var request = new PackageLocationPreviewRequest(50, 1, Array.Empty<PackageCourseSelectionRequest>());
 
         var preview = (await _query.ExecuteAsync(1, request)).Data!;
 
@@ -95,7 +97,7 @@ public class PackageLocationPreviewTests
     [Fact]
     public async Task A_municipality_without_a_stated_logistics_cost_should_omit_the_band()
     {
-        var request = new PackageLocationPreviewRequest(50, 2, Array.Empty<PackageCourseSelectionDto>());
+        var request = new PackageLocationPreviewRequest(50, 2, Array.Empty<PackageCourseSelectionRequest>());
 
         var preview = (await _query.ExecuteAsync(1, request)).Data!;
 
@@ -109,7 +111,7 @@ public class PackageLocationPreviewTests
     [Fact]
     public async Task A_municipality_without_a_stated_rate_should_still_yield_a_complete_contract_value()
     {
-        var request = new PackageLocationPreviewRequest(50, 3, Array.Empty<PackageCourseSelectionDto>());
+        var request = new PackageLocationPreviewRequest(50, 3, Array.Empty<PackageCourseSelectionRequest>());
 
         var preview = (await _query.ExecuteAsync(1, request)).Data!;
 
@@ -128,7 +130,7 @@ public class PackageLocationPreviewTests
         var request = new PackageLocationPreviewRequest(
             50,
             1,
-            new[] { new PackageCourseSelectionDto(1, "DS-1") });
+            new[] { new PackageCourseSelectionRequest(1, "DS-1") });
 
         var preview = (await _query.ExecuteAsync(1, request)).Data!;
 
@@ -139,7 +141,7 @@ public class PackageLocationPreviewTests
     [Fact]
     public async Task A_headcount_below_one_should_be_rejected()
     {
-        var request = new PackageLocationPreviewRequest(0, 1, Array.Empty<PackageCourseSelectionDto>());
+        var request = new PackageLocationPreviewRequest(0, 1, Array.Empty<PackageCourseSelectionRequest>());
 
         var result = await _query.ExecuteAsync(1, request);
 
@@ -163,7 +165,7 @@ public class PackageLocationPreviewTests
     {
         _store.Packages[0].IsDeleted = true;
 
-        var request = new PackageLocationPreviewRequest(50, 1, Array.Empty<PackageCourseSelectionDto>());
+        var request = new PackageLocationPreviewRequest(50, 1, Array.Empty<PackageCourseSelectionRequest>());
 
         var result = await _query.ExecuteAsync(1, request);
 

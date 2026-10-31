@@ -1,6 +1,7 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Customers.DTOs;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Request;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Response;
 
 namespace SalsCaterSuite.Application.Features.Customers.Queries;
 
@@ -14,10 +15,10 @@ public class GetCustomersQuery
         _customers = customers;
     }
 
-    public async Task<Result<List<CustomerDto>>> ExecuteAsync(string? search, CancellationToken cancellationToken = default)
+    public async Task<Result<List<CustomerResponse>>> ExecuteAsync(string? search, CancellationToken cancellationToken = default)
     {
         var customers = await _customers.GetListProjectionAsync(search, cancellationToken);
 
-        return Result<List<CustomerDto>>.Success(customers);
+        return Result<List<CustomerResponse>>.Success(customers);
     }
 }

@@ -4,7 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Features.Bookings.Services;
 using SalsCaterSuite.Application.Features.Customers;
-using SalsCaterSuite.Application.Features.Customers.DTOs;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Request;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Response;
 using SalsCaterSuite.Application.Features.Customers.Services;
 using SalsCaterSuite.Application.Services;
 using SalsCaterSuite.Domain.Entities;
@@ -79,7 +80,7 @@ public class CustomerRepository : ICustomerRepository
             .FirstOrDefaultAsync(c => c.CustomerId == customerId, cancellationToken);
     }
 
-    public async Task<List<CustomerDto>> GetListProjectionAsync(string? search, CancellationToken cancellationToken = default)
+    public async Task<List<CustomerResponse>> GetListProjectionAsync(string? search, CancellationToken cancellationToken = default)
     {
         var query = _context.Customers.AsNoTracking();
 
@@ -95,7 +96,7 @@ public class CustomerRepository : ICustomerRepository
 
         return await query
             .OrderBy(c => c.LastName).ThenBy(c => c.FirstName)
-            .Select(c => new CustomerDto
+            .Select(c => new CustomerResponse
             {
                 CustomerId = c.CustomerId,
                 LastName = c.LastName,
@@ -126,7 +127,7 @@ public class CustomerRepository : ICustomerRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<CustomerDto?> GetProjectionByIdAsync(int customerId, CancellationToken cancellationToken = default)
+    public async Task<CustomerResponse?> GetProjectionByIdAsync(int customerId, CancellationToken cancellationToken = default)
     {
         var customer = await _context.Customers
             .AsNoTracking()
@@ -143,7 +144,7 @@ public class CustomerRepository : ICustomerRepository
         var today = _aging.Today;
         var rollUp = RollUp(customer, today);
 
-        return new CustomerDto
+        return new CustomerResponse
         {
             CustomerId = customer.CustomerId,
             LastName = customer.LastName,
@@ -171,7 +172,7 @@ public class CustomerRepository : ICustomerRepository
         };
     }
 
-    public async Task<CustomerDirectoryDto> GetDirectoryProjectionAsync(
+    public async Task<CustomerDirectoryResponse> GetDirectoryProjectionAsync(
         string? search,
         string? customerType,
         string? arState,
@@ -197,7 +198,7 @@ public class CustomerRepository : ICustomerRepository
         // overflow into a negative skip.
         var offset = (long)(page - 1) * pageSize;
 
-        return new CustomerDirectoryDto
+        return new CustomerDirectoryResponse
         {
             Summary = BuildSummary(filtered),
             QuickViewCounts = quickViewCounts,
@@ -210,7 +211,7 @@ public class CustomerRepository : ICustomerRepository
         };
     }
 
-    public async Task<List<CustomerDirectoryItemDto>> GetDirectoryItemsAsync(
+    public async Task<List<CustomerDirectoryItemResponse>> GetDirectoryItemsAsync(
         string? search,
         string? customerType,
         string? arState,
@@ -229,7 +230,7 @@ public class CustomerRepository : ICustomerRepository
     /// AR-state filters are deliberately not applied here — the quick-view counts are
     /// computed over exactly this set (spec §4.3).
     /// </summary>
-    private async Task<List<CustomerDirectoryItemDto>> GetDirectoryPopulationAsync(
+    private async Task<List<CustomerDirectoryItemResponse>> GetDirectoryPopulationAsync(
         string? search,
         CancellationToken cancellationToken)
     {
@@ -272,8 +273,8 @@ public class CustomerRepository : ICustomerRepository
     /// applied on the composed rows, because "not blank" is a whitespace-aware test and the
     /// AR state depends on the derived aging state.
     /// </summary>
-    private List<CustomerDirectoryItemDto> ApplyDirectoryFilters(
-        List<CustomerDirectoryItemDto> population,
+    private List<CustomerDirectoryItemResponse> ApplyDirectoryFilters(
+        List<CustomerDirectoryItemResponse> population,
         string? customerType,
         string? arState)
     {
@@ -306,7 +307,7 @@ public class CustomerRepository : ICustomerRepository
     /// search-filtered population with the type and AR-state filters ignored, so selecting a
     /// scope never changes what the pills report.
     /// </summary>
-    private CustomerQuickViewCountsDto BuildQuickViewCounts(List<CustomerDirectoryItemDto> population) => new()
+    private CustomerQuickViewCountsResponse BuildQuickViewCounts(List<CustomerDirectoryItemResponse> population) => new()
     {
         All = population.Count,
         Corporate = population.Count(r => string.Equals(r.CustomerType, CustomerClassification.Corporate, StringComparison.Ordinal)),
@@ -361,7 +362,7 @@ public class CustomerRepository : ICustomerRepository
 
         var state = _aging.GetWorstBucketKey(agingBalances, today);
 
-        var counts = new CustomerBookingCountsDto
+        var counts = new CustomerBookingCountsResponse
         {
             Total = activeBookings.Count,
             Past = activeBookings.Count(b => b.EventDate < today),
@@ -380,11 +381,11 @@ public class CustomerRepository : ICustomerRepository
             activeBookings);
     }
 
-    private CustomerDirectoryItemDto ComposeDirectoryItem(Customer customer, DateOnly today)
+    private CustomerDirectoryItemResponse ComposeDirectoryItem(Customer customer, DateOnly today)
     {
         var rollUp = RollUp(customer, today);
 
-        return new CustomerDirectoryItemDto
+        return new CustomerDirectoryItemResponse
         {
             CustomerId = customer.CustomerId,
             LastName = customer.LastName,
@@ -410,7 +411,7 @@ public class CustomerRepository : ICustomerRepository
     /// The customer's next non-cancelled booking with an event date of today or later
     /// (spec §4.8).
     /// </summary>
-    private CustomerUpcomingBookingDto? ComposeUpcomingBooking(
+    private CustomerUpcomingBookingResponse? ComposeUpcomingBooking(
         IReadOnlyList<Booking> activeBookings,
         DateOnly today)
     {
@@ -427,7 +428,7 @@ public class CustomerRepository : ICustomerRepository
 
         var breakdown = _calculator.Calculate(upcoming, AmountPaid(upcoming));
 
-        return new CustomerUpcomingBookingDto
+        return new CustomerUpcomingBookingResponse
         {
             TransactionId = upcoming.TransactionId,
             BookingNumber = upcoming.BookingNumber,
@@ -441,7 +442,7 @@ public class CustomerRepository : ICustomerRepository
     /// The directory's KPI cards, computed over the <b>whole</b> filtered result set
     /// (spec §4.2 / §5.1).
     /// </summary>
-    private CustomerDirectorySummaryDto BuildSummary(List<CustomerDirectoryItemDto> rows)
+    private CustomerDirectorySummaryResponse BuildSummary(List<CustomerDirectoryItemResponse> rows)
     {
         var totalClients = rows.Count;
         var activeArAmount = rows.Sum(r => r.OutstandingBalance);
@@ -449,7 +450,7 @@ public class CustomerRepository : ICustomerRepository
 
         var overdueRows = rows.Where(r => _aging.IsOverdue30(r.LedgerState)).ToList();
 
-        return new CustomerDirectorySummaryDto
+        return new CustomerDirectorySummaryResponse
         {
             TotalClients = totalClients,
             ActiveArAmount = activeArAmount,
@@ -464,7 +465,7 @@ public class CustomerRepository : ICustomerRepository
         };
     }
 
-    private bool MatchesArState(CustomerDirectoryItemDto row, string arState) => arState switch
+    private bool MatchesArState(CustomerDirectoryItemResponse row, string arState) => arState switch
     {
         CustomerAgingBucket.ArStateClean => row.LedgerState == CustomerAgingBucket.Clean,
         CustomerAgingBucket.ArStateOpen => row.OutstandingBalance > 0m,
@@ -525,6 +526,6 @@ public class CustomerRepository : ICustomerRepository
         decimal OutstandingBalance,
         string LedgerState,
         string LedgerStateLabel,
-        CustomerBookingCountsDto Counts,
+        CustomerBookingCountsResponse Counts,
         IReadOnlyList<Booking> ActiveBookings);
 }

@@ -1,6 +1,8 @@
 using FluentValidation;
 using SalsCaterSuite.Application.Common.Interfaces;
-using SalsCaterSuite.Application.Features.Menus.DTOs;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Request;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Response;
+using SalsCaterSuite.Application.Features.Menus.Models;
 
 namespace SalsCaterSuite.Application.Features.Menus.Validators;
 
@@ -22,7 +24,7 @@ namespace SalsCaterSuite.Application.Features.Menus.Validators;
 /// (spec §6.4) — so the two can never drift apart.
 /// </para>
 /// </summary>
-public class MenuRequestValidator : AbstractValidator<CreateMenuRequestDto>
+public class MenuRequestValidator : AbstractValidator<CreateMenuRequest>
 {
     private readonly IMenuRepository _menus;
 

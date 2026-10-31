@@ -3,7 +3,9 @@ namespace SalsCaterSuite.UnitTests.Application.Commands;
 using FluentAssertions;
 using SalsCaterSuite.Application.Features.Packages;
 using SalsCaterSuite.Application.Features.Packages.Commands;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Application.Features.Packages.Queries;
 using SalsCaterSuite.Application.Features.Packages.Validators;
 using SalsCaterSuite.Domain.Entities;
@@ -30,7 +32,7 @@ public class AreaCommandTests
     [Fact]
     public async Task A_valid_payload_should_create_a_municipality()
     {
-        var result = await _create.ExecuteAsync(new AreaRequestDto(
+        var result = await _create.ExecuteAsync(new AreaRequest(
             "Antipolo",
             150m,
             42,
@@ -51,7 +53,7 @@ public class AreaCommandTests
     [Fact]
     public async Task A_rejected_payload_should_persist_nothing()
     {
-        var result = await _create.ExecuteAsync(new AreaRequestDto("   ", -1m, -1, new string('x', 151), -1m));
+        var result = await _create.ExecuteAsync(new AreaRequest("   ", -1m, -1, new string('x', 151), -1m));
 
         result.Succeeded.Should().BeFalse();
         result.Errors.Should().Contain("Area name is required.");
@@ -66,7 +68,7 @@ public class AreaCommandTests
     [Fact]
     public async Task A_municipality_without_a_stated_rate_should_be_created()
     {
-        var result = await _create.ExecuteAsync(new AreaRequestDto("Lucena", null, null, null, null));
+        var result = await _create.ExecuteAsync(new AreaRequest("Lucena", null, null, null, null));
 
         result.Succeeded.Should().BeTrue();
         _store.Areas.Should().ContainSingle();
@@ -79,7 +81,7 @@ public class AreaCommandTests
     {
         _store.Areas.Add(new Area { AreaId = 1, AreaDetails = "Antipolo", AdditionalRate = 150m });
 
-        var result = await _update.ExecuteAsync(1, new AreaRequestDto("Antipolo City", 200m, 44, "Van", 1500m));
+        var result = await _update.ExecuteAsync(1, new AreaRequest("Antipolo City", 200m, 44, "Van", 1500m));
 
         result.Succeeded.Should().BeTrue();
         _store.Areas[0].AreaDetails.Should().Be("Antipolo City");
@@ -92,7 +94,7 @@ public class AreaCommandTests
     [Fact]
     public async Task An_update_to_a_missing_municipality_should_be_a_not_found()
     {
-        var result = await _update.ExecuteAsync(99, new AreaRequestDto("Antipolo", null, null, null, null));
+        var result = await _update.ExecuteAsync(99, new AreaRequest("Antipolo", null, null, null, null));
 
         result.Succeeded.Should().BeFalse();
         result.Should().BeOfType<AreaNotFoundResult>();
@@ -104,7 +106,7 @@ public class AreaCommandTests
     {
         _store.Areas.Add(new Area { AreaId = 1, AreaDetails = "Antipolo", AdditionalRate = 150m });
 
-        var result = await _update.ExecuteAsync(1, new AreaRequestDto("", -5m, null, null, null));
+        var result = await _update.ExecuteAsync(1, new AreaRequest("", -5m, null, null, null));
 
         result.Succeeded.Should().BeFalse();
         result.Errors.Should().Contain("Area name is required.");

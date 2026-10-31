@@ -2,7 +2,9 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Repositories;
 
 using Microsoft.EntityFrameworkCore;
 using SalsCaterSuite.Application.Common.Interfaces;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Domain.Entities;
 
 /// <summary>
@@ -21,13 +23,13 @@ public class AreaRepository : IAreaRepository
     /// The municipality catalogue — the live municipalities, ordered by name. Soft-deleted
     /// municipalities are excluded: the catalogue is the population (contract §13.4).
     /// </summary>
-    public async Task<List<AreaDto>> GetCatalogueAsync(CancellationToken cancellationToken = default)
+    public async Task<List<AreaResponse>> GetCatalogueAsync(CancellationToken cancellationToken = default)
     {
         return await _context.Areas
             .AsNoTracking()
             .Where(area => !area.IsDeleted)
             .OrderBy(area => area.AreaDetails)
-            .Select(area => new AreaDto
+            .Select(area => new AreaResponse
             {
                 AreaId = area.AreaId,
                 AreaDetails = area.AreaDetails ?? string.Empty,

@@ -1,9 +1,11 @@
 using FluentValidation;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 
 namespace SalsCaterSuite.Application.Features.Bookings.Validators;
 
-public class CreateBookingValidator : AbstractValidator<CreateBookingRequestDto>
+public class CreateBookingValidator : AbstractValidator<CreateBookingRequest>
 {
     public CreateBookingValidator()
     {

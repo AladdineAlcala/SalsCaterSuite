@@ -1,6 +1,7 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Customers.DTOs;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Request;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Response;
 
 namespace SalsCaterSuite.Application.Features.Customers.Queries;
 
@@ -29,12 +30,12 @@ public class GetCustomerDirectoryQuery
     }
 
     /// <summary>
-    /// The paged directory. The <see cref="CustomerDirectoryDto.Summary"/> describes the whole
+    /// The paged directory. The <see cref="CustomerDirectoryResponse.Summary"/> describes the whole
     /// filtered result set, not the returned page, while the
-    /// <see cref="CustomerDirectoryDto.QuickViewCounts"/> describe the search-filtered
+    /// <see cref="CustomerDirectoryResponse.QuickViewCounts"/> describe the search-filtered
     /// population with the type and AR-state filters ignored (spec §4.3).
     /// </summary>
-    public async Task<Result<CustomerDirectoryDto>> ExecuteAsync(
+    public async Task<Result<CustomerDirectoryResponse>> ExecuteAsync(
         string? search,
         string? customerType,
         string? arState,
@@ -48,14 +49,14 @@ public class GetCustomerDirectoryQuery
         var directory = await _customers.GetDirectoryProjectionAsync(
             search, customerType, arState, effectivePage, effectivePageSize, cancellationToken);
 
-        return Result<CustomerDirectoryDto>.Success(directory);
+        return Result<CustomerDirectoryResponse>.Success(directory);
     }
 
     /// <summary>
     /// The whole filtered result set, without paging. The XLSX export of the directory is the
     /// current filtered result set, not the current page (spec §5.5).
     /// </summary>
-    public async Task<Result<List<CustomerDirectoryItemDto>>> ExecuteUnpagedAsync(
+    public async Task<Result<List<CustomerDirectoryItemResponse>>> ExecuteUnpagedAsync(
         string? search,
         string? customerType,
         string? arState,
@@ -64,7 +65,7 @@ public class GetCustomerDirectoryQuery
         var rows = await _customers.GetDirectoryItemsAsync(
             search, customerType, arState, cancellationToken);
 
-        return Result<List<CustomerDirectoryItemDto>>.Success(rows);
+        return Result<List<CustomerDirectoryItemResponse>>.Success(rows);
     }
 
     private static int ClampPage(int page) => page < 1 ? 1 : page;

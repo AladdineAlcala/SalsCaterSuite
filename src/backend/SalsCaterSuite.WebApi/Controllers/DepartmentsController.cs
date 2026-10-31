@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SalsCaterSuite.Application.Features.Addons.DTOs;
+using SalsCaterSuite.Application.Features.Addons.DTOs.Request;
+using SalsCaterSuite.Application.Features.Addons.DTOs.Response;
 using SalsCaterSuite.Application.Features.Addons.Queries;
 
 namespace SalsCaterSuite.WebApi.Controllers;
@@ -24,7 +25,7 @@ public class DepartmentsController : ControllerBase
 
     /// <summary>GET /api/departments — every non-soft-deleted department, ordered by name.</summary>
     [HttpGet]
-    [ProducesResponseType(typeof(List<DepartmentDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(List<DepartmentResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
         var result = await _getDepartments.ExecuteAsync(cancellationToken);

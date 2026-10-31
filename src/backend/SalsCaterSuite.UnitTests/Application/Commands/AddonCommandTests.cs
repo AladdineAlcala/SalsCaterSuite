@@ -3,7 +3,8 @@ namespace SalsCaterSuite.UnitTests.Application.Commands;
 using FluentAssertions;
 using SalsCaterSuite.Application.Features.Addons;
 using SalsCaterSuite.Application.Features.Addons.Commands;
-using SalsCaterSuite.Application.Features.Addons.DTOs;
+using SalsCaterSuite.Application.Features.Addons.DTOs.Request;
+using SalsCaterSuite.Application.Features.Addons.DTOs.Response;
 using SalsCaterSuite.Application.Features.Addons.Queries;
 using SalsCaterSuite.Application.Features.Addons.Validators;
 using SalsCaterSuite.Domain.Entities;
@@ -207,7 +208,7 @@ public class AddonCommandTests
         var result = await _detail.ExecuteAsync(999);
 
         result.Succeeded.Should().BeFalse();
-        result.Should().BeOfType<AddonNotFoundResult<AddonAdminItemDto>>();
+        result.Should().BeOfType<AddonNotFoundResult<AddonAdminItemResponse>>();
     }
 
     [Fact]

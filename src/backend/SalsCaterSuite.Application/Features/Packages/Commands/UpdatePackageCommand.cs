@@ -1,7 +1,9 @@
 using FluentValidation;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Application.Features.Bookings.Services;
 
 namespace SalsCaterSuite.Application.Features.Packages.Commands;
@@ -9,7 +11,7 @@ namespace SalsCaterSuite.Application.Features.Packages.Commands;
 /// <summary>
 /// PUT /api/packages/{id} — update a package.
 /// <para>
-/// The command runs the same <see cref="CreatePackageRequestDto"/> validator the create command
+/// The command runs the same <see cref="CreatePackageRequest"/> validator the create command
 /// runs (BR-11, spec §3.3, DEC-069). Before this correction the update applied no validation
 /// at all, so a blank description or a negative rate reached the database.
 /// </para>
@@ -28,19 +30,19 @@ public class UpdatePackageCommand
 {
     private readonly IPackageRepository _packages;
     private readonly IPackagePaxApplicableRepository _paxApplicables;
-    private readonly IValidator<CreatePackageRequestDto> _validator;
+    private readonly IValidator<CreatePackageRequest> _validator;
 
     public UpdatePackageCommand(
         IPackageRepository packages,
         IPackagePaxApplicableRepository paxApplicables,
-        IValidator<CreatePackageRequestDto> validator)
+        IValidator<CreatePackageRequest> validator)
     {
         _packages = packages;
         _paxApplicables = paxApplicables;
         _validator = validator;
     }
 
-    public async Task<Result> ExecuteAsync(int id, CreatePackageRequestDto request, CancellationToken cancellationToken = default)
+    public async Task<Result> ExecuteAsync(int id, CreatePackageRequest request, CancellationToken cancellationToken = default)
     {
         // The validation runs first, exactly as it does in CreatePackageCommand, so an invalid
         // payload is rejected before anything is written.

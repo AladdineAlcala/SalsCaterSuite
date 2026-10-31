@@ -2,7 +2,9 @@ namespace SalsCaterSuite.UnitTests.Application.Commands;
 
 using FluentAssertions;
 using SalsCaterSuite.Application.Features.Bookings.Commands;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Features.Bookings.Services;
 using SalsCaterSuite.Application.Features.Bookings.Validators;
 using SalsCaterSuite.Application.Features.Packages.Services;
@@ -97,7 +99,7 @@ public class PreviewBookingQuoteCommandTests
         _store.Areas.Add(new Area { AreaId = id, AreaDetails = "Batangas City", AdditionalRate = rate });
     }
 
-    private static BookingQuoteRequestDto ValidRequest() => new()
+    private static BookingQuoteRequest ValidRequest() => new()
     {
         CustomerId = 1,
         PackageId = 10,

@@ -1,6 +1,8 @@
 namespace SalsCaterSuite.Application.Features.Menus.Models;
 
-using SalsCaterSuite.Application.Features.Menus.DTOs;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Request;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Response;
+using SalsCaterSuite.Application.Features.Menus.Models;
 
 /// <summary>
 /// The raw rows of a Menu &amp; Food Costing Master read — the columns the database supplies and
@@ -104,7 +106,7 @@ public record MenuMasterDataSet
     /// The course tab strip: the scope's total and one entry per course category with its live
     /// dish count. The scope is everything except the course filter (spec §6.1).
     /// </summary>
-    public MenuCoursesDto Courses { get; set; } = new();
+    public MenuCoursesResponse Courses { get; set; } = new();
 
     /// <summary>
     /// KPI-24 — the number of dishes in the filtered set whose food cost percentage exceeds the

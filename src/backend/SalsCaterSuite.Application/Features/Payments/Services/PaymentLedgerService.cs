@@ -1,7 +1,9 @@
+using SalsCaterSuite.Application.Features.Payments.DTOs;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
 using SalsCaterSuite.Application.Features.Bookings.Services;
-using SalsCaterSuite.Application.Features.Payments.DTOs;
+using SalsCaterSuite.Application.Features.Payments.DTOs.Request;
+using SalsCaterSuite.Application.Features.Payments.DTOs.Response;
 using SalsCaterSuite.Application.Services;
 using SalsCaterSuite.Domain.Entities;
 using SalsCaterSuite.Domain.Exceptions;
@@ -32,7 +34,7 @@ public class PaymentLedgerService : IPaymentLedgerService
         _calculator = calculator;
     }
 
-    public async Task<Result<PaymentEntryDto>> RecordPaymentAsync(RecordPaymentRequestDto request, CancellationToken cancellationToken = default)
+    public async Task<Result<PaymentEntryResponse>> RecordPaymentAsync(RecordPaymentRequest request, CancellationToken cancellationToken = default)
     {
         // The booking is loaded with its payment rows, because the overpayment guard needs the
         // authoritative collected amount (DEC-118).
@@ -40,7 +42,7 @@ public class PaymentLedgerService : IPaymentLedgerService
 
         if (booking == null)
         {
-            return Result<PaymentEntryDto>.Failure("Booking transaction not found.");
+            return Result<PaymentEntryResponse>.Failure("Booking transaction not found.");
         }
 
         // BR-05's overpayment prohibition (DEC-118). A payment that would take the total above
@@ -51,7 +53,7 @@ public class PaymentLedgerService : IPaymentLedgerService
 
         if (collected + request.AmountPaid > netAmountDue)
         {
-            return Result<PaymentEntryDto>.Failure(
+            return Result<PaymentEntryResponse>.Failure(
                 "The payment would take the total collected above the net amount due of the booking.");
         }
 
@@ -88,13 +90,13 @@ public class PaymentLedgerService : IPaymentLedgerService
             // Nothing has been persisted yet; drop the staged payment so it is not
             // left orphaned in the change set.
             _payments.Remove(payment);
-            return Result<PaymentEntryDto>.Failure(ex.Message);
+            return Result<PaymentEntryResponse>.Failure(ex.Message);
         }
 
         // Single commit for the payment row and the booking's refreshed status cache.
         await _payments.SaveChangesAsync(cancellationToken);
 
-        var dto = new PaymentEntryDto
+        var dto = new PaymentEntryResponse
         {
             PaymentNo = payment.PaymentNo,
             TransactionId = payment.TransactionId,
@@ -107,7 +109,7 @@ public class PaymentLedgerService : IPaymentLedgerService
             CreatedByUser = payment.CreatedByUser
         };
 
-        return Result<PaymentEntryDto>.Success(dto);
+        return Result<PaymentEntryResponse>.Success(dto);
     }
 
     public async Task<Result<LedgerSummaryDto>> GetLedgerAsync(int transactionId, CancellationToken cancellationToken = default)
@@ -122,7 +124,7 @@ public class PaymentLedgerService : IPaymentLedgerService
         var payments = booking.Payments
             .Where(p => !p.IsDeleted)          // a soft-deleted payment is not listed (DEC-111)
             .OrderBy(p => p.DateOfPayment)
-            .Select(p => new PaymentEntryDto
+            .Select(p => new PaymentEntryResponse
             {
                 PaymentNo = p.PaymentNo,
                 TransactionId = p.TransactionId,

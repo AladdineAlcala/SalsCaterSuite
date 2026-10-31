@@ -1,7 +1,8 @@
 using FluentValidation;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
 using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Features.Bookings.Services;
 using SalsCaterSuite.Application.Services;
@@ -41,14 +42,14 @@ public class GetBookingRegisterSummaryQuery
         _validator = validator;
     }
 
-    public async Task<Result<BookingRegisterSummaryDto>> ExecuteAsync(
+    public async Task<Result<BookingRegisterSummaryResponse>> ExecuteAsync(
         BookingRegisterFilterRequest request,
         CancellationToken cancellationToken = default)
     {
         var validation = await _validator.ValidateAsync(request, cancellationToken);
         if (!validation.IsValid)
         {
-            return Result<BookingRegisterSummaryDto>.Failure(
+            return Result<BookingRegisterSummaryResponse>.Failure(
                 validation.Errors.Select(error => error.ErrorMessage));
         }
 
@@ -58,7 +59,7 @@ public class GetBookingRegisterSummaryQuery
         var rows = await _population.LoadAsync(filter, today, cancellationToken);
         var filtered = BookingRegisterProjection.ApplyFilters(rows, filter);
 
-        var dto = new BookingRegisterSummaryDto
+        var dto = new BookingRegisterSummaryResponse
         {
             Pipeline = BuildPipeline(filtered),
             LeadingTier = await BuildLeadingTierAsync(filtered, filter, today, cancellationToken),
@@ -73,18 +74,18 @@ public class GetBookingRegisterSummaryQuery
             GeneratedAt = _clock.UtcNow
         };
 
-        return Result<BookingRegisterSummaryDto>.Success(dto);
+        return Result<BookingRegisterSummaryResponse>.Success(dto);
     }
 
     /// <summary>The pipeline count and its status split (KPI-33).</summary>
-    private static BookingRegisterPipelineDto BuildPipeline(List<BookingRegisterRow> filtered)
+    private static BookingRegisterPipelineResponse BuildPipeline(List<BookingRegisterRow> filtered)
     {
         var confirmed = filtered.Count(row =>
             row.Booking.Status is BookingStatus.Confirmed or BookingStatus.DepositPaid or BookingStatus.FullyPaid);
         var tentative = filtered.Count(row => row.Booking.Status == BookingStatus.Pending);
         var completed = filtered.Count(row => row.Booking.Status == BookingStatus.Completed);
 
-        return new BookingRegisterPipelineDto
+        return new BookingRegisterPipelineResponse
         {
             BookingCount = filtered.Count,
             ConfirmedCount = confirmed,
@@ -103,7 +104,7 @@ public class GetBookingRegisterSummaryQuery
     /// A booking with no tier is excluded from the leading tier (BR-27).
     /// </para>
     /// </summary>
-    private async Task<BookingRegisterLeadingTierDto?> BuildLeadingTierAsync(
+    private async Task<BookingRegisterLeadingTierResponse?> BuildLeadingTierAsync(
         List<BookingRegisterRow> filtered,
         BookingRegisterFilter filter,
         DateOnly today,
@@ -135,7 +136,7 @@ public class GetBookingRegisterSummaryQuery
         var previousNet = await PreviousNetContractedValueAsync(
             leading.PackageId, filter, filtered, today, cancellationToken);
 
-        return new BookingRegisterLeadingTierDto
+        return new BookingRegisterLeadingTierResponse
         {
             PackageType = leading.PackageType,
             PackageName = leading.PackageName,
@@ -212,13 +213,13 @@ public class GetBookingRegisterSummaryQuery
     }
 
     /// <summary>The contract value and its split (KPI-35).</summary>
-    private static BookingRegisterContractValueDto BuildContractValue(List<BookingRegisterRow> filtered)
+    private static BookingRegisterContractValueResponse BuildContractValue(List<BookingRegisterRow> filtered)
     {
         var net = filtered.Sum(row => row.NetAmountDue);
         var collected = filtered.Sum(row => row.Collected);
         var outstanding = filtered.Sum(row => row.Outstanding);
 
-        return new BookingRegisterContractValueDto
+        return new BookingRegisterContractValueResponse
         {
             NetContractedValue = net,
             CollectedAmount = collected,
@@ -230,7 +231,7 @@ public class GetBookingRegisterSummaryQuery
     }
 
     /// <summary>The committed headcount and the next event (KPI-36).</summary>
-    private static BookingRegisterHeadcountDto BuildHeadcount(List<BookingRegisterRow> filtered, DateOnly today)
+    private static BookingRegisterHeadcountResponse BuildHeadcount(List<BookingRegisterRow> filtered, DateOnly today)
     {
         var totalPax = filtered.Sum(row => row.Booking.NumberOfHeads);
 
@@ -240,7 +241,7 @@ public class GetBookingRegisterSummaryQuery
             .ThenBy(row => row.Booking.TransactionId)
             .FirstOrDefault();
 
-        return new BookingRegisterHeadcountDto
+        return new BookingRegisterHeadcountResponse
         {
             TotalPax = totalPax,
             AveragePaxPerBooking = filtered.Count > 0
@@ -252,9 +253,9 @@ public class GetBookingRegisterSummaryQuery
     }
 
     /// <summary>The payment-state distribution (KPI-37).</summary>
-    private static List<BookingRegisterPaymentStateDto> BuildPaymentStates(List<BookingRegisterRow> filtered) =>
+    private static List<BookingRegisterPaymentStateResponse> BuildPaymentStates(List<BookingRegisterRow> filtered) =>
         BookingPaymentState.All
-            .Select(state => new BookingRegisterPaymentStateDto
+            .Select(state => new BookingRegisterPaymentStateResponse
             {
                 Key = state,
                 Count = filtered.Count(row => row.PaymentState == state),
@@ -267,7 +268,7 @@ public class GetBookingRegisterSummaryQuery
     /// capacity is <c>null</c> when the key is absent, and the utilisation is then
     /// <c>null</c> as well — unknown, never zero and never 100 %.
     /// </summary>
-    private BookingRegisterCapacityDto BuildCapacity(List<BookingRegisterRow> filtered, DateOnly today)
+    private BookingRegisterCapacityResponse BuildCapacity(List<BookingRegisterRow> filtered, DateOnly today)
     {
         var windowEnd = today.AddDays(CapacityWindowDays);
 
@@ -277,7 +278,7 @@ public class GetBookingRegisterSummaryQuery
 
         var capacity = _policy.MaximumCapacityPax;
 
-        return new BookingRegisterCapacityDto
+        return new BookingRegisterCapacityResponse
         {
             CommittedPax = committedPax,
             CapacityPax = capacity,
@@ -289,12 +290,12 @@ public class GetBookingRegisterSummaryQuery
     }
 
     /// <summary>The register's own accounts receivable (KPI-39, DEC-041).</summary>
-    private static BookingRegisterReceivablesDto BuildReceivables(List<BookingRegisterRow> filtered)
+    private static BookingRegisterReceivablesResponse BuildReceivables(List<BookingRegisterRow> filtered)
     {
         var withBalance = filtered.Where(row => row.Outstanding > 0m).ToList();
         var overdue = withBalance.Where(row => row.IsOverdue).ToList();
 
-        return new BookingRegisterReceivablesDto
+        return new BookingRegisterReceivablesResponse
         {
             OutstandingAmount = filtered.Sum(row => row.Outstanding),
             BookingCount = withBalance.Count,
@@ -307,7 +308,7 @@ public class GetBookingRegisterSummaryQuery
     /// The menu-change window's open and closed counts (KPI-41, DEC-128). Every booking of the
     /// population has a concrete lock date, so the two counts always add up to the population.
     /// </summary>
-    private static BookingRegisterMenuWindowsDto BuildMenuWindows(List<BookingRegisterRow> filtered) => new()
+    private static BookingRegisterMenuWindowsResponse BuildMenuWindows(List<BookingRegisterRow> filtered) => new()
     {
         OpenSelectionCount = filtered.Count(row => !row.IsMenuSelectionLocked),
         LockedSelectionCount = filtered.Count(row => row.IsMenuSelectionLocked)
@@ -317,7 +318,7 @@ public class GetBookingRegisterSummaryQuery
     /// The automatic headcount band's take (KPI-42, DEC-154): the bookings the <b>derived</b>
     /// source says the band priced, and their net amount due. The count is never <c>null</c>.
     /// </summary>
-    private static BookingRegisterBandDiscountDto BuildBandDiscount(List<BookingRegisterRow> filtered)
+    private static BookingRegisterBandDiscountResponse BuildBandDiscount(List<BookingRegisterRow> filtered)
     {
         var byBand = filtered
             .Where(row => DiscountSourceResolver.Resolve(
@@ -326,7 +327,7 @@ public class GetBookingRegisterSummaryQuery
                 row.Booking.DiscountAmount) == DiscountSource.HeadcountBand)
             .ToList();
 
-        return new BookingRegisterBandDiscountDto
+        return new BookingRegisterBandDiscountResponse
         {
             DiscountedBookingCount = byBand.Count,
             DiscountedNetAmountDue = byBand.Sum(row => row.NetAmountDue)

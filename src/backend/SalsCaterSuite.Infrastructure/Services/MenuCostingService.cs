@@ -1,6 +1,8 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Menus.DTOs;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Request;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Response;
+using SalsCaterSuite.Application.Features.Menus.Models;
 using SalsCaterSuite.Application.Features.Menus.Services;
 
 namespace SalsCaterSuite.Infrastructure.Services;
@@ -32,13 +34,13 @@ public class MenuCostingService : IMenuCostingService
         _benchmarks = benchmarks ?? DefaultFoodCostBenchmarkProvider.Instance;
     }
 
-    public async Task<Result<MenuCostingSummaryDto>> CalculateCostingAsync(string menuId, CancellationToken cancellationToken = default)
+    public async Task<Result<MenuCostingSummaryResponse>> CalculateCostingAsync(string menuId, CancellationToken cancellationToken = default)
     {
         var menu = await _menus.GetByIdAsync(menuId, cancellationToken);
 
         if (menu == null)
         {
-            return Result<MenuCostingSummaryDto>.Failure("Menu dish not found.");
+            return Result<MenuCostingSummaryResponse>.Failure("Menu dish not found.");
         }
 
         var sellingPrice = menu.Price ?? 0m;
@@ -47,7 +49,7 @@ public class MenuCostingService : IMenuCostingService
         var foodCostPct = MenuCostingCalculator.FoodCostPercentage(sellingPrice, foodCost);
         var grossMarginPct = MenuCostingCalculator.GrossMarginPercentage(sellingPrice, foodCost);
 
-        var dto = new MenuCostingSummaryDto
+        var dto = new MenuCostingSummaryResponse
         {
             MenuId = menu.MenuId,
             MenuName = menu.MenuName,
@@ -59,10 +61,10 @@ public class MenuCostingService : IMenuCostingService
             TargetFoodCostPercentage = _benchmarks.Current.TargetFoodCostPercentage
         };
 
-        return Result<MenuCostingSummaryDto>.Success(dto);
+        return Result<MenuCostingSummaryResponse>.Success(dto);
     }
 
-    public async Task<Result<List<MenuCostingSummaryDto>>> GetAllCostingsAsync(CancellationToken cancellationToken = default)
+    public async Task<Result<List<MenuCostingSummaryResponse>>> GetAllCostingsAsync(CancellationToken cancellationToken = default)
     {
         var menus = await _menus.GetOrderedByNameAsync(cancellationToken);
         var targetFoodCostPercentage = _benchmarks.Current.TargetFoodCostPercentage;
@@ -75,7 +77,7 @@ public class MenuCostingService : IMenuCostingService
             var foodCostPct = MenuCostingCalculator.FoodCostPercentage(sellingPrice, foodCost);
             var grossMarginPct = MenuCostingCalculator.GrossMarginPercentage(sellingPrice, foodCost);
 
-            return new MenuCostingSummaryDto
+            return new MenuCostingSummaryResponse
             {
                 MenuId = m.MenuId,
                 MenuName = m.MenuName,
@@ -88,6 +90,6 @@ public class MenuCostingService : IMenuCostingService
             };
         }).ToList();
 
-        return Result<List<MenuCostingSummaryDto>>.Success(list);
+        return Result<List<MenuCostingSummaryResponse>>.Success(list);
     }
 }

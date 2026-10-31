@@ -35,8 +35,8 @@ public sealed class RequestLoggingOptions
     /// <item><b>Customer contact identifiers (owner-ruled, DEC-093):</b> <c>address</c>,
     /// <c>contact</c>, <c>contact1</c>, <c>contact2</c> and <c>customercontact</c> — the only
     /// contact-identifier property names in the codebase (<c>Customer.Address</c> /
-    /// <c>.Contact1</c> / <c>.Contact2</c>, <c>CustomerStatementDto.Contact</c> and
-    /// <c>BookingDto.CustomerContact</c>).</item>
+    /// <c>.Contact1</c> / <c>.Contact2</c>, <c>CustomerStatementResponse.Contact</c> and
+    /// <c>BookingResponse.CustomerContact</c>).</item>
     /// <item><b>Forward-looking:</b> <c>email</c>, <c>emailaddress</c> and <c>tin</c>. <b>No
     /// property in the current model carries an e-mail address or a TIN</b> (<c>Customer</c> has
     /// neither). They are kept so the rule is already correct if the model ever grows one.</item>

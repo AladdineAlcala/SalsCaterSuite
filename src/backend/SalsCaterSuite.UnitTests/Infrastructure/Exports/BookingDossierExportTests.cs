@@ -3,7 +3,9 @@ namespace SalsCaterSuite.UnitTests.Infrastructure.Exports;
 using System.IO;
 using ClosedXML.Excel;
 using FluentAssertions;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Domain.Enums;
 using SalsCaterSuite.Infrastructure.Exports;
 using Xunit;
@@ -16,7 +18,7 @@ public class BookingDossierExportTests
 {
     private readonly BookingRegisterExport _export = new();
 
-    private static BookingRegisterItemDto SampleItem() => new()
+    private static BookingRegisterItemResponse SampleItem() => new()
     {
         TransactionId = 101,
         BookingNumber = "BK-20261120-00101",
@@ -47,7 +49,7 @@ public class BookingDossierExportTests
         DiscountAmount = 0m
     };
 
-    private static BookingRegisterTotalsDto SampleTotals() => new()
+    private static BookingRegisterTotalsResponse SampleTotals() => new()
     {
         BookingCount = 1,
         NetContractedValue = 104_400m,
@@ -97,7 +99,7 @@ public class BookingDossierExportTests
     [Fact]
     public void The_export_of_an_empty_population_should_still_carry_the_header()
     {
-        var bytes = _export.Generate(Array.Empty<BookingRegisterItemDto>(), new BookingRegisterTotalsDto());
+        var bytes = _export.Generate(Array.Empty<BookingRegisterItemResponse>(), new BookingRegisterTotalsResponse());
 
         using var stream = new MemoryStream(bytes);
         using var workbook = new XLWorkbook(stream);

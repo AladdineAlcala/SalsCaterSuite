@@ -1,3 +1,4 @@
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
 namespace SalsCaterSuite.Application.Features.Bookings.Models;
 
 using SalsCaterSuite.Application.Features.Bookings.Services;

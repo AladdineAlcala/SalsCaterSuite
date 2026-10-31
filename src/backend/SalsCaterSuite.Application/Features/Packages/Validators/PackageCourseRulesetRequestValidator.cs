@@ -1,5 +1,7 @@
 using FluentValidation;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 
 namespace SalsCaterSuite.Application.Features.Packages.Validators;
 
@@ -18,9 +20,9 @@ namespace SalsCaterSuite.Application.Features.Packages.Validators;
 /// </summary>
 public class PackageCourseRulesetRequestValidator : AbstractValidator<PackageCourseRulesetRequest>
 {
-    private readonly IValidator<PackageCourseRuleRequestDto> _ruleValidator;
+    private readonly IValidator<PackageCourseRuleRequest> _ruleValidator;
 
-    public PackageCourseRulesetRequestValidator(IValidator<PackageCourseRuleRequestDto> ruleValidator)
+    public PackageCourseRulesetRequestValidator(IValidator<PackageCourseRuleRequest> ruleValidator)
     {
         _ruleValidator = ruleValidator;
 

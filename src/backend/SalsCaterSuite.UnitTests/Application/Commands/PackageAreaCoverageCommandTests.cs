@@ -3,7 +3,9 @@ namespace SalsCaterSuite.UnitTests.Application.Commands;
 using FluentAssertions;
 using SalsCaterSuite.Application.Features.Packages;
 using SalsCaterSuite.Application.Features.Packages.Commands;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Application.Features.Packages.Queries;
 using SalsCaterSuite.Application.Features.Packages.Validators;
 using SalsCaterSuite.Domain.Entities;
@@ -63,13 +65,13 @@ public class PackageAreaCoverageCommandTests
             _areas);
     }
 
-    private static PackageAreaCoverageRequest Request(params PackageAreaCoverageEntryDto[] coverages) =>
+    private static PackageAreaCoverageRequest Request(params PackageAreaCoverageEntryRequest[] coverages) =>
         new(coverages);
 
     [Fact]
     public async Task A_rejected_payload_should_persist_nothing()
     {
-        var result = await _replace.ExecuteAsync(1, Request(new PackageAreaCoverageEntryDto(99, true)));
+        var result = await _replace.ExecuteAsync(1, Request(new PackageAreaCoverageEntryRequest(99, true)));
 
         result.Succeeded.Should().BeFalse();
         result.Errors.Should().Contain("Area 99 does not exist.");
@@ -88,7 +90,7 @@ public class PackageAreaCoverageCommandTests
             IsActive = true
         });
 
-        var result = await _replace.ExecuteAsync(1, Request(new PackageAreaCoverageEntryDto(2, true)));
+        var result = await _replace.ExecuteAsync(1, Request(new PackageAreaCoverageEntryRequest(2, true)));
 
         result.Succeeded.Should().BeTrue();
 
@@ -134,7 +136,7 @@ public class PackageAreaCoverageCommandTests
         await _replace.ExecuteAsync(1, Request());
         _store.PackageAreaCoverages[0].IsDeleted.Should().BeTrue();
 
-        var result = await _replace.ExecuteAsync(1, Request(new PackageAreaCoverageEntryDto(1, true)));
+        var result = await _replace.ExecuteAsync(1, Request(new PackageAreaCoverageEntryRequest(1, true)));
 
         result.Succeeded.Should().BeTrue();
         _store.PackageAreaCoverages.Should().ContainSingle();
@@ -148,10 +150,10 @@ public class PackageAreaCoverageCommandTests
     {
         _store.Packages[0].IsDeleted = true;
 
-        var result = await _replace.ExecuteAsync(1, Request(new PackageAreaCoverageEntryDto(1, true)));
+        var result = await _replace.ExecuteAsync(1, Request(new PackageAreaCoverageEntryRequest(1, true)));
 
         result.Succeeded.Should().BeFalse();
-        result.Should().BeOfType<PackageNotFoundResult<PackageAreaCoverageMatrixDto>>();
+        result.Should().BeOfType<PackageNotFoundResult<PackageAreaCoverageMatrixResponse>>();
         _store.PackageAreaCoverages.Should().BeEmpty();
         _coverages.SaveCount.Should().Be(0);
     }
@@ -159,7 +161,7 @@ public class PackageAreaCoverageCommandTests
     [Fact]
     public async Task The_attach_action_should_add_a_municipality()
     {
-        var result = await _attach.ExecuteAsync(1, new PackageAreaCoverageAttachDto(1, true));
+        var result = await _attach.ExecuteAsync(1, new PackageAreaCoverageAttachRequest(1, true));
 
         result.Succeeded.Should().BeTrue();
         result.Data.Should().BeGreaterThan(0);
@@ -171,7 +173,7 @@ public class PackageAreaCoverageCommandTests
     [Fact]
     public async Task The_attach_action_should_refuse_an_unknown_municipality()
     {
-        var result = await _attach.ExecuteAsync(1, new PackageAreaCoverageAttachDto(99, true));
+        var result = await _attach.ExecuteAsync(1, new PackageAreaCoverageAttachRequest(99, true));
 
         result.Succeeded.Should().BeFalse();
         result.Errors.Should().Contain("Area 99 does not exist.");
@@ -189,7 +191,7 @@ public class PackageAreaCoverageCommandTests
             IsActive = true
         });
 
-        var result = await _attach.ExecuteAsync(1, new PackageAreaCoverageAttachDto(1, true));
+        var result = await _attach.ExecuteAsync(1, new PackageAreaCoverageAttachRequest(1, true));
 
         result.Succeeded.Should().BeFalse();
         result.Errors.Should().Contain("Area 1 is already covered by this package.");
@@ -201,7 +203,7 @@ public class PackageAreaCoverageCommandTests
     {
         _store.Packages[0].IsDeleted = true;
 
-        var result = await _attach.ExecuteAsync(1, new PackageAreaCoverageAttachDto(1, true));
+        var result = await _attach.ExecuteAsync(1, new PackageAreaCoverageAttachRequest(1, true));
 
         result.Succeeded.Should().BeFalse();
         result.Should().BeOfType<PackageNotFoundResult<int>>();

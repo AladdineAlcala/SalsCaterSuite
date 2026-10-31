@@ -3,7 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using QuestPDF.Fluent;
 using SalsCaterSuite.Application.Features.Customers;
 using SalsCaterSuite.Application.Features.Customers.Commands;
-using SalsCaterSuite.Application.Features.Customers.DTOs;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Request;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Response;
 using SalsCaterSuite.Application.Features.Customers.Queries;
 using SalsCaterSuite.Infrastructure.Documents;
 using SalsCaterSuite.Infrastructure.Exports;
@@ -60,7 +61,7 @@ public class CustomersController : ControllerBase
     /// <param name="pageSize">The page size; clamped to 1…100.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     [HttpGet("directory")]
-    [ProducesResponseType(typeof(CustomerDirectoryDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(CustomerDirectoryResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetDirectory(
         [FromQuery] string? search,
         [FromQuery] string? customerType,
@@ -136,7 +137,7 @@ public class CustomersController : ControllerBase
 
     /// <summary>POST /api/customers — Create new customer</summary>
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreateCustomerRequestDto request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Create([FromBody] CreateCustomerRequest request, CancellationToken cancellationToken)
     {
         var result = await _createCustomer.ExecuteAsync(request, cancellationToken);
         if (!result.Succeeded)
@@ -149,7 +150,7 @@ public class CustomersController : ControllerBase
 
     /// <summary>PUT /api/customers/{id} — Update customer</summary>
     [HttpPut("{id:int}")]
-    public async Task<IActionResult> Update(int id, [FromBody] CreateCustomerRequestDto request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Update(int id, [FromBody] CreateCustomerRequest request, CancellationToken cancellationToken)
     {
         var result = await _updateCustomer.ExecuteAsync(id, request, cancellationToken);
 

@@ -1,7 +1,8 @@
 namespace SalsCaterSuite.UnitTests.Application.Queries;
 
 using FluentAssertions;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
 using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Features.Bookings.Queries;
 using SalsCaterSuite.Application.Features.Bookings.Services;

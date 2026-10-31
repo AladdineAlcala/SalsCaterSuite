@@ -3,7 +3,9 @@ namespace SalsCaterSuite.UnitTests.Application.Commands;
 using FluentAssertions;
 using SalsCaterSuite.Application.Features.Packages;
 using SalsCaterSuite.Application.Features.Packages.Commands;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Application.Features.Packages.Validators;
 using SalsCaterSuite.Domain.Entities;
 using SalsCaterSuite.UnitTests.Common.Fakes;
@@ -33,7 +35,7 @@ public class PackageCommandTests
         _toggle = new TogglePackageActiveCommand(_packages);
     }
 
-    private static CreatePackageRequestDto Request() =>
+    private static CreatePackageRequest Request() =>
         new("Buffet Premium", "Premium buffet package", 650m, 100, 4);
 
     [Fact]
@@ -54,8 +56,8 @@ public class PackageCommandTests
     public async Task Create_ShouldGenerateTheFrozenPackageCode()
     {
         // Act
-        await _create.ExecuteAsync(new CreatePackageRequestDto("Wedding", "Wedding Grand", 1450m, 150, 4));
-        await _create.ExecuteAsync(new CreatePackageRequestDto("Wedding", "Wedding Two", 1500m, 150, 4));
+        await _create.ExecuteAsync(new CreatePackageRequest("Wedding", "Wedding Grand", 1450m, 150, 4));
+        await _create.ExecuteAsync(new CreatePackageRequest("Wedding", "Wedding Two", 1500m, 150, 4));
 
         // Assert — the per-type sequence starts at 01 and increments; nothing else is counted.
         _store.Packages[0].PackageCode.Should().Be("PKG-WED-01");
@@ -90,7 +92,7 @@ public class PackageCommandTests
     {
         // Act
         var result = await _create.ExecuteAsync(
-            new CreatePackageRequestDto("Regular", "Regular Feast", 950m, 80, 4, 125m));
+            new CreatePackageRequest("Regular", "Regular Feast", 950m, 80, 4, 125m));
 
         // Assert
         result.Succeeded.Should().BeTrue();
@@ -115,7 +117,7 @@ public class PackageCommandTests
 
         // Act — the operator changes the type to Wedding and sends no amount.
         var result = await _update.ExecuteAsync(
-            3, new CreatePackageRequestDto("Wedding", "Wedding Grand", 1450m, 150, 4, null));
+            3, new CreatePackageRequest("Wedding", "Wedding Grand", 1450m, 150, 4, null));
 
         // Assert
         result.Succeeded.Should().BeTrue();
@@ -187,7 +189,7 @@ public class PackageCommandTests
     public async Task Create_WhenThePayloadIsRejected_ShouldPersistNothingAndReturnTheMessages()
     {
         // Arrange
-        var request = new CreatePackageRequestDto("   ", string.Empty, -1m, 0, 0);
+        var request = new CreatePackageRequest("   ", string.Empty, -1m, 0, 0);
 
         // Act
         var result = await _create.ExecuteAsync(request);
@@ -207,7 +209,7 @@ public class PackageCommandTests
     public async Task Create_WhenTheDescriptionIsBlank_ShouldReturnTheDescriptionMessageOnly()
     {
         // Act
-        var result = await _create.ExecuteAsync(new CreatePackageRequestDto("Buffet", "   ", 100m, 10, 4));
+        var result = await _create.ExecuteAsync(new CreatePackageRequest("Buffet", "   ", 100m, 10, 4));
 
         // Assert
         result.Succeeded.Should().BeFalse();
@@ -222,7 +224,7 @@ public class PackageCommandTests
         _store.Packages.Add(new Package { PackageId = 3, PackageType = "Old", Description = "Old", AmountPax = 100m, MinPax = 10, NumPaxId = 4 });
 
         // Act
-        var result = await _update.ExecuteAsync(3, new CreatePackageRequestDto("Buffet", string.Empty, -5m, 10, 4));
+        var result = await _update.ExecuteAsync(3, new CreatePackageRequest("Buffet", string.Empty, -5m, 10, 4));
 
         // Assert — the stored tier is untouched.
         result.Succeeded.Should().BeFalse();
@@ -238,7 +240,7 @@ public class PackageCommandTests
     public async Task Update_WhenThePayloadIsRejected_ShouldNotBeReportedAsNotFound()
     {
         // Act
-        var result = await _update.ExecuteAsync(999, new CreatePackageRequestDto("Buffet", string.Empty, 100m, 10, 4));
+        var result = await _update.ExecuteAsync(999, new CreatePackageRequest("Buffet", string.Empty, 100m, 10, 4));
 
         // Assert — a rejected payload is a 400, not a 404, even for an unknown tier.
         result.Succeeded.Should().BeFalse();
@@ -253,7 +255,7 @@ public class PackageCommandTests
     {
         // Act
         var result = await _create.ExecuteAsync(
-            new CreatePackageRequestDto("Buffet Premium", "Premium buffet package", 650m, 100, 2));
+            new CreatePackageRequest("Buffet Premium", "Premium buffet package", 650m, 100, 2));
 
         // Assert
         result.Succeeded.Should().BeTrue();
@@ -265,7 +267,7 @@ public class PackageCommandTests
     {
         // Act — the identifier is omitted, so it binds the C# default of zero.
         var result = await _create.ExecuteAsync(
-            new CreatePackageRequestDto("Buffet Premium", "Premium buffet package", 650m, 100, 0));
+            new CreatePackageRequest("Buffet Premium", "Premium buffet package", 650m, 100, 0));
 
         // Assert
         result.Succeeded.Should().BeFalse();
@@ -278,7 +280,7 @@ public class PackageCommandTests
     {
         // Act — a positive identifier that references no lookup row.
         var result = await _create.ExecuteAsync(
-            new CreatePackageRequestDto("Buffet Premium", "Premium buffet package", 650m, 100, 999));
+            new CreatePackageRequest("Buffet Premium", "Premium buffet package", 650m, 100, 999));
 
         // Assert — the referential half of the validation (DEC-173).
         result.Succeeded.Should().BeFalse();
@@ -294,7 +296,7 @@ public class PackageCommandTests
 
         // Act
         var result = await _create.ExecuteAsync(
-            new CreatePackageRequestDto("Buffet Premium", "Premium buffet package", 650m, 100, 3));
+            new CreatePackageRequest("Buffet Premium", "Premium buffet package", 650m, 100, 3));
 
         // Assert
         result.Succeeded.Should().BeFalse();
@@ -319,7 +321,7 @@ public class PackageCommandTests
 
         // Act
         var result = await _update.ExecuteAsync(
-            3, new CreatePackageRequestDto("Regular", "New", 100m, 10, 5));
+            3, new CreatePackageRequest("Regular", "New", 100m, 10, 5));
 
         // Assert
         result.Succeeded.Should().BeTrue();
@@ -343,7 +345,7 @@ public class PackageCommandTests
 
         // Act
         var result = await _update.ExecuteAsync(
-            3, new CreatePackageRequestDto("Regular", "New", 100m, 10, 999));
+            3, new CreatePackageRequest("Regular", "New", 100m, 10, 999));
 
         // Assert — the stored tier keeps its previous classification and description.
         result.Succeeded.Should().BeFalse();
@@ -371,7 +373,7 @@ public class PackageCommandTests
 
         // Act
         var result = await _update.ExecuteAsync(
-            3, new CreatePackageRequestDto("Regular", "New", 100m, 10, 0));
+            3, new CreatePackageRequest("Regular", "New", 100m, 10, 0));
 
         // Assert
         result.Succeeded.Should().BeFalse();

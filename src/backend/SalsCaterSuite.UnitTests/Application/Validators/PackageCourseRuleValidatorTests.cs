@@ -1,7 +1,9 @@
 namespace SalsCaterSuite.UnitTests.Application.Validators;
 
 using FluentAssertions;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Application.Features.Packages.Validators;
 using SalsCaterSuite.Domain.Entities;
 using SalsCaterSuite.UnitTests.Common.Fakes;
@@ -29,7 +31,7 @@ public class PackageCourseRuleValidatorTests
         _store.CourseCategories.Add(new CourseCategory { CourseId = 6, CourseName = "Dessert", IsDeleted = true });
     }
 
-    private static PackageCourseRuleRequestDto ValidRule(int courseId = 5) =>
+    private static PackageCourseRuleRequest ValidRule(int courseId = 5) =>
         new(courseId, 1, 120, "One beef selection");
 
     [Fact]
@@ -55,7 +57,7 @@ public class PackageCourseRuleValidatorTests
     [Fact]
     public async Task An_empty_ruleset_should_pass_because_it_clears_the_tier()
     {
-        var request = new PackageCourseRulesetRequest(Array.Empty<PackageCourseRuleRequestDto>());
+        var request = new PackageCourseRulesetRequest(Array.Empty<PackageCourseRuleRequest>());
 
         (await _setValidator.ValidateAsync(request)).IsValid.Should().BeTrue();
     }
@@ -162,7 +164,7 @@ public class PackageCourseRuleValidatorTests
     [Fact]
     public void The_retired_inclusion_tag_and_upgrade_add_on_should_not_be_declared_on_the_request()
     {
-        var members = typeof(PackageCourseRuleRequestDto)
+        var members = typeof(PackageCourseRuleRequest)
             .GetProperties()
             .Select(property => property.Name)
             .ToList();

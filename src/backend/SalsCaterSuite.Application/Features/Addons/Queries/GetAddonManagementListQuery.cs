@@ -1,6 +1,7 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Addons.DTOs;
+using SalsCaterSuite.Application.Features.Addons.DTOs.Request;
+using SalsCaterSuite.Application.Features.Addons.DTOs.Response;
 
 namespace SalsCaterSuite.Application.Features.Addons.Queries;
 
@@ -18,12 +19,12 @@ public class GetAddonManagementListQuery
         _addons = addons;
     }
 
-    public async Task<Result<List<AddonAdminItemDto>>> ExecuteAsync(
+    public async Task<Result<List<AddonAdminItemResponse>>> ExecuteAsync(
         CancellationToken cancellationToken = default)
     {
         var rows = await _addons.GetAllForManagementAsync(cancellationToken);
 
-        return Result<List<AddonAdminItemDto>>.Success(
+        return Result<List<AddonAdminItemResponse>>.Success(
             rows.Select(AddonAdminMapper.ToDto).ToList());
     }
 }

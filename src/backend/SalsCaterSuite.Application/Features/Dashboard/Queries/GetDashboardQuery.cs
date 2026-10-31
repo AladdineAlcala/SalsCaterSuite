@@ -1,6 +1,6 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Dashboard.DTOs;
+using SalsCaterSuite.Application.Features.Dashboard.DTOs.Response;
 using SalsCaterSuite.Application.Features.Dashboard.Models;
 using SalsCaterSuite.Application.Features.Dashboard.Services;
 
@@ -31,7 +31,7 @@ public class GetDashboardQuery
     /// </summary>
     /// <param name="period">The optional <c>YYYY-MM</c> period query string.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task<Result<DashboardDto>> ExecuteAsync(string? period, CancellationToken cancellationToken = default)
+    public async Task<Result<DashboardResponse>> ExecuteAsync(string? period, CancellationToken cancellationToken = default)
     {
         DashboardPeriod resolvedPeriod;
 
@@ -41,7 +41,7 @@ public class GetDashboardQuery
         }
         else if (!DashboardPeriod.TryParse(period, out resolvedPeriod))
         {
-            return Result<DashboardDto>.Failure(DashboardErrors.InvalidPeriod);
+            return Result<DashboardResponse>.Failure(DashboardErrors.InvalidPeriod);
         }
 
         return await _dashboard.GetAsync(resolvedPeriod, cancellationToken);

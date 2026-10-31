@@ -1,7 +1,9 @@
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 
 namespace SalsCaterSuite.Infrastructure.Documents;
 
@@ -48,9 +50,9 @@ public class ContractDocument : IDocument
         "CATERING CONTRACT & SERVICE AGREEMENT"
     };
 
-    public BookingDto Booking { get; }
+    public BookingResponse Booking { get; }
 
-    public ContractDocument(BookingDto booking)
+    public ContractDocument(BookingResponse booking)
     {
         Booking = booking;
     }
@@ -307,7 +309,7 @@ public class ContractDocument : IDocument
     }
 
     /// <summary>
-    /// Reference printed on the agreement. The human-readable <see cref="BookingDto.BookingNumber"/>
+    /// Reference printed on the agreement. The human-readable <see cref="BookingResponse.BookingNumber"/>
     /// is authoritative (DEC-016 / DEC-023); the free-text reference and finally the legacy
     /// <c>TRN-{id}</c> form are used only when the booking number is blank.
     /// </summary>

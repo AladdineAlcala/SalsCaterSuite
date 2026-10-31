@@ -1,14 +1,16 @@
 using FluentValidation;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Menus.DTOs;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Request;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Response;
+using SalsCaterSuite.Application.Features.Menus.Models;
 
 namespace SalsCaterSuite.Application.Features.Menus.Commands;
 
 /// <summary>
 /// PUT /api/menus/{id} — update a menu item.
 /// <para>
-/// The command runs the same <see cref="CreateMenuRequestDto"/> validator the create command
+/// The command runs the same <see cref="CreateMenuRequest"/> validator the create command
 /// runs (BR-11, spec §6.4). Before this correction the update applied no validation at all, so
 /// a blank or an over-length name reached the database and produced a truncation error (a 500)
 /// instead of a rejected request.
@@ -21,15 +23,15 @@ namespace SalsCaterSuite.Application.Features.Menus.Commands;
 public class UpdateMenuCommand
 {
     private readonly IMenuRepository _menus;
-    private readonly IValidator<CreateMenuRequestDto> _validator;
+    private readonly IValidator<CreateMenuRequest> _validator;
 
-    public UpdateMenuCommand(IMenuRepository menus, IValidator<CreateMenuRequestDto> validator)
+    public UpdateMenuCommand(IMenuRepository menus, IValidator<CreateMenuRequest> validator)
     {
         _menus = menus;
         _validator = validator;
     }
 
-    public async Task<Result> ExecuteAsync(string id, CreateMenuRequestDto request, CancellationToken cancellationToken = default)
+    public async Task<Result> ExecuteAsync(string id, CreateMenuRequest request, CancellationToken cancellationToken = default)
     {
         // The validation runs first, exactly as it does in CreateMenuCommand, so an invalid
         // payload is rejected before anything is written.

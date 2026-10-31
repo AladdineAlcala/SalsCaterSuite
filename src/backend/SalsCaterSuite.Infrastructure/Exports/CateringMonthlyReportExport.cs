@@ -1,12 +1,14 @@
 using ClosedXML.Excel;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Domain.Enums;
 
 namespace SalsCaterSuite.Infrastructure.Exports;
 
 public class CateringMonthlyReportExport
 {
-    public byte[] Generate(int year, int month, IEnumerable<BookingDto> bookings)
+    public byte[] Generate(int year, int month, IEnumerable<BookingResponse> bookings)
     {
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Monthly Catering Report");

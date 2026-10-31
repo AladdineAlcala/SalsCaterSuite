@@ -1,7 +1,8 @@
 namespace SalsCaterSuite.UnitTests.Application.Validators;
 
 using FluentAssertions;
-using SalsCaterSuite.Application.Features.Customers.DTOs;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Request;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Response;
 using SalsCaterSuite.Application.Features.Customers.Validators;
 using Xunit;
 
@@ -18,7 +19,7 @@ public class CreateCustomerValidatorTests
 {
     private readonly CreateCustomerValidator _validator = new();
 
-    private static CreateCustomerRequestDto ValidRequest() =>
+    private static CreateCustomerRequest ValidRequest() =>
         new("Santos", "Maria", "Cruz", "12 Rizal St, Manila", "09171234567", null, null);
 
     [Fact]

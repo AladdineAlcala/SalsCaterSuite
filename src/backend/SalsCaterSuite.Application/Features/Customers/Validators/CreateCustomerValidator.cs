@@ -1,9 +1,10 @@
 using FluentValidation;
-using SalsCaterSuite.Application.Features.Customers.DTOs;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Request;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Response;
 
 namespace  SalsCaterSuite.Application.Features.Customers.Validators;
 
-public class CreateCustomerValidator : AbstractValidator<CreateCustomerRequestDto>
+public class CreateCustomerValidator : AbstractValidator<CreateCustomerRequest>
 {
     public CreateCustomerValidator()
     {

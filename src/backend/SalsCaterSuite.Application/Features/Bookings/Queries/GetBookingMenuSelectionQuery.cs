@@ -1,6 +1,8 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Features.Bookings.Services;
 
 namespace SalsCaterSuite.Application.Features.Bookings.Queries;
@@ -28,7 +30,7 @@ public class GetBookingMenuSelectionQuery
         _presenter = presenter;
     }
 
-    public async Task<Result<BookingMenuSelectionDto>> ExecuteAsync(
+    public async Task<Result<BookingMenuSelectionResponse>> ExecuteAsync(
         int transactionId,
         CancellationToken cancellationToken = default)
     {
@@ -36,10 +38,10 @@ public class GetBookingMenuSelectionQuery
 
         if (booking is null)
         {
-            return new BookingNotFoundResult<BookingMenuSelectionDto>("Booking not found.");
+            return new BookingNotFoundResult<BookingMenuSelectionResponse>("Booking not found.");
         }
 
-        return Result<BookingMenuSelectionDto>.Success(
+        return Result<BookingMenuSelectionResponse>.Success(
             await _presenter.BuildAsync(booking, cancellationToken));
     }
 }

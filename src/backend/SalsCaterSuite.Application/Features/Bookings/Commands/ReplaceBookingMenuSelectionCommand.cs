@@ -1,6 +1,8 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Features.Bookings.Services;
 using SalsCaterSuite.Domain.Entities;
 using SalsCaterSuite.Domain.Enums;
@@ -44,7 +46,7 @@ public class ReplaceBookingMenuSelectionCommand
         _clock = clock;
     }
 
-    public async Task<Result<BookingMenuSelectionDto>> ExecuteAsync(
+    public async Task<Result<BookingMenuSelectionResponse>> ExecuteAsync(
         int transactionId,
         BookingMenuSelectionRequest request,
         CancellationToken cancellationToken = default)
@@ -53,7 +55,7 @@ public class ReplaceBookingMenuSelectionCommand
         // "clear everything". An explicitly empty array is the client's clear.
         if (request.Selections is null)
         {
-            return Result<BookingMenuSelectionDto>.Failure(
+            return Result<BookingMenuSelectionResponse>.Failure(
                 "The 'selections' member is required. Send an empty array to clear the selection.");
         }
 
@@ -61,18 +63,18 @@ public class ReplaceBookingMenuSelectionCommand
 
         if (booking is null)
         {
-            return new BookingNotFoundResult<BookingMenuSelectionDto>("Booking not found.");
+            return new BookingNotFoundResult<BookingMenuSelectionResponse>("Booking not found.");
         }
 
         if (booking.Status == BookingStatus.Cancelled)
         {
-            return Result<BookingMenuSelectionDto>.Failure(
+            return Result<BookingMenuSelectionResponse>.Failure(
                 "A cancelled booking's dish selection cannot be changed.");
         }
 
         if (booking.Status == BookingStatus.Completed)
         {
-            return Result<BookingMenuSelectionDto>.Failure(
+            return Result<BookingMenuSelectionResponse>.Failure(
                 "A completed booking's dish selection cannot be changed.");
         }
 
@@ -83,7 +85,7 @@ public class ReplaceBookingMenuSelectionCommand
 
         if (window.IsLocked)
         {
-            return Result<BookingMenuSelectionDto>.Failure(
+            return Result<BookingMenuSelectionResponse>.Failure(
                 $"The dish selection cannot be changed: the menu-change window closed on " +
                 $"{window.LockDate:yyyy-MM-dd}.");
         }
@@ -98,7 +100,7 @@ public class ReplaceBookingMenuSelectionCommand
 
         if (!resolved.Succeeded)
         {
-            return Result<BookingMenuSelectionDto>.Failure(resolved.Errors);
+            return Result<BookingMenuSelectionResponse>.Failure(resolved.Errors);
         }
 
         Apply(booking, resolved.Data!.Selections);
@@ -107,7 +109,7 @@ public class ReplaceBookingMenuSelectionCommand
 
         await _bookings.SaveChangesAsync(cancellationToken);
 
-        return Result<BookingMenuSelectionDto>.Success(
+        return Result<BookingMenuSelectionResponse>.Success(
             await _presenter.BuildAsync(booking, cancellationToken));
     }
 

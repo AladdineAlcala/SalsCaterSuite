@@ -178,7 +178,7 @@ The **payment state** answers one question: *how far along is the payment?* It i
 
 The evaluation order is **`PendingPayment` → `DepositPaid` → `FullyPaid`**, and the three are exclusive by construction. Every booking therefore has **exactly one** payment state, and the three counts sum to the population's booking count. Payment state is derived from non-soft-deleted ledger entries and the shared net-due path; it is not stored in or written to `Booking.Status`.
 
-`BookingDto.status` and `paymentState` are separate fields and separate concepts: the first describes event lifecycle; the second describes payment progress. `DepositPaid` and `FullyPaid` no longer appear in `BookingStatus`, so they unambiguously belong to the payment-state projection. DEC-177 supersedes the name-avoidance constraint in DEC-117.
+`BookingResponse.status` and `paymentState` are separate fields and separate concepts: the first describes event lifecycle; the second describes payment progress. `DepositPaid` and `FullyPaid` no longer appear in `BookingStatus`, so they unambiguously belong to the payment-state projection. DEC-177 supersedes the name-avoidance constraint in DEC-117.
 
 **Overdue is a separate dimension, not a payment state.** A booking with a balance is **overdue** when its **event date has passed** — the event date is the due date (DEC-041):
 
@@ -406,26 +406,26 @@ The existing details endpoint is **extended** with the four frozen members this 
 
 **Query** — §3.3.
 
-**Response `BookingRegisterPageDto`**
+**Response `BookingRegisterPageResponse`**
 
 ```
-items          : BookingRegisterItemDto[]     ← the page
+items          : BookingRegisterItemResponse[]     ← the page
 totalCount     : int                          ← the filtered population
 page           : int
 pageSize       : int
 totalPages     : int
-summary        : BookingRegisterTotalsDto     ← the totals strip
-quickViewCounts: BookingRegisterFacetsDto     ← the facet counts
+summary        : BookingRegisterTotalsResponse     ← the totals strip
+quickViewCounts: BookingRegisterFacetsResponse     ← the facet counts
 generatedAt    : DateTime
 ```
 
-**`BookingRegisterTotalsDto`** — the totals strip. Every figure is over the **whole filtered population**, not the page.
+**`BookingRegisterTotalsResponse`** — the totals strip. Every figure is over the **whole filtered population**, not the page.
 
 ```
 bookingCount, netContractedValue, collectedAmount, outstandingAmount, totalPax
 ```
 
-**`BookingRegisterFacetsDto`**
+**`BookingRegisterFacetsResponse`**
 
 ```
 packageTypes : [{ key, count }]
@@ -434,7 +434,7 @@ statuses     : [{ key, count }]
 paymentStates: [{ key, count }]
 ```
 
-**`BookingRegisterItemDto`** — one dossier card.
+**`BookingRegisterItemResponse`** — one dossier card.
 
 ```
 transactionId, bookingNumber,
@@ -454,7 +454,7 @@ baseGrossProfitPercentage   ← nullable; the tier's planning estimate (DEC-103)
 
 Same query as §4.1.
 
-**Response `BookingRegisterSummaryDto`**
+**Response `BookingRegisterSummaryResponse`**
 
 ```
 pipeline : { bookingCount, confirmedCount, tentativeCount, completedCount, otherCount, committedPax }
@@ -474,7 +474,7 @@ generatedAt : DateTime
 
 ### 4.3 `POST /api/bookings/quote` — the workbench quote
 
-**Request `BookingQuoteRequestDto`**
+**Request `BookingQuoteRequest`**
 
 ```
 customerId, packageId, noOfPerson, occasion, venue,
@@ -483,7 +483,7 @@ extendedAreaId?, applyExtendedAmount,
 discountCode?, depositAmount?, initialPaymentAmount?
 ```
 
-**Response `BookingQuoteDto`**
+**Response `BookingQuoteResponse`**
 
 ```
 packageName, packageType, minPax, isTierActive,
@@ -502,7 +502,7 @@ checks : [{ key, label, isSatisfied, isBlocking, detail }]
 
 ### 4.4 `POST /api/bookings` — the extended create
 
-**Request `CreateBookingRequestDto`** — the existing fields plus:
+**Request `CreateBookingRequest`** — the existing fields plus:
 
 ```
 callTime?, packoutTime?, discountCode?, depositAmount?,
@@ -510,7 +510,7 @@ confirm : bool                        ← false = draft (Pending), true = confir
 initialPayment? : { amountPaid, paymentMeans, checkNo?, notes?, particular? }
 ```
 
-**Response `CreateBookingResponseDto`** — `{ transactionId, bookingNumber, status }`.
+**Response `CreateBookingResponse`** — `{ transactionId, bookingNumber, status }`.
 
 The **confirm** path records the initial payment in the **same commit** as the booking, so a confirmed booking with a deposit is never a booking without its payment.
 

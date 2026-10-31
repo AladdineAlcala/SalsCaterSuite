@@ -1,5 +1,7 @@
 using FluentValidation;
-using SalsCaterSuite.Application.Features.Menus.DTOs;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Request;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Response;
+using SalsCaterSuite.Application.Features.Menus.Models;
 
 namespace SalsCaterSuite.Application.Features.Menus.Validators;
 
@@ -8,7 +10,7 @@ namespace SalsCaterSuite.Application.Features.Menus.Validators;
 /// cost is rejected with the standard <c>{ "errors": [ ... ] }</c> contract; a zero price is
 /// accepted and yields zero percentages, exactly as the costing service does.
 /// </summary>
-public class MenuCostingPreviewValidator : AbstractValidator<MenuCostingPreviewRequestDto>
+public class MenuCostingPreviewValidator : AbstractValidator<MenuCostingPreviewRequest>
 {
     public MenuCostingPreviewValidator()
     {

@@ -1,5 +1,6 @@
 using ClosedXML.Excel;
-using SalsCaterSuite.Application.Features.Customers.DTOs;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Request;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Response;
 
 namespace SalsCaterSuite.Infrastructure.Exports;
 
@@ -12,7 +13,7 @@ namespace SalsCaterSuite.Infrastructure.Exports;
 /// </summary>
 public class CustomerDirectoryExport
 {
-    public byte[] Generate(IEnumerable<CustomerDirectoryItemDto> customers)
+    public byte[] Generate(IEnumerable<CustomerDirectoryItemResponse> customers)
     {
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Customer Directory");

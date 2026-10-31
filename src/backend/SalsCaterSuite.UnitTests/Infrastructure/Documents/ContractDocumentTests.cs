@@ -3,7 +3,9 @@ namespace SalsCaterSuite.UnitTests.Infrastructure.Documents;
 using FluentAssertions;
 using QuestPDF.Fluent;
 using SalsCaterSuite.Application.Common.Interfaces;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Features.Bookings.Queries;
 using SalsCaterSuite.Application.Features.Bookings.Services;
 using SalsCaterSuite.Application.Services;
@@ -47,7 +49,7 @@ public class ContractDocumentTests
     /// Builds a booking and projects it through the <b>real</b> booking-details path, so the
     /// document is composed from the same DTO the API serves.
     /// </summary>
-    private async Task<(Booking Booking, BookingDto Dto)> SeedAsync(
+    private async Task<(Booking Booking, BookingResponse Dto)> SeedAsync(
         decimal pricePerHead = 500m,
         int heads = 100,
         decimal extendedAreaAmount = 0m,

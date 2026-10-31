@@ -1,7 +1,9 @@
 using FluentValidation;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Menus.DTOs;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Request;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Response;
+using SalsCaterSuite.Application.Features.Menus.Models;
 using SalsCaterSuite.Domain.Entities;
 
 namespace SalsCaterSuite.Application.Features.Menus.Commands;
@@ -17,15 +19,15 @@ namespace SalsCaterSuite.Application.Features.Menus.Commands;
 public class CreateMenuCommand
 {
     private readonly IMenuRepository _menus;
-    private readonly IValidator<CreateMenuRequestDto> _validator;
+    private readonly IValidator<CreateMenuRequest> _validator;
 
-    public CreateMenuCommand(IMenuRepository menus, IValidator<CreateMenuRequestDto> validator)
+    public CreateMenuCommand(IMenuRepository menus, IValidator<CreateMenuRequest> validator)
     {
         _menus = menus;
         _validator = validator;
     }
 
-    public async Task<Result<string>> ExecuteAsync(CreateMenuRequestDto request, CancellationToken cancellationToken = default)
+    public async Task<Result<string>> ExecuteAsync(CreateMenuRequest request, CancellationToken cancellationToken = default)
     {
         var validationResult = await _validator.ValidateAsync(request, cancellationToken);
         if (!validationResult.IsValid)

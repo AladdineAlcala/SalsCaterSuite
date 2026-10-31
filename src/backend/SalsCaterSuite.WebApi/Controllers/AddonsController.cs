@@ -2,9 +2,12 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SalsCaterSuite.Application.Features.Addons;
 using SalsCaterSuite.Application.Features.Addons.Commands;
-using SalsCaterSuite.Application.Features.Addons.DTOs;
+using SalsCaterSuite.Application.Features.Addons.DTOs.Request;
+using SalsCaterSuite.Application.Features.Addons.DTOs.Response;
 using SalsCaterSuite.Application.Features.Addons.Queries;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Features.Bookings.Queries;
 
 namespace SalsCaterSuite.WebApi.Controllers;
@@ -55,7 +58,7 @@ public class AddonsController : ControllerBase
     /// </para>
     /// </summary>
     [HttpGet]
-    [ProducesResponseType(typeof(List<AddonMasterItemDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(List<AddonMasterItemResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetAll(
         [FromQuery] int? categoryId,
@@ -76,7 +79,7 @@ public class AddonsController : ControllerBase
 
     /// <summary>GET /api/addons/categories — the add-on category master (contract §16.2).</summary>
     [HttpGet("categories")]
-    [ProducesResponseType(typeof(List<AddonCategoryDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(List<AddonCategoryResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetCategories(CancellationToken cancellationToken)
     {
         var result = await _getCategories.ExecuteAsync(cancellationToken);
@@ -88,7 +91,7 @@ public class AddonsController : ControllerBase
     /// inactive, with its category and department (the 2026-10-24 request).
     /// </summary>
     [HttpGet("manage")]
-    [ProducesResponseType(typeof(List<AddonAdminItemDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(List<AddonAdminItemResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetManaged(CancellationToken cancellationToken)
     {
         var result = await _getManagedAddons.ExecuteAsync(cancellationToken);
@@ -97,7 +100,7 @@ public class AddonsController : ControllerBase
 
     /// <summary>GET /api/addons/manage/{id} — one add-on for the administration form.</summary>
     [HttpGet("manage/{id:int}")]
-    [ProducesResponseType(typeof(AddonAdminItemDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(AddonAdminItemResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetManagedById(int id, CancellationToken cancellationToken)
     {

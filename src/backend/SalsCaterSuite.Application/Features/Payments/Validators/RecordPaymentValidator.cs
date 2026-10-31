@@ -1,9 +1,10 @@
 using FluentValidation;
-using SalsCaterSuite.Application.Features.Payments.DTOs;
+using SalsCaterSuite.Application.Features.Payments.DTOs.Request;
+using SalsCaterSuite.Application.Features.Payments.DTOs.Response;
 
 namespace SalsCaterSuite.Application.Features.Payments.Validators;
 
-public class RecordPaymentValidator : AbstractValidator<RecordPaymentRequestDto>
+public class RecordPaymentValidator : AbstractValidator<RecordPaymentRequest>
 {
     public RecordPaymentValidator()
     {

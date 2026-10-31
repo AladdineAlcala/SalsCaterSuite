@@ -1,6 +1,8 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Domain.Entities;
 
 namespace SalsCaterSuite.Application.Features.Packages.Commands;
@@ -32,7 +34,7 @@ public class AttachPackageAreaCoverageCommand
 
     public async Task<Result<int>> ExecuteAsync(
         int packageId,
-        PackageAreaCoverageAttachDto request,
+        PackageAreaCoverageAttachRequest request,
         CancellationToken cancellationToken = default)
     {
         // The tier is resolved through the catalogue population (DEC-074).

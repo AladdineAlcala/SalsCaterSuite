@@ -1,7 +1,8 @@
 using FluentValidation;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Customers.DTOs;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Request;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Response;
 using SalsCaterSuite.Domain.Entities;
 
 namespace SalsCaterSuite.Application.Features.Customers.Commands;
@@ -10,15 +11,15 @@ namespace SalsCaterSuite.Application.Features.Customers.Commands;
 public class CreateCustomerCommand
 {
     private readonly ICustomerRepository _customers;
-    private readonly IValidator<CreateCustomerRequestDto> _validator;
+    private readonly IValidator<CreateCustomerRequest> _validator;
 
-    public CreateCustomerCommand(ICustomerRepository customers, IValidator<CreateCustomerRequestDto> validator)
+    public CreateCustomerCommand(ICustomerRepository customers, IValidator<CreateCustomerRequest> validator)
     {
         _customers = customers;
         _validator = validator;
     }
 
-    public async Task<Result<int>> ExecuteAsync(CreateCustomerRequestDto request, CancellationToken cancellationToken = default)
+    public async Task<Result<int>> ExecuteAsync(CreateCustomerRequest request, CancellationToken cancellationToken = default)
     {
         var validationResult = await _validator.ValidateAsync(request, cancellationToken);
         if (!validationResult.IsValid)

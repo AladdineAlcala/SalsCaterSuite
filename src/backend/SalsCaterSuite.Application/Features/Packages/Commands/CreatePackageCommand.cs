@@ -1,7 +1,9 @@
 using FluentValidation;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Application.Features.Packages.Services;
 using SalsCaterSuite.Domain.Entities;
 
@@ -24,19 +26,19 @@ public class CreatePackageCommand
 {
     private readonly IPackageRepository _packages;
     private readonly IPackagePaxApplicableRepository _paxApplicables;
-    private readonly IValidator<CreatePackageRequestDto> _validator;
+    private readonly IValidator<CreatePackageRequest> _validator;
 
     public CreatePackageCommand(
         IPackageRepository packages,
         IPackagePaxApplicableRepository paxApplicables,
-        IValidator<CreatePackageRequestDto> validator)
+        IValidator<CreatePackageRequest> validator)
     {
         _packages = packages;
         _paxApplicables = paxApplicables;
         _validator = validator;
     }
 
-    public async Task<Result<int>> ExecuteAsync(CreatePackageRequestDto request, CancellationToken cancellationToken = default)
+    public async Task<Result<int>> ExecuteAsync(CreatePackageRequest request, CancellationToken cancellationToken = default)
     {
         // The validation runs first, so an invalid payload never reaches the database.
         var validationResult = await _validator.ValidateAsync(request, cancellationToken);

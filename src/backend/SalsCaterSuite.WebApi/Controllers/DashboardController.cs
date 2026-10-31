@@ -1,7 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SalsCaterSuite.Application.Features.Dashboard;
-using SalsCaterSuite.Application.Features.Dashboard.DTOs;
+using SalsCaterSuite.Application.Features.Dashboard.DTOs.Response;
+using SalsCaterSuite.Application.Features.Dashboard.Models;
 using SalsCaterSuite.Application.Features.Dashboard.Queries;
 
 namespace SalsCaterSuite.WebApi.Controllers;
@@ -30,7 +31,7 @@ public class DashboardController : ControllerBase
     /// <param name="period">The optional reporting period, <c>YYYY-MM</c>. Defaults to the current UTC calendar month.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     [HttpGet]
-    [ProducesResponseType(typeof(DashboardDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(DashboardResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

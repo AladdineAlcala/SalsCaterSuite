@@ -1,4 +1,5 @@
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
 using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Services;
 using SalsCaterSuite.Domain.Entities;
@@ -116,7 +117,7 @@ public static class BookingRegisterProjection
     /// The four facet populations. Each one has <b>its own dimension removed</b>, so every facet
     /// answers "how many would I get if I chose this?" (BR-32).
     /// </summary>
-    public static BookingRegisterFacetsDto BuildFacets(
+    public static BookingRegisterFacetsResponse BuildFacets(
         IReadOnlyList<BookingRegisterRow> rows,
         BookingRegisterFilter filter)
     {
@@ -148,7 +149,7 @@ public static class BookingRegisterProjection
                 && MatchesOverdue(row, filter))
             .ToList();
 
-        return new BookingRegisterFacetsDto
+        return new BookingRegisterFacetsResponse
         {
             PackageTypes = Facet(packageTypes, row => row.Booking.Package?.PackageType),
             Venues = Facet(venues, row => row.Booking.Venue),
@@ -161,7 +162,7 @@ public static class BookingRegisterProjection
     /// Counts a facet's keys. A booking with no tier has no tier type and is therefore absent
     /// from the tier facet (BR-27); a booking with no venue is absent from the venue facet.
     /// </summary>
-    private static List<BookingRegisterFacetCountDto> Facet(
+    private static List<BookingRegisterFacetCountResponse> Facet(
         IEnumerable<BookingRegisterRow> rows,
         Func<BookingRegisterRow, string?> keySelector)
     {
@@ -169,7 +170,7 @@ public static class BookingRegisterProjection
             .Select(keySelector)
             .Where(key => !string.IsNullOrWhiteSpace(key))
             .GroupBy(key => key!, StringComparer.Ordinal)
-            .Select(group => new BookingRegisterFacetCountDto { Key = group.Key, Count = group.Count() })
+            .Select(group => new BookingRegisterFacetCountResponse { Key = group.Key, Count = group.Count() })
             .OrderByDescending(facet => facet.Count)
             .ThenBy(facet => facet.Key, StringComparer.Ordinal)
             .ToList();

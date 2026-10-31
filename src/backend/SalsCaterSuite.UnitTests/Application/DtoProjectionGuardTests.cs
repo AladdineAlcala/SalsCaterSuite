@@ -3,8 +3,12 @@ namespace SalsCaterSuite.UnitTests.Application;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using FluentAssertions;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using Xunit;
 
 /// <summary>
@@ -46,19 +50,19 @@ public class DtoProjectionGuardTests
     [Fact]
     public void Every_booking_details_member_should_be_projected_by_the_details_query()
     {
-        AssertEveryMemberIsProjected(typeof(BookingDto), DetailsProjection);
+        AssertEveryMemberIsProjected(typeof(BookingResponse), DetailsProjection);
     }
 
     [Fact]
     public void Every_register_item_member_should_be_projected_by_the_register_query()
     {
-        AssertEveryMemberIsProjected(typeof(BookingRegisterItemDto), RegisterProjection);
+        AssertEveryMemberIsProjected(typeof(BookingRegisterItemResponse), RegisterProjection);
     }
 
     [Fact]
     public void Every_quote_member_should_be_projected_by_the_quote_command()
     {
-        AssertEveryMemberIsProjected(typeof(BookingQuoteDto), QuoteProjection);
+        AssertEveryMemberIsProjected(typeof(BookingQuoteResponse), QuoteProjection);
     }
 
     /// <summary>
@@ -73,7 +77,7 @@ public class DtoProjectionGuardTests
     [Fact]
     public void Every_package_member_should_be_projected_by_both_package_projections()
     {
-        AssertEveryMemberIsProjected(typeof(PackageDto), PackagesRepository, expectedInitializerCount: 2);
+        AssertEveryMemberIsProjected(typeof(PackageResponse), PackagesRepository, expectedInitializerCount: 2);
     }
 
     /// <summary>

@@ -1,7 +1,8 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
 using SalsCaterSuite.Application.Features.Bookings.Services;
-using SalsCaterSuite.Application.Features.Customers.DTOs;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Request;
+using SalsCaterSuite.Application.Features.Customers.DTOs.Response;
 using SalsCaterSuite.Application.Features.Customers.Services;
 using SalsCaterSuite.Application.Services;
 using SalsCaterSuite.Domain.Enums;
@@ -40,13 +41,13 @@ public class GetCustomerStatementQuery
         _aging = aging;
     }
 
-    public async Task<Result<CustomerStatementDto>> ExecuteAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<Result<CustomerStatementResponse>> ExecuteAsync(int id, CancellationToken cancellationToken = default)
     {
         var customer = await _customers.GetWithStatementDetailsAsync(id, cancellationToken);
 
         if (customer is null)
         {
-            return Result<CustomerStatementDto>.Failure("Customer not found.");
+            return Result<CustomerStatementResponse>.Failure("Customer not found.");
         }
 
         var today = _aging.Today;
@@ -63,7 +64,7 @@ public class GetCustomerStatementQuery
             // Only a line that carries a balance ages (DEC-041 / DEC-053).
             var agingBucket = balance > 0m ? _aging.GetBucketKey(b.EventDate, today) : null;
 
-            return new CustomerStatementLineDto
+            return new CustomerStatementLineResponse
             {
                 TransactionId = b.TransactionId,
                 BookingNumber = b.BookingNumber,
@@ -90,7 +91,7 @@ public class GetCustomerStatementQuery
             .SelectMany(b => b.Refunds)
             .Sum(r => r.NetAmount);
 
-        var statement = new CustomerStatementDto
+        var statement = new CustomerStatementResponse
         {
             CustomerId = customer.CustomerId,
             CustomerName = customer.FullName,
@@ -105,6 +106,6 @@ public class GetCustomerStatementQuery
             Transactions = lines
         };
 
-        return Result<CustomerStatementDto>.Success(statement);
+        return Result<CustomerStatementResponse>.Success(statement);
     }
 }

@@ -1,5 +1,7 @@
 using ClosedXML.Excel;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 
 namespace SalsCaterSuite.Infrastructure.Exports;
 
@@ -13,7 +15,7 @@ namespace SalsCaterSuite.Infrastructure.Exports;
 /// </summary>
 public class BookingRegisterExport
 {
-    public byte[] Generate(IEnumerable<BookingRegisterItemDto> bookings, BookingRegisterTotalsDto totals)
+    public byte[] Generate(IEnumerable<BookingRegisterItemResponse> bookings, BookingRegisterTotalsResponse totals)
     {
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Bookings & Events");

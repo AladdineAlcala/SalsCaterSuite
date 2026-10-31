@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SalsCaterSuite.Application.Features.Menus;
 using SalsCaterSuite.Application.Features.Menus.Commands;
-using SalsCaterSuite.Application.Features.Menus.DTOs;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Request;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Response;
+using SalsCaterSuite.Application.Features.Menus.Models;
 using SalsCaterSuite.Application.Features.Menus.Queries;
 using SalsCaterSuite.Application.Features.Menus.Services;
 using SalsCaterSuite.Infrastructure.Exports;
@@ -79,7 +81,7 @@ public class MenusController : ControllerBase
     /// <param name="pageSize">The page size; clamped to 1…100.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     [HttpGet("master")]
-    [ProducesResponseType(typeof(MenuMasterDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(MenuMasterResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMaster(
         [FromQuery] string? search,
         [FromQuery] int? courseId,
@@ -127,10 +129,10 @@ public class MenusController : ControllerBase
     /// </para>
     /// </summary>
     [HttpPost("costing/preview")]
-    [ProducesResponseType(typeof(MenuCostingPreviewDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(MenuCostingPreviewResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> PreviewCosting(
-        [FromBody] MenuCostingPreviewRequestDto request,
+        [FromBody] MenuCostingPreviewRequest request,
         CancellationToken cancellationToken)
     {
         var result = await _previewCosting.ExecuteAsync(request, cancellationToken);
@@ -166,7 +168,7 @@ public class MenusController : ControllerBase
 
     /// <summary>POST /api/menus — Create new menu item</summary>
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreateMenuRequestDto request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Create([FromBody] CreateMenuRequest request, CancellationToken cancellationToken)
     {
         var result = await _createMenu.ExecuteAsync(request, cancellationToken);
         if (!result.Succeeded)
@@ -184,7 +186,7 @@ public class MenusController : ControllerBase
 
     /// <summary>PUT /api/menus/{id} — Update menu item</summary>
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(string id, [FromBody] CreateMenuRequestDto request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Update(string id, [FromBody] CreateMenuRequest request, CancellationToken cancellationToken)
     {
         var result = await _updateMenu.ExecuteAsync(id, request, cancellationToken);
         if (result.Succeeded)

@@ -1,6 +1,8 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Menus.DTOs;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Request;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Response;
+using SalsCaterSuite.Application.Features.Menus.Models;
 
 namespace SalsCaterSuite.Application.Features.Menus.Queries;
 
@@ -14,10 +16,10 @@ public class GetMenusQuery
         _menus = menus;
     }
 
-    public async Task<Result<List<MenuDto>>> ExecuteAsync(int? courseId, CancellationToken cancellationToken = default)
+    public async Task<Result<List<MenuResponse>>> ExecuteAsync(int? courseId, CancellationToken cancellationToken = default)
     {
         var menus = await _menus.GetProjectionListAsync(courseId, cancellationToken);
 
-        return Result<List<MenuDto>>.Success(menus);
+        return Result<List<MenuResponse>>.Success(menus);
     }
 }

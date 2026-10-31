@@ -1,6 +1,8 @@
 using FluentValidation;
 using SalsCaterSuite.Application.Common.Interfaces;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 
 namespace SalsCaterSuite.Application.Features.Packages.Validators;
 
@@ -20,7 +22,7 @@ namespace SalsCaterSuite.Application.Features.Packages.Validators;
 /// (DEC-172); the rule no longer references the add-on master.
 /// </para>
 /// </summary>
-public class PackageCourseRuleRequestValidator : AbstractValidator<PackageCourseRuleRequestDto>
+public class PackageCourseRuleRequestValidator : AbstractValidator<PackageCourseRuleRequest>
 {
     private readonly IPackageCourseRuleRepository _rules;
 

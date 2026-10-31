@@ -1,7 +1,9 @@
 using FluentValidation;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
 
 namespace SalsCaterSuite.Application.Features.Bookings.Commands;
 
@@ -11,11 +13,11 @@ namespace SalsCaterSuite.Application.Features.Bookings.Commands;
 public class UpdateBookingCoreCommand
 {
     private readonly IBookingRepository _bookings;
-    private readonly IValidator<UpdateBookingCoreRequestDto> _validator;
+    private readonly IValidator<UpdateBookingCoreRequest> _validator;
 
     public UpdateBookingCoreCommand(
         IBookingRepository bookings,
-        IValidator<UpdateBookingCoreRequestDto> validator)
+        IValidator<UpdateBookingCoreRequest> validator)
     {
         _bookings = bookings;
         _validator = validator;
@@ -23,7 +25,7 @@ public class UpdateBookingCoreCommand
 
     public async Task<Result> ExecuteAsync(
         int transactionId,
-        UpdateBookingCoreRequestDto request,
+        UpdateBookingCoreRequest request,
         CancellationToken cancellationToken = default)
     {
         var validationResult = await _validator.ValidateAsync(request, cancellationToken);

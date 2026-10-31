@@ -1,6 +1,8 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 
 namespace SalsCaterSuite.Application.Features.Packages.Queries;
 
@@ -14,13 +16,13 @@ public class GetPackagesQuery
         _packages = packages;
     }
 
-    public async Task<Result<List<PackageDto>>> ExecuteAsync(
+    public async Task<Result<List<PackageResponse>>> ExecuteAsync(
         bool? activeOnly,
         int? areaId = null,
         CancellationToken cancellationToken = default)
     {
         var packages = await _packages.GetProjectionListAsync(activeOnly, areaId, cancellationToken);
 
-        return Result<List<PackageDto>>.Success(packages);
+        return Result<List<PackageResponse>>.Success(packages);
     }
 }

@@ -1,7 +1,9 @@
 using FluentValidation;
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Application.Features.Packages.Services;
 using SalsCaterSuite.Domain.Entities;
 
@@ -44,7 +46,7 @@ public class PreviewPackageLocationQuery
         _clock = clock;
     }
 
-    public async Task<Result<PackageLocationPreviewDto>> ExecuteAsync(
+    public async Task<Result<PackageLocationPreviewResponse>> ExecuteAsync(
         int packageId,
         PackageLocationPreviewRequest request,
         CancellationToken cancellationToken = default)
@@ -53,7 +55,7 @@ public class PreviewPackageLocationQuery
 
         if (!validationResult.IsValid)
         {
-            return Result<PackageLocationPreviewDto>.Failure(
+            return Result<PackageLocationPreviewResponse>.Failure(
                 validationResult.Errors.Select(error => error.ErrorMessage).ToArray());
         }
 
@@ -61,7 +63,7 @@ public class PreviewPackageLocationQuery
 
         if (!ruleset.Succeeded)
         {
-            return new PackageNotFoundResult<PackageLocationPreviewDto>(
+            return new PackageNotFoundResult<PackageLocationPreviewResponse>(
                 ruleset.Errors.FirstOrDefault() ?? "Package not found.");
         }
 
@@ -75,7 +77,7 @@ public class PreviewPackageLocationQuery
             if (area is null)
             {
                 // A missing municipality is a 404 (contract §13, common rules).
-                return new AreaNotFoundResult<PackageLocationPreviewDto>("Area not found.");
+                return new AreaNotFoundResult<PackageLocationPreviewResponse>("Area not found.");
             }
         }
 
@@ -86,7 +88,7 @@ public class PreviewPackageLocationQuery
 
         var selectedFoodCosts = new List<decimal?>();
 
-        foreach (var selection in request.Selections ?? Array.Empty<PackageCourseSelectionDto>())
+        foreach (var selection in request.Selections ?? Array.Empty<PackageCourseSelectionRequest>())
         {
             menuById.TryGetValue(selection.MenuId, out var menu);
             selectedFoodCosts.Add(menu?.FoodCost);
@@ -121,7 +123,7 @@ public class PreviewPackageLocationQuery
         var grossProfit = PackageCostingCalculator.GrossProfitWithLogistics(
             totalContractValue, foodCostTotal, logisticsCost);
 
-        var preview = new PackageLocationPreviewDto
+        var preview = new PackageLocationPreviewResponse
         {
             PackageId = package.PackageId,
             Pax = pax,
@@ -144,6 +146,6 @@ public class PreviewPackageLocationQuery
             GeneratedAt = _clock.UtcNow
         };
 
-        return Result<PackageLocationPreviewDto>.Success(preview);
+        return Result<PackageLocationPreviewResponse>.Success(preview);
     }
 }

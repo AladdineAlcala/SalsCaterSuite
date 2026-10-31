@@ -1,5 +1,6 @@
 using SalsCaterSuite.Application.Common.Interfaces;
-using SalsCaterSuite.Application.Features.Addons.DTOs;
+using SalsCaterSuite.Application.Features.Addons.DTOs.Request;
+using SalsCaterSuite.Application.Features.Addons.DTOs.Response;
 
 namespace SalsCaterSuite.Application.Features.Addons.Commands;
 

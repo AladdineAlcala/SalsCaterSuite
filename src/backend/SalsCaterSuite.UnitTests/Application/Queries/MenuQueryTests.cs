@@ -1,7 +1,9 @@
 namespace SalsCaterSuite.UnitTests.Application.Queries;
 
 using FluentAssertions;
-using SalsCaterSuite.Application.Features.Menus.DTOs;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Request;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Response;
+using SalsCaterSuite.Application.Features.Menus.Models;
 using SalsCaterSuite.Application.Features.Menus.Queries;
 using SalsCaterSuite.Domain.Entities;
 using SalsCaterSuite.UnitTests.Common.Fakes;
@@ -76,7 +78,7 @@ public class MenuQueryTests
         // RSK-030: the projection no longer publishes a computed margin. A get-only computed
         // property cannot be projected by EF Core, so it always serialised as 0 — a field that
         // always reports zero is worse than no field.
-        typeof(MenuDto).GetProperty("ProfitMargin").Should().BeNull();
+        typeof(MenuResponse).GetProperty("ProfitMargin").Should().BeNull();
     }
 
     [Fact]

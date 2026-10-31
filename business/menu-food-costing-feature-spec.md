@@ -476,12 +476,12 @@ projection currently populates it, so a plating photo could not otherwise be sav
 7. **`Menu.Image` is unreachable.** The column exists (`nvarchar(250)`) and the
    entity has the property, but **no** command writes it and **no** projection
    populates it, so it is always `null` over HTTP and a plating photo could not
-   be saved. `CreateMenuRequestDto` must gain an `image` field and both commands
+   be saved. `CreateMenuRequest` must gain an `image` field and both commands
    must apply it.
-8. **`MenuDto.ProfitMargin` is a get-only computed property that EF cannot
+8. **`MenuResponse.ProfitMargin` is a get-only computed property that EF cannot
    project**, so it serialises as `0` on `GET /api/menus` and `GET /api/menus/{id}`
    even when the margin is not zero. A field that always reports zero is worse
-   than no field. **The property is removed** from `MenuDto`; the master and the
+   than no field. **The property is removed** from `MenuResponse`; the master and the
    costing endpoints publish the real figure, and the existing test that asserted
    it — which only ever passed because the hand-written fake computed it in
    memory — is updated. Recorded as RSK-030.

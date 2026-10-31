@@ -1,6 +1,8 @@
 using SalsCaterSuite.Application.Common.Interfaces;
 using SalsCaterSuite.Application.Common.Models;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 
 namespace SalsCaterSuite.Application.Features.Packages.Queries;
 
@@ -19,10 +21,10 @@ public class GetAreasQuery
         _areas = areas;
     }
 
-    public async Task<Result<List<AreaDto>>> ExecuteAsync(CancellationToken cancellationToken = default)
+    public async Task<Result<List<AreaResponse>>> ExecuteAsync(CancellationToken cancellationToken = default)
     {
         var catalogue = await _areas.GetCatalogueAsync(cancellationToken);
 
-        return Result<List<AreaDto>>.Success(catalogue);
+        return Result<List<AreaResponse>>.Success(catalogue);
     }
 }

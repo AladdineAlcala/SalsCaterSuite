@@ -3,7 +3,9 @@ namespace SalsCaterSuite.UnitTests.Application.Commands;
 using FluentAssertions;
 using SalsCaterSuite.Application.Features.Menus;
 using SalsCaterSuite.Application.Features.Menus.Commands;
-using SalsCaterSuite.Application.Features.Menus.DTOs;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Request;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Response;
+using SalsCaterSuite.Application.Features.Menus.Models;
 using SalsCaterSuite.Application.Features.Menus.Validators;
 using SalsCaterSuite.Domain.Entities;
 using SalsCaterSuite.UnitTests.Common.Fakes;
@@ -39,7 +41,7 @@ public class MenuCommandTests
         _store.CourseCategories.Add(new CourseCategory { CourseId = 1, CourseName = "Main Course" });
     }
 
-    private static CreateMenuRequestDto Request(string menuId) => new()
+    private static CreateMenuRequest Request(string menuId) => new()
     {
         MenuId = menuId,
         CourseId = 1,

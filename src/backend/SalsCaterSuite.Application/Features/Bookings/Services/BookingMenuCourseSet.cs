@@ -1,6 +1,10 @@
 using SalsCaterSuite.Application.Common.Interfaces;
-using SalsCaterSuite.Application.Features.Bookings.DTOs;
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
+using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
+using SalsCaterSuite.Application.Features.Bookings.Models;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Application.Features.Packages.Services;
 using SalsCaterSuite.Application.Services;
 using SalsCaterSuite.Domain.Entities;
@@ -24,8 +28,8 @@ public sealed class BookingMenuCourseSet
         Array.Empty<PackageCourseRuleProjection>();
 
     /// <summary>The ruleset with its qualified pools, in the tier's order.</summary>
-    public IReadOnlyList<BookingMenuCourseDto> Courses { get; init; } =
-        Array.Empty<BookingMenuCourseDto>();
+    public IReadOnlyList<BookingMenuCourseResponse> Courses { get; init; } =
+        Array.Empty<BookingMenuCourseResponse>();
 
     /// <summary>The live dishes, keyed by catalogue key.</summary>
     public IReadOnlyDictionary<string, Menu> MenuById { get; init; } =
@@ -112,7 +116,7 @@ public class BookingMenuCourseSetBuilder
         };
     }
 
-    private static BookingMenuCourseDto MapCourse(
+    private static BookingMenuCourseResponse MapCourse(
         PackageCourseRuleProjection rule,
         IReadOnlyDictionary<int, List<Menu>> pools,
         int numberOfHeads)
@@ -121,7 +125,7 @@ public class BookingMenuCourseSetBuilder
             ? dishes
             : new List<Menu>();
 
-        return new BookingMenuCourseDto
+        return new BookingMenuCourseResponse
         {
             CourseId = rule.CourseId,
             CourseName = rule.CourseName,
@@ -132,7 +136,7 @@ public class BookingMenuCourseSetBuilder
             Pool = pool
                 .OrderBy(menu => menu.MenuName, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(menu => menu.MenuId, StringComparer.OrdinalIgnoreCase)
-                .Select(menu => new BookingMenuCourseDishDto
+                .Select(menu => new BookingMenuCourseDishResponse
                 {
                     MenuId = menu.MenuId,
                     MenuName = menu.MenuName,

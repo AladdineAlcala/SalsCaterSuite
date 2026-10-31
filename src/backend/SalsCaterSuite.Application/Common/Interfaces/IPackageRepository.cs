@@ -1,6 +1,8 @@
 namespace SalsCaterSuite.Application.Common.Interfaces;
 
-using SalsCaterSuite.Application.Features.Packages.DTOs;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Request;
+using SalsCaterSuite.Application.Features.Packages.DTOs.Response;
+using SalsCaterSuite.Application.Features.Packages.Models;
 using SalsCaterSuite.Domain.Entities;
 
 /// <summary>
@@ -28,13 +30,13 @@ public interface IPackageRepository
     /// <paramref name="areaId"/> is present, to the tiers whose <b>active</b> coverage includes
     /// that municipality (contract §12.1, DEC-157).
     /// </summary>
-    Task<List<PackageDto>> GetProjectionListAsync(
+    Task<List<PackageResponse>> GetProjectionListAsync(
         bool? activeOnly,
         int? areaId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>Single-package projection.</summary>
-    Task<PackageDto?> GetProjectionByIdAsync(int packageId, CancellationToken cancellationToken = default);
+    Task<PackageResponse?> GetProjectionByIdAsync(int packageId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// The catalogue aggregate (spec §3.2, DEC-068, KPI-25..KPI-28) — the counts, the rate
@@ -44,7 +46,7 @@ public interface IPackageRepository
     /// queries exclude them (DEC-045 / DEC-050 — there is no global query filter).
     /// </para>
     /// </summary>
-    Task<PackageCatalogueSummaryDto> GetCatalogueSummaryAsync(CancellationToken cancellationToken = default);
+    Task<PackageCatalogueSummaryResponse> GetCatalogueSummaryAsync(CancellationToken cancellationToken = default);
 
     Task AddAsync(Package package, CancellationToken cancellationToken = default);
 

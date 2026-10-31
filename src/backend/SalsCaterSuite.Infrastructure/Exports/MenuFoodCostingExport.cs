@@ -1,5 +1,7 @@
 using ClosedXML.Excel;
-using SalsCaterSuite.Application.Features.Menus.DTOs;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Request;
+using SalsCaterSuite.Application.Features.Menus.DTOs.Response;
+using SalsCaterSuite.Application.Features.Menus.Models;
 
 namespace SalsCaterSuite.Infrastructure.Exports;
 
@@ -21,7 +23,7 @@ public class MenuFoodCostingExport
     /// contract lists (spec §6.3): Dish Code, Dish Name, Course, Selling Price, Food Cost,
     /// Gross Profit, Food Cost %, Gross Margin %, Target %, Within Target, Notes.
     /// </summary>
-    public byte[] Generate(IEnumerable<MenuMasterItemDto> items)
+    public byte[] Generate(IEnumerable<MenuMasterItemResponse> items)
     {
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add(WorksheetTitle);
