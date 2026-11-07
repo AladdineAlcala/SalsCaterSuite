@@ -36,30 +36,35 @@ public class EnumJsonSerializationTests
             TransactionId = 101,
             BookingNumber = "BK-20261018-00101",
             BookType = nameof(BookingType.Inside),
-            Status = BookingStatus.DepositPaid
+            Status = BookingStatus.Confirmed,
+            PaymentState = PaymentState.DepositPaid
         };
 
         var json = JsonSerializer.Serialize(dto, CreateApiOptions());
 
-        json.Should().Contain("\"status\":\"DepositPaid\"");
-        json.Should().NotContain("\"status\":2");
+        json.Should().Contain("\"status\":\"Confirmed\"");
+        json.Should().Contain("\"paymentState\":\"DepositPaid\"");
+        json.Should().NotContain("\"status\":1");
     }
 
     [Fact]
     public void Serialize_BookingStatusEnum_RendersStringName()
     {
-        var json = JsonSerializer.Serialize(BookingStatus.FullyPaid, CreateApiOptions());
+        var json = JsonSerializer.Serialize(BookingStatus.Completed, CreateApiOptions());
 
-        json.Should().Be("\"FullyPaid\"");
+        json.Should().Be("\"Completed\"");
     }
 
     [Fact]
     public void Deserialize_BookingStatusFromStringName_ResolvesEnum()
     {
-        var dto = JsonSerializer.Deserialize<BookingResponse>("{\"status\":\"DepositPaid\"}", CreateApiOptions());
+        var dto = JsonSerializer.Deserialize<BookingResponse>(
+            "{\"status\":\"Confirmed\",\"paymentState\":\"DepositPaid\"}",
+            CreateApiOptions());
 
         dto.Should().NotBeNull();
-        dto!.Status.Should().Be(BookingStatus.DepositPaid);
+        dto!.Status.Should().Be(BookingStatus.Confirmed);
+        dto.PaymentState.Should().Be(PaymentState.DepositPaid);
     }
 
     [Theory]

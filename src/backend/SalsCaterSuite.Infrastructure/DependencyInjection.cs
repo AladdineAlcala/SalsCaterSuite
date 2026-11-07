@@ -47,6 +47,7 @@ public static class DependencyInjection
         // SalsCaterSuiteDbContext above, so any one SaveChangesAsync commits the whole
         // pending change set (atomic multi-step writes) — no separate unit-of-work is needed.
         services.AddScoped<IBookingRepository, Persistence.Repositories.BookingRepository>();
+        services.AddScoped<IBookingLifecycleRepository, Persistence.Repositories.BookingLifecycleRepository>();
         services.AddScoped<IPaymentRepository, Persistence.Repositories.PaymentRepository>();
         services.AddScoped<IRefundRepository, Persistence.Repositories.RefundRepository>();
         services.AddScoped<ICustomerRepository, Persistence.Repositories.CustomerRepository>();

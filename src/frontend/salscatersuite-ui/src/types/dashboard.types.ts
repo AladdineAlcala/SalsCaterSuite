@@ -13,8 +13,6 @@
 export type BookingStatus =
   | 'Pending'
   | 'Confirmed'
-  | 'DepositPaid'
-  | 'FullyPaid'
   | 'InProgress'
   | 'Completed'
   | 'Cancelled'

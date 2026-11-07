@@ -62,6 +62,8 @@ public class BookingConfiguration : IEntityTypeConfiguration<Booking>
         builder.Property(e => e.NumberOfHeads).HasColumnName("numberOfHeads");
         builder.Property(e => e.Venue).HasColumnName("venue").HasMaxLength(200);
         builder.Property(e => e.EventDate).HasColumnName("eventDate");
+        // DEC-178: overnight events store the end calendar date separately from the start date.
+        builder.Property(e => e.EventEndDate).HasColumnName("eventEndDate").IsRequired();
         builder.Property(e => e.EventStartTime).HasColumnName("startTime");
         builder.Property(e => e.EventEndTime).HasColumnName("endTime");
         builder.Property(e => e.SpecialInstructions).HasColumnName("specialInstructions").HasMaxLength(500);
@@ -121,6 +123,12 @@ public class BookingConfiguration : IEntityTypeConfiguration<Booking>
             .HasColumnName("booking_status")
             .HasConversion<int>()
             .HasDefaultValue(BookingStatus.Pending);
+
+        // DEC-177: derived payment progress. Not a lifecycle status, and not written by BG-04.
+        builder.Property(e => e.PaymentState)
+            .HasColumnName("payment_state")
+            .HasConversion<int>()
+            .HasDefaultValue(PaymentState.PendingPayment);
 
         builder.Property(e => e.ReminderSent).HasColumnName("reminderSent").HasDefaultValue(false);
 

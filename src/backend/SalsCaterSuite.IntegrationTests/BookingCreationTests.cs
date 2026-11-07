@@ -34,14 +34,16 @@ public class BookingCreationTests
 
         // The documented 201 body is the named CreateBookingResponse. REQ-BKG-05 extended
         // it additively with the booking number (BR-09) and the status (contract §1 and
-        // §14.4); the transactionId field is unchanged.
+        // §14.4); DEC-177/DEC-178 add paymentState and eventEndDate additively.
         body.EnumerateObject().Select(p => p.Name).Should().Equal(
-            new[] { "transactionId", "bookingNumber", "status" },
-            "the documented 201 body is exactly { transactionId, bookingNumber, status }");
+            new[] { "transactionId", "bookingNumber", "status", "paymentState", "eventEndDate" },
+            "the documented 201 body is exactly { transactionId, bookingNumber, status, paymentState, eventEndDate }");
 
         var firstTransactionId = body.GetProperty("transactionId").GetInt32();
         body.GetProperty("bookingNumber").GetString().Should().NotBeNullOrWhiteSpace();
         body.GetProperty("status").GetString().Should().Be("Pending", "a booking is created as a draft by default");
+        body.GetProperty("paymentState").GetString().Should().Be("PendingPayment", "no payment recorded at create (DEC-177)");
+        body.GetProperty("eventEndDate").GetDateTime().Should().Be(DateTime.Today.AddDays(30), "the end date is persisted from the requested schedule");
 
         var firstDetails = await client.GetBookingDetailsAsync(firstTransactionId);
         var firstNumber = firstDetails.GetProperty("bookingNumber").GetString();

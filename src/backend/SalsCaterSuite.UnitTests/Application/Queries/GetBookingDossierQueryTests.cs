@@ -257,7 +257,7 @@ public class GetBookingDossierQueryTests
     {
         var result = await _query.ExecuteAsync(new BookingRegisterFilterRequest
         {
-            PaymentState = "FullyPaid"
+            PaymentState = "UnknownPaymentState"
         });
 
         result.Succeeded.Should().BeFalse();
@@ -377,17 +377,17 @@ public class GetBookingDossierQueryTests
 
         var result = await _query.ExecuteAsync(new BookingRegisterFilterRequest
         {
-            PaymentState = BookingPaymentState.PartiallyPaid
+            PaymentState = BookingPaymentState.DepositPaid
         });
 
         result.Data!.TotalCount.Should().Be(1);
         result.Data.QuickViewCounts.PaymentStates.Should().HaveCount(3);
         result.Data.QuickViewCounts.PaymentStates
-            .Should().Contain(facet => facet.Key == BookingPaymentState.AwaitingDeposit && facet.Count == 1);
+            .Should().Contain(facet => facet.Key == BookingPaymentState.PendingPayment && facet.Count == 1);
         result.Data.QuickViewCounts.PaymentStates
-            .Should().Contain(facet => facet.Key == BookingPaymentState.PartiallyPaid && facet.Count == 1);
+            .Should().Contain(facet => facet.Key == BookingPaymentState.DepositPaid && facet.Count == 1);
         result.Data.QuickViewCounts.PaymentStates
-            .Should().Contain(facet => facet.Key == BookingPaymentState.Settled && facet.Count == 1);
+            .Should().Contain(facet => facet.Key == BookingPaymentState.FullyPaid && facet.Count == 1);
     }
 
     [Fact]

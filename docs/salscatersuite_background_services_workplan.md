@@ -3,22 +3,24 @@
 **Canonical path:** `docs/salscatersuite_background_services_workplan.md`
 **Document owner:** AGENT 01 — Sal's CaterSuite Business Intelligence Architect (skill `bi-architect`)
 **Audience:** AGENT 01 (BI Architect), AGENT 02 (.NET Backend Architect Developer), the Debater plan-review sub-agent
-**Authority:** This document is a **future-enhancement workplan** for asynchronous and scheduled backend work. It is subordinate to `docs/salscatersuite_project_structure_workplan.md`, the business rules, the approved API contracts, and `governance/decision-log.md`.
-**Status:** **PROPOSED overall.** BG-04 alone is **APPROVED for implementation by DEC-178**, but is not yet implemented; all other items remain `PLANNED — not yet implemented`.
+**Authority:** This document is a **future-enhancement workplan** for asynchronous and scheduled backend work. It is subordinate to `docs/salscatersuite_project_structure_workplan.md`, the business rules, the approved API contracts, `governance/decision-log.md`, and the path-scoped rules in `.github/instructions/`.
+**Status:** **PROPOSED overall.** BG-04 is **APPROVED for implementation by DEC-178** (scope) and **hosted by the existing `SalsCaterSuite.Worker` project under DEC-180**. BG-04 implementation is **in progress / partially wired** (Worker host, options, migration, transition service present as WIP) and must be verified against isolated tests; the WebApi no longer hosts a duplicate poller. All other items remain `PLANNED — not yet implemented`.
 
 | Field | Value |
 | :--- | :--- |
 | **Application** | Sal's CaterSuite |
 | **Repository root** | `D:\source\repos\SalsCaterSuite` |
 | **Backend** | ASP.NET Core Web API — .NET 10 (`net10.0`), Clean Architecture |
+| **Background host** | `src/backend/SalsCaterSuite.Worker` — console worker host, registered in `SalsCaterSuite.slnx`, approved as the BG-04 host by DEC-180. Contains WIP (`Program.cs`, `BackgroundServices/BookingLifecycleWorker.cs`, csproj, Dockerfile, appsettings) that must be preserved and reviewed. Worker now uses `AddApplicationServices` + `AddInfrastructureServices`, configures `BookingLifecycleOptions` (default `false`), and registers `BookingLifecycleHostedService`. |
 | **Database** | SQL Server (`SalsCaterSuiteDb`; LocalDB in development) |
 | **Frontend** | React 19 + Vite 8 + TypeScript 6 + Tailwind CSS 4.3 (v4) |
-| **Current scheduler** | **None.** No `IHostedService`, `BackgroundService`, Hangfire, or Quartz registration exists in `Program.cs`. |
+| **Current scheduler** | **No scheduler package.** No Hangfire, Quartz, or outbox exists. The only scheduled code is the BG-04 WIP worker in the Worker host, which is not yet verified. |
 | **Current real-time** | SignalR is registered (`builder.Services.AddSignalR()`), but no hub is mapped and no `SignalRContext.tsx` exists. |
 | **Existing building blocks** | `CustomerAgingService`, `DashboardService`, `MenuCostingService`, `PackageCostingCalculator`, six QuestPDF documents, four ClosedXML exports, `IDateTime` / `DateTimeService`, Serilog |
-| **Last updated** | 2026-10-31 (AGENT 01 — BG-04 scope approved by DEC-178; other background work remains proposed) |
+| **Path-scoped rules** | `.github/instructions/background-services.instructions.md`, `dto.instructions.md`, `ef-persistence.instructions.md`, `financial-integrity.instructions.md`, `api-contract.instructions.md`, `migrations.instructions.md`, `csharp-conventions.instructions.md` |
+| **Last updated** | 2026-11-02 (host aligned to DEC-180: existing `SalsCaterSuite.Worker`; BG-04 scope unchanged under DEC-178) |
 
-> **Read this before acting.** Only BG-04's scheduled booking lifecycle transition scope is approved, under DEC-178. This document does not authorize implementation of any other job, scheduler package, outbox, notification provider, migration unrelated to BG-04, or Worker project. AGENT 02 must follow the scoped decision and obtain AGENT 01 approval for any expansion.
+> **Read this before acting.** Only BG-04's scheduled booking lifecycle transition scope is approved, under DEC-178 and DEC-177, with its host set by DEC-180. This document does not authorize implementation of any other job, scheduler package, outbox, notification provider, migration unrelated to BG-04, or additional worker project. The WebApi must not run a duplicate lifecycle poller (DEC-180). AGENT 02 must follow the scoped decisions and obtain AGENT 01 approval for any expansion.
 >
 > If the code and this document disagree, **the code is the current truth and this document is stale**. Report the discrepancy to AGENT 01; do not silently choose either side.
 
@@ -31,9 +33,9 @@
 This document proposes and sequences:
 
 1. The **background job catalog** — what runs asynchronously, why, on what trigger, and what it owns.
-2. The **scheduler strategy** — in-process `BackgroundService`, an outbox dispatcher, Hangfire, Quartz, or a separate Worker host.
-3. The **layer boundaries** — where job code lives and which existing Application services it calls.
-4. The **data additions** — outbox, job-run log, snapshots, document/export jobs, notification log.
+2. The **host and scheduler strategy** — the `SalsCaterSuite.Worker` host plus in-process `BackgroundService`, an outbox dispatcher, Hangfire, or Quartz.
+3. The **layer boundaries** — where job code lives inside the Worker project and which existing Application services it calls.
+4. The **data additions** — outbox, job-run log, snapshots, document/export jobs, notification log, integration sync state.
 5. The **operational contract** — retries, dead letters, idempotency, observability, retention, and security.
 6. The **delivery phases** and their exit criteria.
 
@@ -47,10 +49,12 @@ This document proposes and sequences:
 ### 0.3 Anti-drift rules
 
 - Every planned folder, table, endpoint, package, or job carries the marker **`PLANNED — not yet implemented`** until it exists and is verified.
+- The `SalsCaterSuite.Worker` host is the approved host (DEC-180). Its existence does not approve any job other than BG-04. Its WIP files are not evidence of delivery.
 - Do not describe a proposed job as delivered.
 - Do not record test counts, timings, or acceptance evidence until they come from a real run.
 - Do not duplicate a business calculation in a job. A job orchestrates; the existing Application service remains the single arithmetic authority.
 - A new package, project, table, or root folder requires an AGENT 01 decision before implementation.
+- Background services go **only** in `SalsCaterSuite.Worker/BackgroundServices/`, organized by service type (see `.github/instructions/background-services.instructions.md`). The Web API must not host them.
 
 ---
 
@@ -68,28 +72,30 @@ This document proposes and sequences:
 | Exports | `CateringMonthlyReportExport`, `CollectionSummaryExport`, `CustomerDirectoryExport`, `MenuFoodCostingExport` (ClosedXML) | Candidate for async export jobs (BG-07) |
 | Payments | `PaymentLedgerService`, `BookingAmountDueCalculator` | Authoritative sources for aging and reconciliation; never reimplement |
 | Calendar | `CalendarController`, `GetCalendarEventsQuery` | Candidate for calendar sync (BG-10) |
+| Worker host | `src/backend/SalsCaterSuite.Worker` (registered in `SalsCaterSuite.slnx`) with `Program.cs`, `BackgroundServices/BookingLifecycleWorker.cs`, csproj, Dockerfile — **uncommitted WIP** | Approved host for BG-04 (DEC-180); not yet verified |
 | Real-time | `AddSignalR()` only; no hub, no `SignalRContext.tsx` | Notification dispatcher can push once a hub exists (BG-01) |
 | Logging | Serilog request logging, redaction engine, bounded capture | Reuse for job logs; add job-specific context |
 | Time | `IDateTime` / `DateTimeService` | All jobs must use it; schedule in Asia/Manila |
-| Tests | `src/backend/SalsCaterSuite.UnitTests`, `src/backend/SalsCaterSuite.IntegrationTests` | Job logic and outbox round-trips belong here |
+| Tests | `src/backend/SalsCaterSuite.UnitTests`, `src/backend/SalsCaterSuite.IntegrationTests`, `UnitTests/Worker/BookingLifecycleWorkerTests.cs` (WIP) | Job logic and outbox round-trips belong here |
 
 ### 1.2 What does not exist
 
-- No `IHostedService` or `BackgroundService`.
-- No Hangfire, Quartz, or other scheduler package.
+- No Hangfire, Quartz, or other scheduler package. **`PLANNED — not yet implemented`.**
 - No outbox, job-run, notification-log, aging-snapshot, document-job, or export-job table.
 - No SignalR hub.
 - No email/SMS/calendar/accounting provider abstraction.
 - No `/health` job-scheduler check.
-- No `SalsCaterSuite.Worker` project.
+- No verified BG-04 delivery: the lifecycle worker is WIP until it passes review and the isolated-database migration policy.
 
 ### 1.3 Constraints
 
-- The backend is Clean Architecture: Domain ← Application ← Infrastructure ← WebApi.
-- EF Core types must not leak into Application (DEC-037). Job implementations live in Infrastructure, but they access data through repositories — not `DbContext` directly.
+- The backend is Clean Architecture: Domain ← Application ← Infrastructure ← WebApi. The Worker project is an additional host that references `Application` and `Infrastructure` for DI composition only.
+- The Worker project **must not** be referenced by `Domain`, `Application`, `Infrastructure`, or `WebApi`.
+- EF Core types must not leak into Application (DEC-037). Job implementations live in the Worker project; they access data through repository interfaces — not `DbContext` directly. Use `IServiceScopeFactory` to create a scope per unit of work.
 - Financial figures are server-authoritative and must come from the existing calculators/services.
-- The current deployment is a single API host; multi-instance behavior is not yet specified.
-- Serilog owns the logging pipeline; jobs must not add a second logging stack.
+- The current deployment is a single API host plus, once approved, the Worker process. Multi-instance behavior is not yet specified.
+- Serilog owns the logging pipeline; the Worker must reuse it, not add a second logging stack.
+- The Worker project must not contain business logic — orchestration only (see `.github/instructions/background-services.instructions.md`).
 
 ---
 
@@ -100,27 +106,30 @@ This document proposes and sequences:
 1. **The HTTP request must not wait for email, PDFs, exports, or external APIs.** Enqueue and return.
 2. **Business logic is reused, not copied.** A job calls an Application service; it does not re-derive a financial formula.
 3. **At-least-once delivery with idempotent consumers.** Every job must be safe to retry.
-4. **Start simple.** Use the framework's `BackgroundService` and a database outbox before adding a scheduler product.
+4. **Start simple.** Use the framework's `BackgroundService` inside the Worker host and a database outbox before adding a scheduler product.
 5. **Persist work before acknowledging it.** For user-triggered jobs, write the job row in the same transaction as the business change where possible.
 6. **Every job is observable and replayable.** A failed job must be visible, diagnosable, and safe to re-run.
 7. **No silent destructive maintenance.** Cleanup jobs support dry-run and retention configuration.
+8. **All background services live in `SalsCaterSuite.Worker/BackgroundServices/`**, organized by type. The Web API never hosts them.
 
-### 2.2 Scheduler options
+### 2.2 Host and scheduler options
+
+The **host** is fixed: the existing `SalsCaterSuite.Worker` project (DEC-180). The **scheduler mechanism inside** that host is what remains open.
 
 | Option | Use when | Trade-offs | Recommendation |
 | :--- | :--- | :--- | :--- |
-| `BackgroundService` / `IHostedService` + `PeriodicTimer` | Single-instance, simple periodic work | No persistence, no built-in retries, no dashboard; duplicate runs if scaled out | **Phase 0–1** |
-| `BackgroundService` + `Channel<T>` | In-process queued work | Queue is lost on restart; no cross-instance coordination | **Phase 1** for outbox dispatch |
-| **Hangfire** (SQL Server storage) | Persistent, retriable, delayed/recurring jobs; admin dashboard | Adds a package, tables, and an admin surface that must be secured | **Recommended from Phase 2** |
-| **Quartz.NET** | Cron-style scheduling without Hangfire storage | More configuration; no built-in dashboard | Alternative if Hangfire is rejected |
-| Separate `SalsCaterSuite.Worker` host | Independent scaling/deployment of jobs | New project, deployment unit, configuration, and observability | **Phase 2+**, only if scale requires |
-| Azure Functions / Container Apps Jobs / Service Bus | Cloud-native deployment | Platform coupling and cost | Only if the hosting target moves to Azure |
+| `BackgroundService` / `IHostedService` + `PeriodicTimer` **inside `SalsCaterSuite.Worker`** | Single-instance, simple periodic work | No persistence, no built-in retries, no dashboard; duplicate runs if scaled out | **Phase 0–1** (BG-04 WIP already uses this shape) |
+| `BackgroundService` + `Channel<T>` **inside `SalsCaterSuite.Worker`** | In-process queued work | Queue is lost on restart; no cross-instance coordination | **Phase 1** for outbox dispatch |
+| **Hangfire** (SQL Server storage) **inside `SalsCaterSuite.Worker`** | Persistent, retriable, delayed/recurring jobs; admin dashboard | Adds a package, tables, and an admin surface that must be secured | **Recommended from Phase 2** |
+| **Quartz.NET** **inside `SalsCaterSuite.Worker`** | Cron-style scheduling without Hangfire storage | More configuration; no built-in dashboard | Alternative if Hangfire is rejected |
+| Additional worker projects | Only if scale requires splitting types | New project per split; deployment, config, observability cost | **Do not create without a new AGENT 01 decision** (DEC-180 forbids another project for BG-04) |
 
 **Proposed decision (for AGENT 01 approval):**
 
-- Phase 0–1: in-process `BackgroundService` + a database outbox. No new package.
-- Phase 2+: adopt **Hangfire with SQL Server storage** if the Debater and AGENT 01 accept the package/table/admin-surface cost; otherwise Quartz.NET.
+- Phase 0–1: in-process `BackgroundService` inside `SalsCaterSuite.Worker` + a database outbox. No new scheduler package.
+- Phase 2+: adopt **Hangfire with SQL Server storage** inside the same Worker project if the Debater and AGENT 01 accept the package/table/admin-surface cost; otherwise Quartz.NET.
 - Keep the job bodies scheduler-agnostic so the choice can change without rewriting business logic.
+- **Do not create additional worker projects** without an AGENT 01 decision recorded in `governance/decision-log.md` and a workplan update.
 
 ### 2.3 Layer placement
 
@@ -133,31 +142,36 @@ SalsCaterSuite.Application/
 
 SalsCaterSuite.Infrastructure/
   BackgroundJobs/
-    Outbox/                  # OutboxDispatcher and message handlers (no DbContext)
-    Jobs/                    # Job implementations (aging, reminders, documents, exports)
-    Scheduling/              # BackgroundService or Hangfire/Quartz registration
     Notifications/           # IEmailSender, ISmsSender, SignalR publisher (adapters)
   Persistence/
     Repositories/            # OutboxRepository, JobRunRepository, ... (DEC-037)
-    Configurations/          # OutboxMessage, JobRun, AgingSnapshot, DocumentJob, ExportJob
+    Configurations/          # OutboxMessage, JobRun, AgingSnapshot, DocumentJob, ExportJob, NotificationLog, IntegrationSyncState
     Migrations/              # PLANNED
 
-SalsCaterSuite.WebApi/
-  Program.cs                 # AddHostedService / AddHangfire / health checks
-  (optional) Controllers/    # status/download endpoints for async jobs
-
-src/backend/
-  SalsCaterSuite.UnitTests/         # job logic, fake time, idempotency
-  SalsCaterSuite.IntegrationTests/  # outbox round-trip, retries, concurrency
+SalsCaterSuite.Worker/                       # approved host (DEC-180); WIP exists
+  Program.cs                                 # Host.CreateApplicationBuilder(...) + AddHostedService / AddHangfire / health checks
+  appsettings.json
+  appsettings.Development.json
+  BackgroundServices/
+    Common/                  # DI registration helpers, worker-local abstractions (e.g., IJobScheduler), shared options
+    Scheduling/              # timer/cron jobs (BG-02, BG-03, BG-04, BG-05, BG-09, BG-11)
+    Messaging/               # queue / bus consumers (BG-01 outbox dispatcher)
+    Integration/             # external system polling / sync (BG-10)
+    Reporting/               # async document/export generation (BG-06, BG-07, BG-08)
+    Maintenance/             # housekeeping / retention (BG-12)
 ```
 
 **Boundary rules:**
 
+- Every job **must** live inside `SalsCaterSuite.Worker/BackgroundServices/{TypeOfBackgroundService}/`, where type is one of `Scheduling`, `Messaging`, `Integration`, `Reporting`, `Maintenance`. A new type requires an AGENT 01 decision.
+- The Worker project **may** reference `Application` and `Infrastructure` for DI composition only.
 - A job may depend on Application interfaces and Infrastructure adapters.
 - A job must not contain a second copy of a financial formula. Call `BookingAmountDueCalculator`, `CustomerAgingService`, `DashboardService`, `MenuCostingService`, or `PackageCostingCalculator`.
 - A job must not use `HttpContext`. It runs without a request; the acting user is recorded as data.
 - A job must not use `DbContext` directly. It calls a repository, per DEC-037; the repository owns the EF Core access.
 - A job must not resolve scoped services from the root provider. Use `IServiceScopeFactory`.
+- Worker-specific options (`ExportJobOptions`, `AgingOptions`, etc.) live next to their job under the type folder. Shared options live in `BackgroundServices/Common/`.
+- The existing BG-04 WIP file `BackgroundServices/BookingLifecycleWorker.cs` sits directly under `BackgroundServices/`. Moving it under `Scheduling/BookingLifecycle/` is an AGENT 02 choice and must not change behavior.
 
 ### 2.4 Job contract
 
@@ -180,31 +194,33 @@ public interface IBackgroundJob
 
 ## 3. Job Catalog
 
-All items except BG-04 are **`PLANNED — not yet implemented`**. Priorities are proposed and do not imply approval.
+All items except BG-04 are **`PLANNED — not yet implemented`**. Priorities are proposed and do not imply approval. The Worker folder column is relative to `SalsCaterSuite.Worker/BackgroundServices/`. The host itself is approved (DEC-180); a job is not approved by the host's existence.
 
-| ID | Job | Priority | Trigger | Calls | Output |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **BG-01** | Outbox + notification dispatcher | P0 | Continuous poll / queued | `IEmailSender`, `ISmsSender`, SignalR publisher | Email/SMS/push delivered; outbox marked processed; dead-letter on exhaustion |
-| **BG-02** | Daily receivables aging snapshot | P1 | Daily 00:05 Asia/Manila | `ICustomerAgingService`, `IDateTime`, booking/payment repositories | One aging snapshot per customer/booking per date |
-| **BG-03** | Receivables reminders | P1 | Daily 08:00, business days | Aging snapshot, customer contact preferences, notification sender | Reminder per customer/booking/bucket/milestone; audit log |
-| **BG-04** | Booking lifecycle transitions | P2 | Scheduled polling in the existing API host | Booking lifecycle transition service, booking/status-history repositories, `IDateTime` | `Confirmed` → `InProgress` at event start; `InProgress` → `Completed` at packout + 1 hour, with the approved end-time fallback; durable status history. **APPROVED by DEC-178; implementation pending.** No SignalR/outbox in this scope. |
-| **BG-05** | Event reminders | P2 | Daily 07:00 | Upcoming bookings, notification sender | 7-day and 1-day reminders to customer/staff |
-| **BG-06** | Async document generation | P2 | Queued on request | QuestPDF documents, file store | PDF path/blob, `DocumentJob` status, notification |
-| **BG-07** | Async exports | P2 | Queued on request | ClosedXML exports, file store | XLSX/CSV file, `ExportJob` status, expiring download link |
-| **BG-08** | Dashboard KPI snapshots | P3 | Nightly + warm on demand | `DashboardService` | `DashboardSnapshot` per period; "as of" timestamp |
-| **BG-09** | Menu/package costing recalculation | P3 | Price/benchmark change event + nightly | `MenuCostingService`, `PackageCostingCalculator` | Recalculated costs and projections; audit |
-| **BG-10** | Calendar / accounting / payment-gateway sync | P3 | Queued + retry | Provider adapters, `IHttpClientFactory` | External id mapping, sync status, dead-letter |
-| **BG-11** | Scheduled reports | P4 | Monthly, 1st at 06:00 | Existing export classes + notification sender | Report file emailed to the owner; audit |
-| **BG-12** | Maintenance and retention | P4 | Daily/weekly | Identity, exports, documents, logs, soft-deleted rows | Purged/archived rows; counts logged; dry-run supported |
+| ID | Job | Worker folder | Priority | Trigger | Calls | Output |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **BG-01** | Outbox + notification dispatcher | `Messaging/Outbox/` | P0 | Continuous poll / queued | `IEmailSender`, `ISmsSender`, SignalR publisher | Email/SMS/push delivered; outbox marked processed; dead-letter on exhaustion |
+| **BG-02** | Daily receivables aging snapshot | `Scheduling/Aging/` | P1 | Daily 00:05 Asia/Manila | `ICustomerAgingService`, `IDateTime`, booking/payment repositories | One aging snapshot per customer/booking per date |
+| **BG-03** | Receivables reminders | `Scheduling/Reminders/` | P1 | Daily 08:00, business days | Aging snapshot, customer contact preferences, notification sender | Reminder per customer/booking/bucket/milestone; audit log |
+| **BG-04** | Booking lifecycle transitions | `Scheduling/BookingLifecycle/` | P2 | One-minute polling, batch 100, inside `SalsCaterSuite.Worker` | Booking lifecycle transition service, booking/status-history repositories, `IDateTime` | `Confirmed` → `InProgress` at event start; `InProgress` → `Completed` at packout + 1 hour, with the approved end-time fallback; durable status history. **APPROVED by DEC-178 (scope); host per DEC-180; implementation WIP, not yet verified.** No SignalR/outbox in this scope. |
+| **BG-05** | Event reminders | `Scheduling/EventReminders/` | P2 | Daily 07:00 | Upcoming bookings, notification sender | 7-day and 1-day reminders to customer/staff |
+| **BG-06** | Async document generation | `Reporting/Documents/` | P2 | Queued on request | QuestPDF documents, file store | PDF path/blob, `DocumentJob` status, notification |
+| **BG-07** | Async exports | `Reporting/Exports/` | P2 | Queued on request | ClosedXML exports, file store | XLSX/CSV file, `ExportJob` status, expiring download link |
+| **BG-08** | Dashboard KPI snapshots | `Reporting/Dashboard/` | P3 | Nightly + warm on demand | `DashboardService` | `DashboardSnapshot` per period; "as of" timestamp |
+| **BG-09** | Menu/package costing recalculation | `Scheduling/Costing/` | P3 | Price/benchmark change event + nightly | `MenuCostingService`, `PackageCostingCalculator` | Recalculated costs and projections; audit |
+| **BG-10** | Calendar / accounting / payment-gateway sync | `Integration/` | P3 | Queued + retry | Provider adapters, `IHttpClientFactory` | External id mapping, sync status, dead-letter |
+| **BG-11** | Scheduled reports | `Scheduling/Reports/` | P4 | Monthly, 1st at 06:00 | Existing export classes + notification sender | Report file emailed to the owner; audit |
+| **BG-12** | Maintenance and retention | `Maintenance/` | P4 | Daily/weekly | Identity, exports, documents, logs, soft-deleted rows | Purged/archived rows; counts logged; dry-run supported |
 
-### BG-01 — Outbox + notification dispatcher
+> **Category placement rule.** Each job lives under exactly one `{TypeOfBackgroundService}` folder. If a job plausibly fits two categories, choose the one that matches the **trigger** (scheduled → `Scheduling`; queued/inbox/outbox → `Messaging`; polling an external system → `Integration`; producing a file → `Reporting`; housekeeping → `Maintenance`). Do not create a new category inline; raise it to AGENT 01.
+
+### BG-01 — Outbox + notification dispatcher (`Messaging/Outbox/`)
 
 **Problem.** Booking confirmations, payment receipts, reminders, and SignalR updates must not run inside the request. A naive `Task.Run` loses work on restart and has no retry.
 
 **Proposed flow.**
 
 1. A command writes the business change and an `OutboxMessage` row in the same transaction.
-2. A `BackgroundService` (or Hangfire recurring job) polls unprocessed rows in batches.
+2. `SalsCaterSuite.Worker/BackgroundServices/Messaging/Outbox/OutboxDispatcher.cs` polls unprocessed rows in batches using `IServiceScopeFactory` and repository interfaces (DEC-037).
 3. Each message is handled by an idempotent handler keyed by `OutboxMessage.Id`.
 4. Success marks `ProcessedAt`; failure increments `Attempts`, sets `NextAttemptAt` with exponential backoff, and records `LastError`.
 5. After `MaxAttempts`, the message moves to `DeadLetter` and raises an operational alert.
@@ -218,9 +234,9 @@ All items except BG-04 are **`PLANNED — not yet implemented`**. Priorities are
 - The outbox row and the business change commit atomically.
 - The dispatcher is safe to run in two instances (row locking or distributed lock).
 
-**Dependencies.** Notification provider decision; SignalR hub (for push); email/SMS templates approved by AGENT 01.
+**Dependencies.** Notification provider decision; SignalR hub (for push); email/SMS templates approved by AGENT 01; a new AGENT 01 decision before implementation (the host itself is approved under DEC-180).
 
-### BG-02 — Daily receivables aging snapshot
+### BG-02 — Daily receivables aging snapshot (`Scheduling/Aging/`)
 
 **Problem.** Aging is currently computed on demand. A daily snapshot gives consistent reporting, a trend line, and a stable input for reminders.
 
@@ -238,9 +254,9 @@ All items except BG-04 are **`PLANNED — not yet implemented`**. Priorities are
 - Soft-deleted bookings/payments follow the same exclusion rules as the directory and dashboard.
 - The job records the source row count and the `Today` value it used.
 
-**Dependencies.** AGENT 01 decision on snapshot retention and whether the snapshot is authoritative or advisory.
+**Dependencies.** AGENT 01 decision on snapshot retention and whether the snapshot is authoritative or advisory; a new job-level decision before implementation.
 
-### BG-03 — Receivables reminders
+### BG-03 — Receivables reminders (`Scheduling/Reminders/`)
 
 **Problem.** Overdue receivables need consistent, auditable follow-up.
 
@@ -259,19 +275,20 @@ All items except BG-04 are **`PLANNED — not yet implemented`**. Priorities are
 - The reminder states the authoritative balance from the server.
 - The template and cadence are approved by AGENT 01.
 
-**Dependencies.** BG-01, BG-02, notification provider, template approval, business-day/holiday policy.
+**Dependencies.** BG-01, BG-02, notification provider, template approval, business-day/holiday policy, a new job-level decision.
 
-### BG-04 — Booking lifecycle transitions (**APPROVED by DEC-178; implementation pending**)
+### BG-04 — Booking lifecycle transitions (`Scheduling/BookingLifecycle/`) — **APPROVED by DEC-178 (scope); hosted by `SalsCaterSuite.Worker` under DEC-180; implementation WIP, not yet verified**
 
 **Problem.** Booking statuses can drift from the event date. Manual updates are error-prone.
 
 **Proposed flow.**
 
-1. A scheduled, in-process `BackgroundService` polls due bookings in batches using the shared `IDateTime` abstraction; the implementation proposal must recommend a cadence.
+1. `SalsCaterSuite.Worker` polls due bookings every minute in batches of 100 using the shared `IDateTime` abstraction. The WIP worker lives at `BackgroundServices/BookingLifecycleWorker.cs`; its final folder location is an AGENT 02 choice.
 2. Advance only `Confirmed` → `InProgress` at `EventDate + EventStartTime` and `InProgress` → `Completed` at `EventEndDate + PackoutTime + 1 hour`. If packout is absent, use `EventEndDate + EventEndTime + 1 hour`. Interpret scheduled date/time in Asia/Manila and compare as instants.
 3. Exclude soft-deleted rows and statuses `Pending`, `Expired`, `Cancelled`, `Rescheduled`, and `NoShow`. A rescheduled booking must be explicitly confirmed again. Manual NoShow/Rescheduled actions are out of scope.
 4. Make each transition idempotent and row-version/concurrency safe. If the worker resumes after both thresholds, record both valid transitions in order. Save lifecycle status and `BookingStatusHistory` atomically, with actor/source `system/BG-04` and effective/recorded timestamps.
 5. Publish no SignalR event in this cycle: there is no mapped hub and no push channel. Payment status is unchanged by this job.
+6. The cutover guard stays **default-disabled** until the migration is reviewed and tested on an isolated database (DEC-180).
 
 **Acceptance criteria.**
 
@@ -280,10 +297,12 @@ All items except BG-04 are **`PLANNED — not yet implemented`**. Priorities are
 - Re-running and multi-instance races are safe through idempotence and row-version concurrency.
 - Every lifecycle transition is recorded in durable `BookingStatusHistory` in the same transaction.
 - No payment status or financial amount is changed by BG-04.
+- The WebApi runs no duplicate lifecycle poller.
+- No migration is applied to Development, production, an existing Docker volume, or any persistent database; tests use isolated databases only (DEC-180).
 
-**Dependencies.** DEC-177 / DEC-178; lifecycle-only `BookingStatus`; `EventEndDate`; `BookingStatusHistory`; repository-backed transition service; `IDateTime`. No SignalR hub, outbox, scheduler package, or separate project is in scope.
+**Dependencies.** DEC-177 / DEC-178 / DEC-180; lifecycle-only `BookingStatus`; `EventEndDate`; `BookingStatusHistory`; repository-backed transition service; `IDateTime`. No SignalR hub, outbox, scheduler package, or additional project is in scope.
 
-### BG-05 — Event reminders
+### BG-05 — Event reminders (`Scheduling/EventReminders/`)
 
 **Problem.** Customers and staff need timely reminders before an event.
 
@@ -300,17 +319,17 @@ All items except BG-04 are **`PLANNED — not yet implemented`**. Priorities are
 - Cancelled bookings are excluded.
 - Templates are approved by AGENT 01.
 
-**Dependencies.** BG-01, booking data, notification provider.
+**Dependencies.** BG-01, booking data, notification provider, a new job-level decision.
 
-### BG-06 — Async document generation
+### BG-06 — Async document generation (`Reporting/Documents/`)
 
 **Problem.** QuestPDF generation can be heavy and should not block the request or hold a database transaction.
 
 **Proposed flow.**
 
 1. A controller validates the request and writes a `DocumentJob` row.
-2. A worker picks the job, loads the entity, and calls the existing document class.
-3. The PDF is stored in the approved file store (filesystem, database, or blob).
+2. `SalsCaterSuite.Worker/BackgroundServices/Reporting/Documents/DocumentGenerationBackgroundService.cs` picks the job via a repository, loads the entity, and calls the existing document class.
+3. The PDF is stored in the approved file store (filesystem, database, or blob) via `IDocumentFileStore`.
 4. The job status and an expiring download link are exposed to the client.
 5. A notification is enqueued when the document is ready.
 
@@ -321,17 +340,18 @@ All items except BG-04 are **`PLANNED — not yet implemented`**. Priorities are
 - The download is authorized; the file is not publicly addressable.
 - Retention and cleanup are configured.
 
-**Dependencies.** Storage decision; download endpoint contract; authorization policy.
+**Dependencies.** Storage decision; download endpoint contract; authorization policy; a new job-level decision.
 
-### BG-07 — Async exports
+### BG-07 — Async exports (`Reporting/Exports/`)
 
 **Problem.** Large ClosedXML exports can exceed a comfortable request duration.
 
 **Proposed flow.**
 
 1. Validate filters and write an `ExportJob` row.
-2. A worker generates the file with the existing export class.
+2. `SalsCaterSuite.Worker/BackgroundServices/Reporting/Exports/ExportJobBackgroundService.cs` generates the file with the existing export class, using `IExportWriter` and `IExportFileStore` from `Application/Common/Interfaces`.
 3. Store the file and expose status/progress and an expiring download link.
+4. `Reporting/Exports/ExportJobOptions.cs` configures poll interval, batch size, retention, and download-link TTL.
 
 **Acceptance criteria.**
 
@@ -340,15 +360,15 @@ All items except BG-04 are **`PLANNED — not yet implemented`**. Priorities are
 - The file expires and is cleaned up.
 - No PII is written to logs.
 
-**Dependencies.** Storage decision; download endpoint contract; retention.
+**Dependencies.** Storage decision; download endpoint contract; retention; a new job-level decision.
 
-### BG-08 — Dashboard KPI snapshots
+### BG-08 — Dashboard KPI snapshots (`Reporting/Dashboard/`)
 
 **Problem.** The dashboard aggregates several tables on every request. As data grows, the response slows.
 
 **Proposed flow.**
 
-1. Nightly, compute the dashboard for the approved periods and store a snapshot with an "as of" timestamp.
+1. Nightly, `SalsCaterSuite.Worker/BackgroundServices/Reporting/Dashboard/DashboardSnapshotBackgroundService.cs` computes the dashboard for the approved periods and stores a snapshot with an "as of" timestamp.
 2. The dashboard reads the snapshot for historical periods and falls back to live computation when the snapshot is missing or stale.
 3. The response exposes the "as of" timestamp so the UI can show staleness.
 
@@ -359,16 +379,16 @@ All items except BG-04 are **`PLANNED — not yet implemented`**. Priorities are
 - Staleness is visible to the client.
 - The snapshot is not used to hide a failed live calculation.
 
-**Dependencies.** AGENT 01 approval of the snapshot periods and staleness policy.
+**Dependencies.** AGENT 01 approval of the snapshot periods and staleness policy; a new job-level decision.
 
-### BG-09 — Menu/package costing recalculation
+### BG-09 — Menu/package costing recalculation (`Scheduling/Costing/`)
 
 **Problem.** A price or benchmark change can invalidate many menu/package cost figures.
 
 **Proposed flow.**
 
 1. A price/benchmark change enqueues recalculation for the affected menu/package ids.
-2. The worker calls the existing `MenuCostingService` / `PackageCostingCalculator`.
+2. `SalsCaterSuite.Worker/BackgroundServices/Scheduling/Costing/CostingRecalculationBackgroundService.cs` calls the existing `MenuCostingService` / `PackageCostingCalculator`.
 3. Results are persisted or cached; an audit entry records the trigger and source.
 
 **Acceptance criteria.**
@@ -378,16 +398,16 @@ All items except BG-04 are **`PLANNED — not yet implemented`**. Priorities are
 - Partial failures are retried; no partial write is presented as complete.
 - The job is idempotent.
 
-**Dependencies.** AGENT 01 approval of the dependency graph and cache strategy.
+**Dependencies.** AGENT 01 approval of the dependency graph and cache strategy; a new job-level decision.
 
-### BG-10 — Calendar / accounting / payment-gateway sync
+### BG-10 — Calendar / accounting / payment-gateway sync (`Integration/`)
 
 **Problem.** External systems need retries, idempotency, and conflict handling.
 
 **Proposed flow.**
 
 1. A booking/payment change enqueues a sync command.
-2. The adapter calls the provider with an idempotency key.
+2. `SalsCaterSuite.Worker/BackgroundServices/Integration/` adapters call the provider with an idempotency key.
 3. The external id is stored in `IntegrationSyncState`.
 4. Transient failures retry; permanent failures dead-letter.
 
@@ -398,15 +418,15 @@ All items except BG-04 are **`PLANNED — not yet implemented`**. Priorities are
 - Credentials are not logged.
 - Each provider has a runbook.
 
-**Dependencies.** Provider contracts and credentials; AGENT 01 approval.
+**Dependencies.** Provider contracts and credentials; AGENT 01 approval; a new job-level decision.
 
-### BG-11 — Scheduled reports
+### BG-11 — Scheduled reports (`Scheduling/Reports/`)
 
 **Problem.** The owner wants the monthly catering report and collection summary without manual exports.
 
 **Proposed flow.**
 
-1. On the 1st at 06:00, generate the approved reports for the previous month.
+1. On the 1st at 06:00, `SalsCaterSuite.Worker/BackgroundServices/Scheduling/Reports/ScheduledReportBackgroundService.cs` generates the approved reports for the previous month.
 2. Email the files to the owner (or store them with a link).
 3. Record the run and the file location.
 
@@ -416,15 +436,15 @@ All items except BG-04 are **`PLANNED — not yet implemented`**. Priorities are
 - A failed run is retried and alerted.
 - The recipient list is configurable.
 
-**Dependencies.** BG-01, BG-07, report approval.
+**Dependencies.** BG-01, BG-07, report approval; a new job-level decision.
 
-### BG-12 — Maintenance and retention
+### BG-12 — Maintenance and retention (`Maintenance/`)
 
 **Problem.** Tokens, exports, documents, logs, and soft-deleted rows accumulate.
 
 **Proposed flow.**
 
-1. Daily/weekly, apply the approved retention policy.
+1. Daily/weekly, `SalsCaterSuite.Worker/BackgroundServices/Maintenance/MaintenanceBackgroundService.cs` applies the approved retention policy.
 2. Support a dry-run mode that logs counts without deleting.
 3. Never purge financial records without an explicit, approved retention rule.
 
@@ -434,7 +454,7 @@ All items except BG-04 are **`PLANNED — not yet implemented`**. Priorities are
 - Destructive runs require configuration and are audited.
 - Financial and audit records are never purged by a generic cleanup job.
 
-**Dependencies.** AGENT 01 retention policy; legal/compliance review.
+**Dependencies.** AGENT 01 retention policy; legal/compliance review; a new job-level decision.
 
 ---
 
@@ -442,12 +462,12 @@ All items except BG-04 are **`PLANNED — not yet implemented`**. Priorities are
 
 | Phase | Scope | Exit criteria |
 | :--- | :--- | :--- |
-| **0 — Foundation** | Job contract, `JobRun` log, configuration, feature flag, `TimeProvider`/`IDateTime` usage, test harness, health check | A no-op job runs, logs, and is covered by a test; no business job yet |
-| **1 — Outbox + notifications** | `OutboxMessage`, dispatcher, email/SMS/SignalR adapters, dead-letter, idempotency | BG-01 acceptance criteria met; a booking/payment request never waits for a provider |
-| **2 — Receivables** | BG-02, BG-03, aging snapshot, reminder templates, notification log | Snapshot matches on-demand aging; no duplicate reminders; templates approved |
-| **3 — Documents and exports** | BG-06, BG-07, job status/download endpoints, storage, retention | Request returns a job id; generated file matches on-demand output |
-| **4 — Lifecycle and integrations** | BG-04, BG-05, BG-10, SignalR hub | Valid transitions only; reminders correct; external sync idempotent |
-| **5 — Performance and maintenance** | BG-08, BG-09, BG-11, BG-12 | Snapshots match live output; recalculation correct; retention dry-run reviewed |
+| **0 — Foundation** | Confirm the `SalsCaterSuite.Worker` host baseline under DEC-180: review the existing WIP (`Program.cs`, `BookingLifecycleWorker.cs`, csproj, Dockerfile); verify the slnx registration; add the job contract, `JobRun` log, configuration, feature flag, `IDateTime` usage, test harness, and health check | Worker project builds, starts, runs a no-op job, logs, and is covered by a test; no business job other than BG-04 is enabled |
+| **1 — Outbox + notifications** | `OutboxMessage`, dispatcher under `BackgroundServices/Messaging/Outbox/`, email/SMS/SignalR adapters, dead-letter, idempotency | BG-01 acceptance criteria met; a booking/payment request never waits for a provider |
+| **2 — Receivables** | BG-02, BG-03 under `Scheduling/Aging/` and `Scheduling/Reminders/`; aging snapshot, reminder templates, notification log | Snapshot matches on-demand aging; no duplicate reminders; templates approved |
+| **3 — Documents and exports** | BG-06, BG-07 under `Reporting/Documents/` and `Reporting/Exports/`; job status/download endpoints; storage; retention | Request returns a job id; generated file matches on-demand output |
+| **4 — Lifecycle and integrations** | BG-04 under `Scheduling/BookingLifecycle/` (WIP → verified per DEC-178 / DEC-180); BG-05 under `Scheduling/EventReminders/`; BG-10 under `Integration/`; SignalR hub | BG-04: valid transitions only, default-disabled cutover reviewed, isolated-database migration tested; BG-05 reminders correct; external sync idempotent |
+| **5 — Performance and maintenance** | BG-08 under `Reporting/Dashboard/`; BG-09 under `Scheduling/Costing/`; BG-11 under `Scheduling/Reports/`; BG-12 under `Maintenance/` | Snapshots match live output; recalculation correct; retention dry-run reviewed |
 
 **Phase gates.** Each phase requires:
 
@@ -458,6 +478,7 @@ All items except BG-04 are **`PLANNED — not yet implemented`**. Priorities are
 5. `governance/decision-log.md` updated.
 6. `implementation/feature-status.md` updated.
 7. This document realigned if the structure changed.
+8. Any new `{TypeOfBackgroundService}` category approved by AGENT 01 before use.
 
 ---
 
@@ -728,7 +749,7 @@ A job is done when:
 3. **Reminder policy:** which milestones, what wording, what opt-out rules, and which business-day calendar?
 4. **Aging snapshot:** is it authoritative for reporting, or advisory only? What retention period?
 5. **Document/export storage:** filesystem, database, or blob storage? What retention and download-link lifetime?
-6. **Worker host:** keep jobs in `WebApi` initially, or create `SalsCaterSuite.Worker` in Phase 2?
+6. **Worker host:** *Resolved by DEC-180* — the existing `SalsCaterSuite.Worker` project hosts BG-04; the WebApi runs no lifecycle poller. Remaining host questions (additional worker projects, scaling split) need a new AGENT 01 decision.
 7. **Financial mutations:** confirm that background jobs may write only derived snapshots/jobs and never mutate payments, bookings, or ledger entries directly.
 8. **Dashboard snapshots:** which periods, and what staleness threshold is acceptable?
 9. **Integrations:** which providers are in scope (Google Calendar, Outlook, accounting, payment gateway), and who owns their contracts?
@@ -755,10 +776,14 @@ A job is done when:
 | Date | Agent | Change | Sections touched |
 | :--- | :--- | :--- | :--- |
 | 2026-10-22 | AGENT 01 (proposed) | Initial background services workplan: baseline, architecture options, job catalog BG-01..BG-12, phased delivery, data additions, configuration, observability, security, testing, definition of done, risks, open questions | All |
+| 2026-10-31 | AGENT 01 | BG-04 scope approved (DEC-178); lifecycle-only status, `EventEndDate`, `BookingStatusHistory`, row-version concurrency | Header, 3 (BG-04), 4, 12 |
+| 2026-11-02 | AGENT 01 | Host aligned to DEC-180: existing `src/backend/SalsCaterSuite.Worker` project hosts BG-04 (not a new `SalsCaterSuite.Worker.BackgroundServices` project); Worker WIP recorded; all job folders relative to `BackgroundServices/`; BG-04 polling set to one minute, batch 100, cutover guard default-disabled; open question 6 resolved | Header, 0.3, 1.1–1.3, 2.2–2.3, 3, 4, 12 |
 
 ---
 
-## Appendix A — Suggested File Layout
+## Appendix A - Suggested File Layout
+
+> **Superseded in part.** The authoritative layout is section 2.3. Under DEC-180 the BG-04 host is the existing `src/backend/SalsCaterSuite.Worker` project; jobs are not hosted in `WebApi`. Treat the `WebApi` job entries below as historical until AGENT 01 realigns this appendix.
 
 ```text
 src/backend/

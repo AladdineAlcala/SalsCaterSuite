@@ -1,9 +1,9 @@
 # Sal's CaterSuite — Implementation Feature Status
 
-Overall Architecture State: **Green — .NET 10, repository-only persistence (DEC-037/DEC-039), API runtime-verified, and the delivered business modules are tracked in the feature table below. Latest independently verified backend suites: 1021/1021 unit and 160/160 integration.**
+Overall Architecture State: **Green — .NET 10, repository-only persistence (DEC-037/DEC-039). BG-04 in `SalsCaterSuite.Worker` (DEC-180); booking lifecycle/payment separated (DEC-177); DateTimeOffset +08:00 (DEC-178); fail-closed migration Down. Build 0/0; targeted lifecycle tests passing.**
 Frontend State: **Green — app shell/auth, dashboard, customer master, menu costing, packages/workbench (including DEC-176), booking register/workbench/operations, Settings and add-on administration; TypeScript/build passed, 512/512 Vitest.**
-Governance State: **Active — decisions through DEC-176, risks through RSK-075, requirements traceability and open owner decisions are maintained in their governance artifacts.**
-Last verified: 2026-10-31 for the frontend (**REQ-PKG-04 / DEC-176**) and 2026-10-28 for the backend (**REQ-PKG-04 / DEC-173**). AGENT 01 independently ran focused package + booking frontend tests (**11 files / 321 tests**), full Vitest (**27 files / 512 tests**), and frontend production build (TypeScript passed; Vite succeeded with the existing >500 kB chunk-size advisory). The prior backend verification remains: Release build (**0 warnings / 0 errors**), unit tests (**1021/1021**), integration tests (**160/160**); no backend code changed in DEC-176, so backend suites were not rerun. The EF model/snapshot check reported no pending changes in the prior cycle; DEC-173 migration remains unapplied to Development or any persistent/production DB. No live browser E2E or clean remote clone was run. DEC-175 records owner acceptance of review of reconstructed test edits after AGENT 02's reported `git checkout --` incident; RSK-075 is closed with the exact-original-text limitation disclosed.
+Governance State: **Active — decisions through DEC-180.**
+Last verified: 2026-11-02 (TASK-BKG-10). Backend Release build 0/0; BookingCreationTests 1/1, BookingLifecycleMigrationTests 2/2, BookingLifecycleOptions/Worker unit 2/2. Frontend `tsc -b` 0 errors, full Vitest 514/514, build succeeded. No migrations applied to persistent DBs.
 
 ## Current cycle — Applicable Pax Classification Display (DEC-176, 2026-10-31)
 

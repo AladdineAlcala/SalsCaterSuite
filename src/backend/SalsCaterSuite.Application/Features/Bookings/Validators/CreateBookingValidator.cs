@@ -1,3 +1,4 @@
+using System;
 using FluentValidation;
 using SalsCaterSuite.Application.Features.Bookings.DTOs.Request;
 using SalsCaterSuite.Application.Features.Bookings.DTOs.Response;
@@ -7,6 +8,7 @@ namespace SalsCaterSuite.Application.Features.Bookings.Validators;
 
 public class CreateBookingValidator : AbstractValidator<CreateBookingRequest>
 {
+    private static readonly TimeSpan AsiaManilaOffset = TimeSpan.FromHours(8);
     public CreateBookingValidator()
     {
         RuleFor(x => x.CustomerId)
@@ -30,6 +32,18 @@ public class CreateBookingValidator : AbstractValidator<CreateBookingRequest>
         RuleFor(x => x.StartDate)
             .NotEmpty()
             .WithMessage("Event start date and time is required.");
+
+        // DEC-178 §8.1: the schedule is Asia/Manila wall time and must be explicit. A UTC
+        // ("Z") or any other offset is rejected rather than silently converted on the host.
+        RuleFor(x => x.StartDate)
+            .Must(start => start.Offset == AsiaManilaOffset)
+            .When(x => x.StartDate != default)
+            .WithMessage("Event start date and time must carry an explicit +08:00 (Asia/Manila) offset.");
+
+        RuleFor(x => x.EndDate)
+            .Must(end => end.Offset == AsiaManilaOffset)
+            .When(x => x.EndDate != default)
+            .WithMessage("Event end date and time must carry an explicit +08:00 (Asia/Manila) offset.");
 
         RuleFor(x => x.EndDate)
             .GreaterThanOrEqualTo(x => x.StartDate)
@@ -78,11 +92,11 @@ public class CreateBookingValidator : AbstractValidator<CreateBookingRequest>
         // the only non-vacuous reading of "they must fall on the event day" for a time-of-day
         // column (DEC-106).
         RuleFor(x => x.CallTime)
-            .Must((request, callTime) => !callTime.HasValue || callTime.Value <= request.StartDate.TimeOfDay)
+            .Must((request, callTime) => !callTime.HasValue || callTime.Value <= request.StartDate.DateTime.TimeOfDay)
             .WithMessage("The call time must not be later than the programme's start time.");
 
         RuleFor(x => x.PackoutTime)
-            .Must((request, packoutTime) => !packoutTime.HasValue || packoutTime.Value >= request.EndDate.TimeOfDay)
+            .Must((request, packoutTime) => !packoutTime.HasValue || packoutTime.Value >= request.EndDate.DateTime.TimeOfDay)
             .WithMessage("The pack-out time must not be earlier than the programme's end time.");
 
         // A draft never carries a payment (spec §2).

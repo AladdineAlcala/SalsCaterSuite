@@ -110,6 +110,7 @@ D:\source\repos\SalsCaterSuite\
 │   │   ├── SalsCaterSuite.Application\
 │   │   ├── SalsCaterSuite.Infrastructure\
 │   │   ├── SalsCaterSuite.WebApi\
+│   │   ├── SalsCaterSuite.Worker\           <-- BG-04 host (DEC-180)
 │   │   ├── SalsCaterSuite.UnitTests\       <-- the unit-test project (belongs to the backend)
 │   │   └── SalsCaterSuite.IntegrationTests\ <-- the integration-test project (belongs to the backend)
 │   │
@@ -190,6 +191,7 @@ graph TD
 | `SalsCaterSuite.Application` | `SalsCaterSuite.Application/SalsCaterSuite.Application.csproj` |
 | `SalsCaterSuite.Infrastructure` | `SalsCaterSuite.Infrastructure/SalsCaterSuite.Infrastructure.csproj` |
 | `SalsCaterSuite.WebApi` | `SalsCaterSuite.WebApi/SalsCaterSuite.WebApi.csproj` |
+| `SalsCaterSuite.Worker` | `SalsCaterSuite.Worker/SalsCaterSuite.Worker.csproj` |
 | `SalsCaterSuite.UnitTests` | `SalsCaterSuite.UnitTests/SalsCaterSuite.UnitTests.csproj` |
 
 The integration-test project is **not** in the `.slnx`; it is run explicitly (§7).
@@ -235,6 +237,7 @@ SalsCaterSuite.Domain/
 ```
 
 * `Domain.Enums.UserRoleEnum` was **removed** (DEC-022). The canonical role vocabulary is `Application/Common/Authorization/AuthorizationPolicies.cs` (DEC-017).
+* `Domain.Enums.BookingStatus` is **lifecycle-only** (DEC-177): `Pending`, `Confirmed`, `InProgress`, `Completed`, `Cancelled`, `NoShow`, `Rescheduled`, `Expired`. Payment state is separate (`PaymentState`: `PendingPayment`, `DepositPaid`, `FullyPaid`). |
 * **As built** (REQ-BKG-06 / 07 / 08, delivered 2026-10-22): three **new** entities - `AddonCategory.cs`, `BookingMenu.cs` and `BookingAddOn.cs` - taking the entity count from **13 to 16**; the new `Domain/Enums/AddonPricingBasis.cs`, `BookingSelectionState.cs` and `DiscountSource.cs`; and three **new** columns on existing entities - `Booking.AddonsTotal` (DEC-151), `AddonDetail.AddonCategoryId` and `AddonDetail.PricingBasis` (DEC-142, DEC-158). Every column is **additive**; no existing column changes and none is dropped. The three new tables and the two extended tables are specified in `business/data-dictionary.md`.
 * **As built** (2026-10-24, the owner's department/package request): one **new** entity - `Department.cs` - taking the entity count from **16 to 17**; and five **additive** columns - `Package.PackageCode`, `Package.ExtendedLocationAmount`, `AddonDetail.DeptId`, plus the two foreign keys that wire `AddonDetail.DeptId` and the pre-existing `Menu.DeptId` to `Department`. No existing column changes and none is dropped (DEC-162..DEC-165).
 * **As built** (2026-10-28, REQ-PKG-04 / DEC-173): one **new** entity - `PackagePaxApplicable.cs` - takes the count from **17 to 18**; `Package.NumPaxId` is a required `INT` FK to its fixed, migration-seeded lookup. The owner-approved existing rows map `p_id=1 → 4`, `p_id=2 → 2`; the migration fails for any other package ID rather than infer a value. The lookup's five labels are specified in `business/data-dictionary.md`; this field is classification-only and adds no booking rule.

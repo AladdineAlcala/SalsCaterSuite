@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { WorkbenchTierEngine } from '../components/WorkbenchTierEngine'
 import type { BookingQuoteHeldRate, BookingWorkbenchDraft } from '../bookingVocabulary'
@@ -194,11 +195,27 @@ describe('WorkbenchTierEngine', () => {
       renderEngine({ draft: { packageType: 'Regular' } })
 
       expect(screen.getByLabelText('Area filter')).toBeInTheDocument()
-      const area = screen.getByLabelText('Area filter') as HTMLSelectElement
-      expect(area.required).toBe(true)
+      expect(screen.getByLabelText('Area filter')).toHaveAttribute('aria-required', 'true')
       const tier = screen.getByLabelText('Buffet tier') as HTMLSelectElement
       expect(tier).toBeDisabled()
       expect(screen.getByText('Choose the event area to load its tiers')).toBeInTheDocument()
+    })
+
+    it('filters the event-area options as the user searches', async () => {
+      const { patches } = renderEngine({ draft: { packageType: 'Regular' } })
+
+      await userEvent.click(screen.getByLabelText('Area filter'))
+      await userEvent.type(screen.getByRole('searchbox', { name: 'Search options' }), 'batangas')
+
+      expect(screen.getByRole('option', { name: 'Batangas City' })).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: 'Antipolo City' })).not.toBeInTheDocument()
+
+      await userEvent.click(screen.getByRole('option', { name: 'Batangas City' }))
+      expect(patches.at(-1)).toEqual({
+        areaFilterId: '5',
+        packageId: '',
+        extendedAreaId: '5',
+      })
     })
 
     it('names the loading area on the picker while the placeholder data stands in (AC-BKG-95)', () => {
@@ -254,23 +271,20 @@ describe('WorkbenchTierEngine', () => {
       })
     })
 
-    it('copies a non-empty area into the event municipality in one patch and never reverses it (DEC-171)', () => {
+    it('copies a non-empty area into the event municipality in one patch and never reverses it (DEC-171)', async () => {
       const { patches } = renderEngine({
         draft: { packageType: 'Regular', areaFilterId: '4' },
       })
 
-      fireEvent.change(screen.getByLabelText('Area filter'), {
-        target: { value: '9' },
-      })
+      await userEvent.click(screen.getByLabelText('Area filter'))
+      await userEvent.click(screen.getByRole('option', { name: 'Tagaytay City' }))
       expect(patches.at(-1)).toEqual({
         areaFilterId: '9',
         packageId: '',
         extendedAreaId: '9',
       })
 
-      fireEvent.change(screen.getByLabelText('Area filter'), {
-        target: { value: '' },
-      })
+      await userEvent.click(screen.getByLabelText('Clear selection'))
       expect(patches.at(-1)).toEqual({ areaFilterId: '', packageId: '' })
     })
   })

@@ -78,12 +78,13 @@ public class PaymentLedgerService : IPaymentLedgerService
 
         await _payments.AddAsync(payment, cancellationToken);
 
-        // Refresh the denormalized AmountPaid cache / booking status through the
-        // domain method. Domain rule violations must surface as a failed result
-        // (HTTP 400), never an unhandled 500 (DEC-012, DEC-014).
+        // Refresh the denormalized AmountPaid cache. Payment progress is overwritten from the
+        // authoritative non-soft-deleted sum plus this payment, and from the calculator's net
+        // amount due. Lifecycle status is not an input and is not written (DEC-177, DEC-012).
         try
         {
             booking.RecordPayment(request.AmountPaid);
+            booking.RefreshPaymentStatus(collected + request.AmountPaid, netAmountDue);
         }
         catch (DomainException ex)
         {
@@ -93,7 +94,7 @@ public class PaymentLedgerService : IPaymentLedgerService
             return Result<PaymentEntryResponse>.Failure(ex.Message);
         }
 
-        // Single commit for the payment row and the booking's refreshed status cache.
+        // Single commit for the payment row and the booking's refreshed payment-state cache.
         await _payments.SaveChangesAsync(cancellationToken);
 
         var dto = new PaymentEntryResponse

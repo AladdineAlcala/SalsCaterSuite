@@ -6,6 +6,7 @@ using SalsCaterSuite.Application.Features.Bookings.Models;
 using SalsCaterSuite.Application.Features.Bookings.Services;
 using SalsCaterSuite.Application.Services;
 using SalsCaterSuite.Domain.Entities;
+using SalsCaterSuite.Domain.Enums;
 
 namespace SalsCaterSuite.Application.Features.Bookings.Queries;
 
@@ -55,6 +56,7 @@ public class GetBookingDetailsQuery
             Occasion = booking.Occasion,
             Venue = booking.Venue,
             EventDate = booking.EventDate,
+            EventEndDate = booking.EventEndDate,
             EventStartTime = booking.EventStartTime,
             EventEndTime = booking.EventEndTime,
             CallTime = booking.CallTime,
@@ -90,8 +92,11 @@ public class GetBookingDetailsQuery
             AmountPaid = totalPayments,
             Balance = breakdown.RemainingBalance,
 
-            // Status
+            // Lifecycle and payment progress are separate (DEC-177). The payment state is derived
+            // from the authoritative payment sum, not from the stored column, so a stale cache
+            // cannot be published.
             Status = booking.Status,
+            PaymentState = PaymentStateRules.Classify(totalPayments, breakdown.NetAmountDue),
             ReminderSent = booking.ReminderSent,
         };
 

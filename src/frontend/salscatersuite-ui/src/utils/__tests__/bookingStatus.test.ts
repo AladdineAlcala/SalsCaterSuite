@@ -5,8 +5,6 @@ import type { BookingStatus } from '@/types/dashboard.types'
 const ALL_STATUSES: BookingStatus[] = [
   'Pending',
   'Confirmed',
-  'DepositPaid',
-  'FullyPaid',
   'InProgress',
   'Completed',
   'Cancelled',
@@ -23,8 +21,6 @@ describe('BOOKING_STATUS_META', () => {
   it('maps each status to a human label', () => {
     expect(BOOKING_STATUS_META.Pending.label).toBe('Pending')
     expect(BOOKING_STATUS_META.Confirmed.label).toBe('Confirmed')
-    expect(BOOKING_STATUS_META.DepositPaid.label).toBe('Deposit Paid')
-    expect(BOOKING_STATUS_META.FullyPaid.label).toBe('Fully Paid')
     expect(BOOKING_STATUS_META.InProgress.label).toBe('In Progress')
     expect(BOOKING_STATUS_META.Completed.label).toBe('Completed')
     expect(BOOKING_STATUS_META.Cancelled.label).toBe('Cancelled')
@@ -49,7 +45,7 @@ describe('BOOKING_STATUS_META', () => {
 
 describe('getBookingStatusMeta', () => {
   it('resolves a known status', () => {
-    expect(getBookingStatusMeta('DepositPaid').label).toBe('Deposit Paid')
+    expect(getBookingStatusMeta('Confirmed').label).toBe('Confirmed')
   })
 
   it('degrades gracefully for an unknown status', () => {

@@ -28,7 +28,7 @@ public class BookingDossierExportTests
         CallTime = new TimeSpan(9, 0, 0),
         PackoutTime = new TimeSpan(23, 0, 0),
         Status = BookingStatus.Confirmed,
-        PaymentState = "PartiallyPaid",
+        PaymentState = "DepositPaid",
         IsOverdue = false,
         CustomerName = "Santos, Maria",
         CustomerCompany = "Sal's Corporation",
@@ -72,7 +72,7 @@ public class BookingDossierExportTests
 
         worksheet.Cell(5, 1).GetString().Should().Be("BK-20261120-00101");
         worksheet.Cell(5, 7).GetString().Should().Be(nameof(BookingStatus.Confirmed));
-        worksheet.Cell(5, 8).GetString().Should().Be("PartiallyPaid");
+        worksheet.Cell(5, 8).GetString().Should().Be("DepositPaid");
         worksheet.Cell(5, 10).GetString().Should().Be("Santos, Maria");
         worksheet.Cell(5, 17).GetValue<int>().Should().Be(120);
         worksheet.Cell(5, 20).GetValue<decimal>().Should().Be(104_400m);

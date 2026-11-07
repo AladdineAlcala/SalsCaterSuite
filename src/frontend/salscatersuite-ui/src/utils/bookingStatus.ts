@@ -16,11 +16,9 @@ import {
   CheckCircle2,
   ChefHat,
   CircleCheck,
-  CircleCheckBig,
   CircleSlash,
   Clock,
   UserX,
-  Wallet,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { BookingStatus } from '@/types/dashboard.types'
@@ -37,8 +35,6 @@ export interface BookingStatusMeta {
 export const BOOKING_STATUS_META: Record<BookingStatus, BookingStatusMeta> = {
   Pending: { label: 'Pending', tone: 'warning', icon: Clock },
   Confirmed: { label: 'Confirmed', tone: 'success', icon: CheckCircle2 },
-  DepositPaid: { label: 'Deposit Paid', tone: 'success', icon: Wallet },
-  FullyPaid: { label: 'Fully Paid', tone: 'success', icon: CircleCheckBig },
   InProgress: { label: 'In Progress', tone: 'info', icon: ChefHat },
   Completed: { label: 'Completed', tone: 'neutral', icon: CircleCheck },
   Cancelled: { label: 'Cancelled', tone: 'danger', icon: CircleSlash },

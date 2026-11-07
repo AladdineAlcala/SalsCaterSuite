@@ -100,8 +100,9 @@ public class DashboardService : IDashboardService
             })
             .ToList();
 
-        var committedCount = periodEntries.Count(e =>
-            e.Booking.Status is BookingStatus.Confirmed or BookingStatus.DepositPaid or BookingStatus.FullyPaid);
+        // DEC-177: commitment is lifecycle Confirmed only. DepositPaid and FullyPaid are
+        // payment states and no longer make a Pending booking committed.
+        var committedCount = periodEntries.Count(e => e.Booking.Status == BookingStatus.Confirmed);
         var tentativeCount = periodEntries.Count(e => e.Booking.Status == BookingStatus.Pending);
         var otherCount = periodEntries.Count(e =>
             e.Booking.Status is BookingStatus.InProgress or BookingStatus.Completed or BookingStatus.NoShow or BookingStatus.Rescheduled);

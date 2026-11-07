@@ -37,7 +37,8 @@ public class PaymentLedgerReconciliationTests
         details.GetProperty("amountPaid").GetDecimal().Should().Be(15_000m);
         details.GetProperty("balance").GetDecimal()
             .Should().Be(TestApi.NetAmountDueFor(100, 450m) - 15_000m);
-        details.GetProperty("status").GetString().Should().Be("DepositPaid");
+        details.GetProperty("status").GetString().Should().Be("Pending", "a payment must not change lifecycle status (DEC-177)");
+        details.GetProperty("paymentState").GetString().Should().Be("DepositPaid");
 
         var ledger = await client.GetJsonAsync($"/api/bookings/{transactionId}/ledger");
         ledger.GetProperty("totalPaid").GetDecimal().Should().Be(15_000m);

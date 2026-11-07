@@ -16,8 +16,8 @@ internal sealed record BookingPayload(
     string Venue = "Integration Hall",
     int? PackageId = null)
 {
-    public DateTime StartDate { get; init; } = DateTime.UtcNow.Date.AddDays(30).AddHours(10);
-    public DateTime EndDate { get; init; } = DateTime.UtcNow.Date.AddDays(30).AddHours(14);
+    public DateTimeOffset StartDate { get; init; } = new DateTimeOffset(DateTime.Now.Date.AddDays(30).AddHours(10), TimeSpan.FromHours(8));
+    public DateTimeOffset EndDate { get; init; } = new DateTimeOffset(DateTime.Now.Date.AddDays(30).AddHours(14), TimeSpan.FromHours(8));
 
     // ── The REQ-BKG-05 extensions (contract §14.4) ────────────────────────────
     public int? ExtendedAreaId { get; init; }
@@ -134,8 +134,8 @@ internal static class TestApi
     {
         var payload = new BookingPayload(customerId, noOfPerson, pricePerHead)
         {
-            StartDate = eventDate.ToDateTime(new TimeOnly(10, 0)),
-            EndDate = eventDate.ToDateTime(new TimeOnly(14, 0))
+            StartDate = new DateTimeOffset(DateTime.SpecifyKind(eventDate.ToDateTime(new TimeOnly(10, 0)), DateTimeKind.Unspecified), TimeSpan.FromHours(8)),
+            EndDate = new DateTimeOffset(DateTime.SpecifyKind(eventDate.ToDateTime(new TimeOnly(14, 0)), DateTimeKind.Unspecified), TimeSpan.FromHours(8))
         };
 
         var response = await client.PostBookingAsync(payload);

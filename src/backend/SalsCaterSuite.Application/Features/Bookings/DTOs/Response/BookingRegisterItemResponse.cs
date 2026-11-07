@@ -16,6 +16,7 @@ public class BookingRegisterItemResponse
     public int TransactionId { get; set; }
     public string BookingNumber { get; set; } = string.Empty;
     public DateOnly EventDate { get; set; }
+    public DateOnly EventEndDate { get; set; }
     public TimeSpan EventStartTime { get; set; }
     public TimeSpan EventEndTime { get; set; }
     public TimeSpan? CallTime { get; set; }

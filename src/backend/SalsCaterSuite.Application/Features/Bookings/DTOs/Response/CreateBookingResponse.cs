@@ -19,4 +19,10 @@ public class CreateBookingResponse
 
     /// <summary>The lifecycle status the booking was created in.</summary>
     public BookingStatus Status { get; set; } = BookingStatus.Pending;
+
+    /// <summary>Derived payment progress. A payment does not change <see cref="Status"/> (DEC-177).</summary>
+    public PaymentState PaymentState { get; set; } = PaymentState.PendingPayment;
+
+    /// <summary>The calendar date the event ends (DEC-178).</summary>
+    public DateOnly EventEndDate { get; set; }
 }

@@ -1,110 +1,88 @@
-﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using SalsCaterSuite.Domain.Entities;
-using SalsCaterSuite.Domain.Enums;
-using SalsCaterSuite.Infrastructure.Persistence;
+using Microsoft.Extensions.Options;
+using SalsCaterSuite.Application.Features.Bookings.Services;
+using SalsCaterSuite.Infrastructure.BackgroundJobs;
 
 namespace SalsCaterSuite.Worker.BackgroundServices;
 
+/// <summary>
+/// BG-04 scheduled lifecycle transitions hosted in the Worker (DEC-180).
+/// Delegates to the shared transition service and uses row-version concurrency.
+/// </summary>
 public class BookingLifecycleWorker : BackgroundService
 {
-    private static readonly TimeSpan PollInterval = TimeSpan.FromMinutes(5);
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IOptions<BookingLifecycleOptions> _options;
     private readonly ILogger<BookingLifecycleWorker> _logger;
 
-    public BookingLifecycleWorker(IServiceScopeFactory scopeFactory, ILogger<BookingLifecycleWorker> logger)
+    public BookingLifecycleWorker(
+        IServiceScopeFactory scopeFactory,
+        IOptions<BookingLifecycleOptions> options,
+        ILogger<BookingLifecycleWorker> logger)
     {
         _scopeFactory = scopeFactory;
+        _options = options;
         _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        while (!stoppingToken.IsCancellationRequested)
+        var options = _options.Value;
+        if (!options.Enabled)
+        {
+            _logger.LogInformation("BG-04 booking lifecycle polling is disabled.");
+            return;
+        }
+
+        _logger.LogInformation(
+            "BG-04 booking lifecycle polling started. Interval {PollIntervalMinutes} minute(s), batch size {BatchSize}.",
+            Math.Max(1, options.PollIntervalMinutes),
+            Math.Max(1, options.BatchSize));
+
+        await ProcessUntilQuietAsync(stoppingToken);
+
+        using var timer = new PeriodicTimer(options.PollInterval);
+        while (await timer.WaitForNextTickAsync(stoppingToken))
+        {
+            await ProcessUntilQuietAsync(stoppingToken);
+        }
+    }
+
+    private async Task ProcessUntilQuietAsync(CancellationToken cancellationToken)
+    {
+        var batchSize = Math.Max(1, _options.Value.BatchSize);
+        while (!cancellationToken.IsCancellationRequested)
         {
             try
             {
-                await ProcessScheduledTransitionsAsync(stoppingToken);
+                using var scope = _scopeFactory.CreateScope();
+                var service = scope.ServiceProvider.GetRequiredService<IBookingLifecycleTransitionService>();
+                var result = await service.ProcessDueBatchAsync(batchSize, cancellationToken);
+                if (result.Committed > 0)
+                {
+                    _logger.LogInformation(
+                        "BG-04 committed {Committed} booking lifecycle transition(s) from a due batch of {Selected}.",
+                        result.Committed,
+                        result.Selected);
+                }
+
+                if (!result.BatchWasFull)
+                {
+                    return;
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Booking lifecycle worker failed while processing scheduled transitions.");
-            }
-
-            await Task.Delay(PollInterval, stoppingToken);
-        }
-    }
-
-    private async Task ProcessScheduledTransitionsAsync(CancellationToken cancellationToken)
-    {
-        using var scope = _scopeFactory.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<SalsCaterSuiteDbContext>();
-        var now = DateTime.UtcNow;
-
-        var bookings = await context.Bookings
-            .Where(b => !b.IsDeleted)
-            .ToListAsync(cancellationToken);
-
-        var changed = false;
-
-        foreach (var booking in bookings)
-        {
-            if (ShouldAdvanceToInProgress(booking, now))
-            {
-                booking.MarkInProgress();
-                changed = true;
-                _logger.LogInformation(
-                    "Booking {BookingNumber} transitioned from Confirmed to InProgress on event date {EventDate}.",
-                    booking.BookingNumber,
-                    booking.EventDate);
-            }
-
-            if (ShouldAutoComplete(booking, now))
-            {
-                booking.MarkCompleted();
-                changed = true;
-                _logger.LogInformation(
-                    "Booking {BookingNumber} transitioned from InProgress to Completed after pack-out at {PackoutTime}.",
-                    booking.BookingNumber,
-                    booking.PackoutTime);
+                _logger.LogError(ex, "BG-04 failed while processing a due batch. The next poll will retry.");
+                return;
             }
         }
-
-        if (changed)
-        {
-            await context.SaveChangesAsync(cancellationToken);
-        }
-    }
-
-    public static bool ShouldAdvanceToInProgress(Booking booking, DateTime now)
-    {
-        if (booking.Status != BookingStatus.Confirmed)
-        {
-            return false;
-        }
-
-        var eventDate = booking.EventDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-        return now.Date == eventDate.Date;
-    }
-
-    public static bool ShouldAutoComplete(Booking booking, DateTime now)
-    {
-        if (booking.Status != BookingStatus.InProgress)
-        {
-            return false;
-        }
-
-        if (booking.PackoutTime is null)
-        {
-            return false;
-        }
-
-        var eventDateTime = booking.EventDate.ToDateTime(TimeOnly.FromTimeSpan(booking.PackoutTime.Value), DateTimeKind.Utc);
-        var completionThreshold = eventDateTime.AddHours(1);
-
-        return now >= completionThreshold;
     }
 }
 

@@ -80,8 +80,9 @@ public class GetBookingRegisterSummaryQuery
     /// <summary>The pipeline count and its status split (KPI-33).</summary>
     private static BookingRegisterPipelineResponse BuildPipeline(List<BookingRegisterRow> filtered)
     {
-        var confirmed = filtered.Count(row =>
-            row.Booking.Status is BookingStatus.Confirmed or BookingStatus.DepositPaid or BookingStatus.FullyPaid);
+        // DEC-177: commitment is the lifecycle status only. A payment no longer makes a
+        // Pending booking committed.
+        var confirmed = filtered.Count(row => row.Booking.Status == BookingStatus.Confirmed);
         var tentative = filtered.Count(row => row.Booking.Status == BookingStatus.Pending);
         var completed = filtered.Count(row => row.Booking.Status == BookingStatus.Completed);
 

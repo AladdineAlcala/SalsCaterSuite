@@ -19,8 +19,18 @@ public class CreateBookingRequest
     public int NoOfPerson { get; set; }
     public string Occasion { get; set; } = string.Empty;
     public string Venue { get; set; } = string.Empty;
-    public DateTime StartDate { get; set; }
-    public DateTime EndDate { get; set; }
+    /// <summary>
+    /// The scheduled start as an Asia/Manila wall-clock instant. The payload must carry an
+    /// explicit <c>+08:00</c> offset (DEC-178 §8.1); a missing or different offset is a 400.
+    /// </summary>
+    public DateTimeOffset StartDate { get; set; }
+
+    /// <summary>
+    /// The scheduled end as an Asia/Manila wall-clock instant. The payload must carry an
+    /// explicit <c>+08:00</c> offset (DEC-178 §8.1); a missing or different offset is a 400.
+    /// The date component preserves an overnight event's end day.
+    /// </summary>
+    public DateTimeOffset EndDate { get; set; }
     public string? EventColor { get; set; }
     public int? PackageId { get; set; }
     public string? Reference { get; set; }

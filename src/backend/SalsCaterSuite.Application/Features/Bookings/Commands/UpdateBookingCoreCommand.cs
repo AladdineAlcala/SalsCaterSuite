@@ -34,7 +34,7 @@ public class UpdateBookingCoreCommand
             return Result.Failure(validationResult.Errors.Select(e => e.ErrorMessage).ToArray());
         }
 
-        var booking = await _bookings.GetByIdAsync(transactionId, cancellationToken);
+        var booking = await _bookings.GetWithPaymentsAsync(transactionId, cancellationToken);
         if (booking is null)
         {
             return Result.Failure("Booking not found.");
@@ -43,6 +43,7 @@ public class UpdateBookingCoreCommand
         try
         {
             booking.UpdateCoreDetails(request.EventDate, request.NumberOfHeads);
+            booking.RefreshPaymentStatus();
         }
         catch (Domain.Exceptions.DomainException ex)
         {

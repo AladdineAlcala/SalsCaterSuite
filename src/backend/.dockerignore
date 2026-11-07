@@ -1,11 +1,19 @@
-# Build output - always regenerated inside the image.
-**/bin/
-**/obj/
-
-# Test artefacts.
-**/TestResults/
-
-# IDE and local machine noise.
-*.user
-*.suo
-.vs/
+**/.git
+**/.vs
+**/.vscode
+**/bin
+**/obj
+**/logs
+**/*.log
+**/.env
+**/TestResults
+**/SalsCaterSuite.UnitTests
+**/SalsCaterSuite.IntegrationTests
+**/*.user
+**/*.suo
+**/.DS_Store
+**/Thumbs.db
+**/Dockerfile*
+**/.dockerignore
+**/*.md
+!**/README.md

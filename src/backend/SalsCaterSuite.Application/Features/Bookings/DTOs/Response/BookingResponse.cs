@@ -19,6 +19,10 @@ public class BookingResponse
     public string? Occasion { get; set; }
     public string? Venue { get; set; }
     public DateOnly EventDate { get; set; }
+
+    /// <summary>The calendar date the event ends. Same as <see cref="EventDate"/> for a same-day event (DEC-178).</summary>
+    public DateOnly EventEndDate { get; set; }
+
     public TimeSpan EventStartTime { get; set; }
     public TimeSpan EventEndTime { get; set; }
 
@@ -88,7 +92,8 @@ public class BookingResponse
     public decimal AmountPaid { get; set; }
     public decimal Balance { get; set; }
 
-    // Status
+    // Status and payment progress are separate vocabularies (DEC-177).
     public BookingStatus Status { get; set; } = BookingStatus.Pending;
+    public PaymentState PaymentState { get; set; } = PaymentState.PendingPayment;
     public bool ReminderSent { get; set; }
 }

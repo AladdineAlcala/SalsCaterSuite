@@ -1,11 +1,34 @@
 Change Request:
-1. Packages & Buffets Catalogue Main
-   - Add to the view the Applicable pax classification information of a certain package
 
-2. Booking and  Events Create/Edit
-  - When Selecting Package tier 
-    on the Buffet tier drop down add the *Applicable pax classification information
-     example: VIP Package A (20 to 29 pax)
+     New Package Tier
+   - In location coverage add field for BookingType [Inside,Outside]
+     When BookingType is Outside
+      - This are out of town bookings like alang-alang so there is an option here for out of town rate per pax
+     
+     When BookingType is Inside
+       - This are in-house areas like 3rd floor room1 of the own building
+       - there is no option for out of town rate per pax
 
-  - On the selected Buffet tier package 
-    Add to the display information the *Applicable pax classification information of a certain selected package
+  
+        a.implemention to the backend 
+         - update Package table to add BookingType field
+
+
+         b.implemention to the frontend 
+      
+         - In the create new booking the order of implementation steps should be:
+           1. Supply the information client -> occasion -> venue -> event date -> booking type 
+           2. Booking Type : select BookingType option [Inside,Outside,Apply to both]
+           3. Service Type -no changes
+           4. Dispatch schedule matrix (Call time , Program, Service ends, Pack-out) - no changes
+           5. Package tier & headcount
+              - on the Select Package type option only package types that has area coverage BookingType matches the BookingType             option will be loaded
+     
+             for Package type regular/premier option when selecting the Area filter load only the areas matches the BookingType             option
+          example :
+      
+		BookingType option = Inside
+                Package type = regular or premier
+                Area filter options = 3rd floor room1 ,3rd floor room2 or etc.
+
+              Buffet tier options- load the actual buffet tiers connected to the Area filter ,Package type

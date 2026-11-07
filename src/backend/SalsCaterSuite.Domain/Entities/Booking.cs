@@ -51,6 +51,13 @@ public class Booking : BaseEntity
     // ─────────────── Event Details ───────────────
     public string? Venue { get; set; }
     public DateOnly EventDate { get; set; }
+
+    /// <summary>
+    /// The calendar date the event ends. Equal to <see cref="EventDate"/> for a same-day event.
+    /// An overnight event stores the following date so pack-out can fall after midnight (DEC-178).
+    /// </summary>
+    public DateOnly EventEndDate { get; set; }
+
     public TimeSpan EventStartTime { get; set; }
     public TimeSpan EventEndTime { get; set; }
     public int NumberOfHeads { get; set; }
@@ -120,6 +127,13 @@ public class Booking : BaseEntity
     /// </summary>
     public BookingStatus Status { get; private set; } = BookingStatus.Pending;
 
+    /// <summary>
+    /// Derived payment progress (DEC-177). Written only by <see cref="RefreshPaymentStatus(decimal, decimal)"/>
+    /// from the non-soft-deleted payment sum and the net amount due. A payment never changes
+    /// <see cref="Status"/>.
+    /// </summary>
+    public PaymentState PaymentState { get; private set; } = PaymentState.PendingPayment;
+
     public bool ReminderSent { get; private set; } = false;
 
     // ─────────────── Concurrency ───────────────
@@ -135,6 +149,9 @@ public class Booking : BaseEntity
 
     /// <summary>The frozen add-on lines (BR-44, DEC-158).</summary>
     public ICollection<BookingAddOn> AddOns { get; set; } = new List<BookingAddOn>();
+
+    /// <summary>Durable lifecycle-status facts (DEC-178). Payment state is not recorded here.</summary>
+    public ICollection<BookingStatusHistory> StatusHistory { get; set; } = new List<BookingStatusHistory>();
 
     // ═══════════════ Domain Behaviour ═══════════════
 
@@ -176,6 +193,10 @@ public class Booking : BaseEntity
         if (extendedAreaAmount < 0m)
             throw new DomainException("The extended area amount cannot be negative.");
 
+        var eventEndDate = DateOnly.FromDateTime(endDate);
+        if (eventEndDate < eventDate)
+            throw new DomainException("Event end date must not be before the event date.");
+
         var booking = new Booking
         {
             CustomerId = customerId,
@@ -183,6 +204,7 @@ public class Booking : BaseEntity
             BookType = bookType,
             TypeOfService = typeOfService,
             EventDate = eventDate,
+            EventEndDate = eventEndDate,
             EventStartTime = startDate.TimeOfDay,
             EventEndTime = endDate.TimeOfDay,
             Occasion = occasion,
@@ -202,6 +224,7 @@ public class Booking : BaseEntity
 
         // Freeze the price snapshot
         booking.SetPriceSnapshot(packageName, pricePerHead, noOfPerson, extendedAreaAmount);
+        booking.RefreshPaymentStatus(0m, booking.AmountDue);
 
         return booking;
     }
@@ -261,6 +284,7 @@ public class Booking : BaseEntity
         DiscountAmount = Math.Min(discountAmount, Subtotal);        // cap at subtotal
         TaxAmount = taxAmount;
         AmountDue = Math.Max(0m, Subtotal - DiscountAmount + TaxAmount);
+        RefreshPaymentStatus(AmountPaid, AmountDue);
     }
 
     /// <summary>Records a payment and recomputes the in-entity AmountPaid total.</summary>
@@ -272,25 +296,55 @@ public class Booking : BaseEntity
             throw new DomainException("Cannot record a payment on a cancelled booking.");
 
         AmountPaid += amount;
-        RefreshPaymentStatus();
+        // Provisional refresh from the denormalized cache. Callers that hold the authoritative
+        // non-soft-deleted payment sum overwrite this before save (DEC-177). Lifecycle status
+        // is intentionally untouched.
+        RefreshPaymentStatus(AmountPaid, AmountDue);
     }
 
     /// <summary>
-    /// Synchronises Status with payment progress. The application layer calls
-    /// this after loading payments from the database.
+    /// Sets <see cref="PaymentState"/> from the authoritative collected sum and net amount due.
+    /// Does not read or write <see cref="Status"/> (DEC-177).
+    /// </summary>
+    public void RefreshPaymentStatus(decimal collected, decimal netAmountDue)
+    {
+        PaymentState = PaymentStateRules.Classify(collected, netAmountDue);
+    }
+
+    /// <summary>
+    /// Sets <see cref="PaymentState"/> from the loaded non-soft-deleted payment rows and the
+    /// stored net amount due. Call only when <see cref="Payments"/> has been loaded.
     /// </summary>
     public void RefreshPaymentStatus()
     {
-        if (Status == BookingStatus.Cancelled) return;
+        var collected = Payments.Where(p => !p.IsDeleted).Sum(p => p.AmountPaid);
+        RefreshPaymentStatus(collected, AmountDue);
+    }
 
-        if (AmountDue > 0 && AmountPaid >= AmountDue)
+    /// <summary>
+    /// Applies one BG-04 edge and nothing else. Returns false when the booking is soft-deleted
+    /// or is not in <paramref name="from"/>, so a repeat or a lost race is a no-op.
+    /// </summary>
+    public bool TryApplyScheduledTransition(BookingStatus from, BookingStatus to)
+    {
+        if (IsDeleted || Status != from)
         {
-            Status = BookingStatus.FullyPaid;
+            return false;
         }
-        else if (AmountPaid > 0 && Status is BookingStatus.Pending or BookingStatus.Confirmed)
+
+        if (from == BookingStatus.Confirmed && to == BookingStatus.InProgress)
         {
-            Status = BookingStatus.DepositPaid;
+            Status = BookingStatus.InProgress;
+            return true;
         }
+
+        if (from == BookingStatus.InProgress && to == BookingStatus.Completed)
+        {
+            Status = BookingStatus.Completed;
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>Transitions the booking to Confirmed status.</summary>
@@ -339,7 +393,11 @@ public class Booking : BaseEntity
         if (Status is BookingStatus.Cancelled or BookingStatus.Completed or BookingStatus.NoShow or BookingStatus.Rescheduled)
             throw new DomainException("This booking cannot be edited in its current lifecycle state.");
 
+        // Preserve the event length. The core write has no separate end date, and leaving
+        // EventEndDate behind would let BG-04 complete an event before it starts (DEC-178).
+        var durationDays = Math.Max(0, EventEndDate.DayNumber - EventDate.DayNumber);
         EventDate = eventDate;
+        EventEndDate = eventDate.AddDays(durationDays);
         NumberOfHeads = numberOfHeads;
 
         if (PricePerHead > 0m)
@@ -350,6 +408,7 @@ public class Booking : BaseEntity
         var updatedSubtotal = PackageAmount + ExtendedAreaAmount + AddonsTotal;
         Subtotal = updatedSubtotal;
         AmountDue = Math.Max(0m, updatedSubtotal - DiscountAmount + TaxAmount);
+        RefreshPaymentStatus(AmountPaid, AmountDue);
     }
 
     /// <summary>Cancels the booking. A cancelled booking cannot be un-cancelled.</summary>

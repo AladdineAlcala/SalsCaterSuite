@@ -3,37 +3,34 @@ using SalsCaterSuite.Domain.Enums;
 namespace SalsCaterSuite.Application.Features.Bookings.Services;
 
 /// <summary>
-/// The one payment-state vocabulary of the product (BR-28, DEC-117).
+/// The one payment-state vocabulary of the product (BR-28, DEC-177).
 /// <para>
-/// The payment state answers one question — <i>how far along is the payment?</i> — and it is a
-/// <b>three-state</b>, mutually exclusive and exhaustive vocabulary. The names deliberately do
-/// <b>not</b> collide with the <see cref="BookingStatus"/> lifecycle vocabulary: contract
-/// section 5 publishes <c>DepositPaid</c> and <c>FullyPaid</c> as <i>lifecycle</i> names, so the
-/// payment states are named <see cref="AwaitingDeposit"/>, <see cref="PartiallyPaid"/> and
-/// <see cref="Settled"/>. A payload that carries both vocabularies can therefore be read
-/// unambiguously (AC-BKG-45).
+/// DEC-177 retired the DEC-117 names. Payment progress is
+/// <see cref="PendingPayment"/>, <see cref="DepositPaid"/> and <see cref="FullyPaid"/>, and it
+/// is no longer stored in <see cref="BookingStatus"/>. The three states remain mutually
+/// exclusive and exhaustive. Zero-due bookings stay fully paid — the former settled treatment.
 /// </para>
 /// </summary>
 public static class BookingPaymentState
 {
     /// <summary>Nothing has been collected and something is owed.</summary>
-    public const string AwaitingDeposit = "AwaitingDeposit";
+    public const string PendingPayment = nameof(PaymentState.PendingPayment);
 
-    /// <summary>A deposit or a partial payment has been received and a balance remains.</summary>
-    public const string PartiallyPaid = "PartiallyPaid";
+    /// <summary>A deposit or any other positive partial collection has been received and a balance remains.</summary>
+    public const string DepositPaid = nameof(PaymentState.DepositPaid);
 
-    /// <summary>Nothing is owed. This covers the zero-value booking and the overpayment.</summary>
-    public const string Settled = "Settled";
+    /// <summary>Nothing is owed, or collected meets or exceeds the net amount due.</summary>
+    public const string FullyPaid = nameof(PaymentState.FullyPaid);
 
     /// <summary>The three states, in the order the classifier evaluates them.</summary>
-    public static readonly IReadOnlyList<string> All = new[] { AwaitingDeposit, PartiallyPaid, Settled };
+    public static readonly IReadOnlyList<string> All = new[] { PendingPayment, DepositPaid, FullyPaid };
 
     /// <summary>The server-provided display label of a payment state.</summary>
     public static string Label(string state) => state switch
     {
-        AwaitingDeposit => "Awaiting initial deposit",
-        PartiallyPaid => "Partially paid",
-        Settled => "Fully paid",
+        PendingPayment => "Pending payment",
+        DepositPaid => "Deposit paid",
+        FullyPaid => "Fully paid",
         _ => throw new ArgumentOutOfRangeException(
             nameof(state), state, "Unknown booking payment state.")
     };
@@ -44,7 +41,7 @@ public static class BookingPaymentState
 /// DEC-041, DEC-117). The register, the summary and the quote all call it, so a booking can
 /// never be reported as two different payment states on two different screens.
 /// <para>
-/// The evaluation order is <c>AwaitingDeposit → PartiallyPaid → Settled</c> and the three are
+/// The evaluation order is <c>PendingPayment → DepositPaid → FullyPaid</c> and the three are
 /// exclusive by construction: <c>Collected == 0</c> and <c>Collected &gt; 0</c> cannot both
 /// hold, and <c>Collected &lt; NetAmountDue</c> and <c>Collected ≥ NetAmountDue</c> cannot both
 /// hold. Every booking therefore has exactly one state and the three counts sum to the
@@ -52,7 +49,7 @@ public static class BookingPaymentState
 /// </para>
 /// <para>
 /// <b>Overdue is a separate dimension</b>, never a fourth state: a partly-paid booking is
-/// <c>PartiallyPaid</c> <i>and</i> overdue, and folding the two into one vocabulary would make
+/// <c>DepositPaid</c> <i>and</i> overdue, and folding the two into one vocabulary would make
 /// the states overlap (BR-28).
 /// </para>
 /// </summary>
@@ -61,29 +58,18 @@ public static class BookingPaymentStateClassifier
     /// <summary>
     /// The payment state of a booking.
     /// <list type="bullet">
-    /// <item><description><c>AwaitingDeposit</c> — <c>Collected == 0</c> and
+    /// <item><description><c>PendingPayment</c> — <c>Collected == 0</c> and
     /// <c>NetAmountDue &gt; 0</c>.</description></item>
-    /// <item><description><c>PartiallyPaid</c> — <c>Collected &gt; 0</c> and
-    /// <c>Collected &lt; NetAmountDue</c>.</description></item>
-    /// <item><description><c>Settled</c> — <c>Collected ≥ NetAmountDue</c>. This deliberately
-    /// covers the zero-value booking (<c>NetAmountDue == 0</c>, nothing collected) and the
-    /// overpayment (<c>Collected &gt; NetAmountDue</c>); neither may be reported as awaiting
-    /// anything.</description></item>
+    /// <item><description><c>DepositPaid</c> — <c>Collected &gt; 0</c> and
+    /// <c>Collected &lt; NetAmountDue</c>. The first payment counts as the deposit.</description></item>
+    /// <item><description><c>FullyPaid</c> — <c>Collected ≥ NetAmountDue</c>. This deliberately
+    /// covers the zero-value booking (<c>NetAmountDue == 0</c>, nothing collected — the former
+    /// settled treatment) and the overpayment (<c>Collected &gt; NetAmountDue</c>).</description></item>
     /// </list>
     /// </summary>
     public static string Classify(decimal collected, decimal netAmountDue)
     {
-        if (collected == 0m && netAmountDue > 0m)
-        {
-            return BookingPaymentState.AwaitingDeposit;
-        }
-
-        if (collected > 0m && collected < netAmountDue)
-        {
-            return BookingPaymentState.PartiallyPaid;
-        }
-
-        return BookingPaymentState.Settled;
+        return PaymentStateRules.Classify(collected, netAmountDue).ToString();
     }
 
     /// <summary>

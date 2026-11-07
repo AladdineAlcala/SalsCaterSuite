@@ -105,7 +105,7 @@ export const dashboardFixture: DashboardDto = {
       occasion: 'Corporate Gala',
       eventDate: '2026-11-04',
       numberOfHeads: 180,
-      status: 'DepositPaid',
+      status: 'Confirmed',
       packageName: 'Premier Buffet Package',
       netAmountDue: 198000,
       amountPaid: 99000,

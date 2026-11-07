@@ -2,6 +2,7 @@ namespace SalsCaterSuite.UnitTests.Application.Services;
 
 using FluentAssertions;
 using SalsCaterSuite.Application.Features.Bookings.Services;
+using SalsCaterSuite.Domain.Enums;
 using Xunit;
 
 /// <summary>
@@ -16,32 +17,32 @@ public class BookingPaymentStateClassifierTests
     [Fact]
     public void Classify_should_return_exactly_one_state()
     {
-        // Nothing collected and nothing owed — a zero-value booking.
-        BookingPaymentStateClassifier.Classify(0m, 0m).Should().Be(BookingPaymentState.Settled);
+        // Nothing collected and nothing owed — a zero-value booking stays fully paid (DEC-177).
+        BookingPaymentStateClassifier.Classify(0m, 0m).Should().Be(BookingPaymentState.FullyPaid);
 
         // Nothing collected and something owed.
-        BookingPaymentStateClassifier.Classify(0m, 100m).Should().Be(BookingPaymentState.AwaitingDeposit);
+        BookingPaymentStateClassifier.Classify(0m, 100m).Should().Be(BookingPaymentState.PendingPayment);
 
         // A deposit received and a balance remaining.
-        BookingPaymentStateClassifier.Classify(50m, 100m).Should().Be(BookingPaymentState.PartiallyPaid);
+        BookingPaymentStateClassifier.Classify(50m, 100m).Should().Be(BookingPaymentState.DepositPaid);
 
         // Paid exactly.
-        BookingPaymentStateClassifier.Classify(100m, 100m).Should().Be(BookingPaymentState.Settled);
+        BookingPaymentStateClassifier.Classify(100m, 100m).Should().Be(BookingPaymentState.FullyPaid);
 
         // Overpaid.
-        BookingPaymentStateClassifier.Classify(150m, 100m).Should().Be(BookingPaymentState.Settled);
+        BookingPaymentStateClassifier.Classify(150m, 100m).Should().Be(BookingPaymentState.FullyPaid);
     }
 
     [Fact]
     public void The_zero_value_booking_should_be_settled_and_never_awaiting_a_deposit()
     {
-        BookingPaymentStateClassifier.Classify(0m, 0m).Should().Be(BookingPaymentState.Settled);
+        BookingPaymentStateClassifier.Classify(0m, 0m).Should().Be(BookingPaymentState.FullyPaid);
     }
 
     [Fact]
     public void The_overpaid_booking_should_be_settled_and_never_awaiting_a_deposit()
     {
-        BookingPaymentStateClassifier.Classify(150m, 100m).Should().Be(BookingPaymentState.Settled);
+        BookingPaymentStateClassifier.Classify(150m, 100m).Should().Be(BookingPaymentState.FullyPaid);
     }
 
     [Fact]
@@ -66,13 +67,13 @@ public class BookingPaymentStateClassifierTests
     [Fact]
     public void The_payment_state_names_should_never_collide_with_the_lifecycle_names()
     {
-        // DEC-117: DepositPaid and FullyPaid are LIFECYCLE names; the payment states are
-        // AwaitingDeposit, PartiallyPaid and Settled.
-        BookingPaymentState.All.Should().NotContain("DepositPaid");
-        BookingPaymentState.All.Should().NotContain("FullyPaid");
-        BookingPaymentState.All.Should().Contain("AwaitingDeposit");
-        BookingPaymentState.All.Should().Contain("PartiallyPaid");
-        BookingPaymentState.All.Should().Contain("Settled");
+        // DEC-177: payment progress uses PendingPayment, DepositPaid and FullyPaid.
+        // Those names are no longer lifecycle statuses.
+        BookingPaymentState.All.Should().Equal(
+            BookingPaymentState.PendingPayment,
+            BookingPaymentState.DepositPaid,
+            BookingPaymentState.FullyPaid);
+        Enum.GetNames<BookingStatus>().Should().NotContain(BookingPaymentState.All);
     }
 
     [Fact]
@@ -103,11 +104,12 @@ public class BookingPaymentStateClassifierTests
     [Fact]
     public void IsKnown_should_accept_only_the_three_published_states()
     {
-        BookingPaymentStateClassifier.IsKnown(BookingPaymentState.AwaitingDeposit).Should().BeTrue();
-        BookingPaymentStateClassifier.IsKnown(BookingPaymentState.PartiallyPaid).Should().BeTrue();
-        BookingPaymentStateClassifier.IsKnown(BookingPaymentState.Settled).Should().BeTrue();
-        BookingPaymentStateClassifier.IsKnown("DepositPaid").Should().BeFalse();
-        BookingPaymentStateClassifier.IsKnown("FullyPaid").Should().BeFalse();
+        BookingPaymentStateClassifier.IsKnown(BookingPaymentState.PendingPayment).Should().BeTrue();
+        BookingPaymentStateClassifier.IsKnown(BookingPaymentState.DepositPaid).Should().BeTrue();
+        BookingPaymentStateClassifier.IsKnown(BookingPaymentState.FullyPaid).Should().BeTrue();
+        BookingPaymentStateClassifier.IsKnown("AwaitingDeposit").Should().BeFalse();
+        BookingPaymentStateClassifier.IsKnown("PartiallyPaid").Should().BeFalse();
+        BookingPaymentStateClassifier.IsKnown("Settled").Should().BeFalse();
         BookingPaymentStateClassifier.IsKnown(null).Should().BeFalse();
     }
 }

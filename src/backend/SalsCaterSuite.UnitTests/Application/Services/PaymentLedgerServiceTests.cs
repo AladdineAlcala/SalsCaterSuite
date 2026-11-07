@@ -186,7 +186,8 @@ public class PaymentLedgerServiceTests
         var ledgerSum = _payments.Payments.Where(p => p.TransactionId == booking.TransactionId).Sum(p => p.AmountPaid);
         reloaded.AmountPaid.Should().Be(15000m);
         reloaded.AmountPaid.Should().Be(ledgerSum);
-        reloaded.Status.Should().Be(BookingStatus.DepositPaid);
+        reloaded.Status.Should().Be(BookingStatus.Pending, "a payment must not change lifecycle status (DEC-177)");
+        reloaded.PaymentState.Should().Be(PaymentState.DepositPaid);
     }
 
     [Fact]

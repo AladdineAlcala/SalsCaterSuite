@@ -26,7 +26,7 @@ public class DashboardServiceTests
         var dashboard = await GetDashboardAsync(harness);
 
         dashboard.Bookings.TotalCount.Should().Be(6);
-        dashboard.Bookings.CommittedCount.Should().Be(3, "Confirmed, DepositPaid and FullyPaid are committed");
+        dashboard.Bookings.CommittedCount.Should().Be(3, "only lifecycle Confirmed is committed (DEC-177)");
         dashboard.Bookings.TentativeCount.Should().Be(1, "Pending is tentative");
         dashboard.Bookings.OtherCount.Should().Be(2, "Completed and NoShow are 'other'");
         dashboard.Bookings.TotalPax.Should().Be(430, "100 + 100 + 50 + 80 + 60 + 40 heads");
@@ -485,7 +485,7 @@ public class DashboardServiceTests
     public async Task An_upcoming_booking_should_carry_the_ledger_figures()
     {
         var harness = new DashboardHarness();
-        harness.AddBooking(new DateOnly(2026, 10, 20), 100, 500m, BookingStatus.DepositPaid);
+        harness.AddBooking(new DateOnly(2026, 10, 20), 100, 500m, BookingStatus.Confirmed);
         harness.AddPayment(1, 200_000m, October1);
 
         var dashboard = await GetDashboardAsync(harness);
@@ -550,8 +550,8 @@ public class DashboardServiceTests
     /// <summary>
     /// The reference population:
     /// 1 Confirmed 100 × 500 = 50,000, unpaid
-    /// 2 DepositPaid 100 × 300 = 30,000, 10,000 paid
-    /// 3 FullyPaid 50 × 400 = 20,000, 20,000 paid
+    /// 2 Confirmed 100 × 300 = 30,000, 10,000 paid (payment state is not a lifecycle status)
+    /// 3 Confirmed 50 × 400 = 20,000, 20,000 paid
     /// 4 Pending 80 × 250 = 20,000, unpaid
     /// 5 Completed 60 × 600 = 36,000, unpaid
     /// 6 NoShow 40 × 100 = 4,000, unpaid
@@ -559,8 +559,8 @@ public class DashboardServiceTests
     private static void SeedCommittedTentativeAndOtherBookings(DashboardHarness harness)
     {
         harness.AddBooking(harness.PeriodStart, 100, 500m, BookingStatus.Confirmed, transactionId: 1);
-        harness.AddBooking(harness.PeriodStart, 100, 300m, BookingStatus.DepositPaid, transactionId: 2);
-        harness.AddBooking(harness.PeriodStart, 50, 400m, BookingStatus.FullyPaid, transactionId: 3);
+        harness.AddBooking(harness.PeriodStart, 100, 300m, BookingStatus.Confirmed, transactionId: 2);
+        harness.AddBooking(harness.PeriodStart, 50, 400m, BookingStatus.Confirmed, transactionId: 3);
         harness.AddBooking(harness.PeriodStart, 80, 250m, BookingStatus.Pending, transactionId: 4);
         harness.AddBooking(harness.PeriodStart, 60, 600m, BookingStatus.Completed, transactionId: 5);
         harness.AddBooking(harness.PeriodStart, 40, 100m, BookingStatus.NoShow, transactionId: 6);

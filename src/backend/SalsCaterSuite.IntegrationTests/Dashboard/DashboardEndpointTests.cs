@@ -98,8 +98,8 @@ public class DashboardEndpointTests : IClassFixture<DashboardSeedFixture>
         var bookings = dashboard.GetProperty("bookings");
 
         bookings.GetProperty("totalCount").GetInt32().Should().Be(5, "A, B, C, D and E");
-        bookings.GetProperty("committedCount").GetInt32().Should().Be(3, "B, C and D");
-        bookings.GetProperty("tentativeCount").GetInt32().Should().Be(1, "A");
+        bookings.GetProperty("committedCount").GetInt32().Should().Be(1, "only D is lifecycle Confirmed (DEC-177)");
+        bookings.GetProperty("tentativeCount").GetInt32().Should().Be(3, "A, B and C stay Pending; a payment does not commit them");
         bookings.GetProperty("otherCount").GetInt32().Should().Be(1, "E");
         bookings.GetProperty("totalPax").GetInt32().Should().Be(390, "100 + 100 + 50 + 80 + 60");
     }

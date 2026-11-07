@@ -255,7 +255,7 @@ public class CustomerMasterEndpointTests
             .Should().Be(TestApi.NetAmountDueFor(100, 500m), "the statement uses the ledger's net amount due");
         line.GetProperty("balance").GetDecimal().Should().Be(TestApi.NetAmountDueFor(100, 500m) - 25_000m);
         line.GetProperty("status").GetString().Should().BeOneOf(
-            "Pending", "Confirmed", "DepositPaid", "FullyPaid", "InProgress",
+            "Pending", "Confirmed", "InProgress",
             "Completed", "Cancelled", "NoShow", "Rescheduled", "Expired");
         line.GetProperty("agingBucket").GetString().Should().Be("Days31To60");
         line.GetProperty("bookingNumber").GetString().Should().StartWith("BK-");

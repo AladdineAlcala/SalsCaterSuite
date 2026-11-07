@@ -879,7 +879,7 @@ The live run also pinned the VAT-inclusive memo (₱12,857.14 at 12%, **inside**
 | :--- | :--- |
 | **Cycle** | 2026-10-31 — Lifecycle-only `BookingStatus`, separately derived payment status, and BG-04 scheduled event transitions |
 | **Source** | Owner direction in this conversation |
-| **Stage** | **Implementation paused by the owner (2026-10-31).** Preserve the current worktree. A proposal for API-host implementation without a Worker project is pending; no further implementation or structural edits are authorized until AGENT 01 reviews that proposal and resolves the unapproved WIP discrepancy with the owner. |
+| **Stage** | **Stage 7 — Implement (resumed 2026-11-02).** The owner approved the existing Worker project as BG-04 host (DEC-180); preserve all WIP and align the workplan before closing. |
 | **Workplan constraints** | `docs/salscatersuite_project_structure_workplan.md` §§2.2–2.6 (Domain/Application/Infrastructure/WebApi/tests), §3.2–3.5 (frontend status types and displays), §4 (migration safety), §7 (commands/configuration), §§9–11 (feature state, log and verification); proposed `docs/salscatersuite_background_services_workplan.md` §3.3 BG-04, with this cycle scoped to BG-04 only |
 | **Working-tree constraint** | Preserve all pre-existing modifications, including the prior DEC-176 edits, `docs/userchangerequest.txt`, and `.opencode/agents/*`. No reset, stash, checkout, clean, or overwrite. |
 
@@ -1012,7 +1012,7 @@ Both proposals are **APPROVED for implementation** with the rulings below. No sc
 6. **Breaking filter values — approved for a coordinated release.** `status` accepts only the eight lifecycle names; `paymentState` accepts only `PendingPayment`, `DepositPaid`, `FullyPaid`. Unknown values remain `400`. No API versioning is introduced this cycle; the change is recorded as a breaking filter/response contract change.
 7. **Payment classifier.** Keep the single existing `BookingPaymentStateClassifier` as the only classifier; rename its values, keep the predicate order, zero-due behavior, soft-delete exclusion, and the shared net-due path. `Booking.RecordPayment()` must stop mutating lifecycle status entirely.
 8. **History/audit.** One durable history entity with baseline rows preserving the exact legacy ordinal/name, plus per-transition rows written atomically with the status change under the existing `row_version`. A concurrency loser writes no history. Cancellation transitions may be recorded with the same entity.
-9. **No new project, package, scheduler, outbox, SignalR hub, controller, route, or endpoint.**
+9. **Use the existing `SalsCaterSuite.Worker` project for BG-04 (DEC-180).** Do not add another project, scheduler package, outbox, SignalR hub, controller, route, or endpoint. Remove the duplicate BG-04 host registration from WebApi; the Worker is the sole lifecycle poller.
 
 ### 8.2 Frontend rulings (TASK-BKG-10-FE)
 
@@ -1037,3 +1037,185 @@ Both proposals are **APPROVED for implementation** with the rulings below. No sc
 - **Delegation status:** the configured `dotnet-backend-architect` subagent could not start (`opencode-go/big-pickle` unavailable). AGENT 01 launched a read-only technical proposal via the general-purpose reviewer as a fallback; it is not represented as an AGENT 02 implementation or approval. No code, solution, Docker, or database files were changed by AGENT 01 after the owner pause.
 - The local Docker gate is **not run**. The existing compose file binds startup migrations to the persistent `mssql-data` named volume; the owner re-confirmed that migrations remain unapplied. No Docker command or database write was run in this resumed step.
 - **Current disposition:** DEC-177/178 business decisions and artifact updates remain approved; implementation is paused pending the API-host proposal and an owner ruling on the already-present unapproved structural WIP. The current Workplan remains the approved structure and does not describe a Worker project.
+
+## 10. Owner approval to resume with the existing Worker project (2026-11-02)
+
+- **Owner decision:** The owner answered **Yes, use Worker**. DEC-180 records that the existing `src/backend/SalsCaterSuite.Worker` project and solution entry are approved for BG-04, superseding DEC-178's API-host-only/no-Worker placement. The earlier §9 pause is superseded only on this point; all worktree-preservation and migration-safety rules remain binding.
+- **Verified current code placement:** `SalsCaterSuite.Worker` is in `SalsCaterSuite.slnx`, but its `Program.cs` currently logs a no-op and its `BookingLifecycleWorker` does not execute transitions. Conversely, `Infrastructure/BackgroundJobs/BookingLifecycleHostedService` is registered in `WebApi/Program.cs` and `appsettings.json` enables it. This is the exact implementation/owner-direction mismatch to correct: make Worker the sole host and remove the WebApi registration/config, without deleting the Worker project or Docker WIP.
+- **Other verified blockers:** the lifecycle code and migration are present as uncommitted WIP; the Workplan has not yet been realigned for the Worker project, lifecycle entity/history/migration, or Docker files. Frontend types/tests still contain legacy lifecycle/payment-state values. Latest recorded backend test totals (1028 unit / 160 integration) are from DEC-179 DTO alignment and are not a documented lifecycle validation. No BKG-10 close-out test evidence is recorded.
+- **Docker/deployment safety:** preserve Docker files and project configuration, but do not run the default deploy against its persistent `mssql-data` volume or apply any migration to Development/other persistent databases. Any deployment smoke must use an isolated project/database and only if consistent with the explicit disposable-DB rule; the existing Docker script is not run in this resume step.
+- **Delegation limitation:** the dedicated `dotnet-backend-architect` subagent was unavailable (configured model unavailable; later general proposal request hit usage limits). No proposal was completed. AGENT 01 must use the available implementation/review path without claiming an AGENT 02 report, and must still review the code, run tests, update the Workplan/feature status, and disclose any validation limitation.
+- **AGENT 01 status verification (2026-11-02):** Release solution build passed (**0 warnings / 0 errors**). Unit tests failed **1/1043**: `GetBookingDossierQueryTests.An_unknown_payment_state_should_be_rejected` still submits `FullyPaid`, which is now a valid DEC-177 payment state; 1042 passed, 1 failed. The chained command stopped before backend integration tests. Focused package + booking frontend tests passed **11 files / 323 tests**; full Vitest failed **1/514** because `DashboardPage.test.tsx` finds two options labeled “October 2026” (`2026-11` and `2026-10`); the chained command therefore did not run the frontend production build. This is not lifecycle close-out validation. No migration, Docker deployment, or database operation was performed by AGENT 01.
+- **As-built direction gap:** user has approved Worker hosting (DEC-180 is recorded; it is duplicated in the log and queued for dedupe under P1-1), but the actual lifecycle job remains registered in WebApi; Worker is a no-op. The frontend still contains legacy lifecycle/payment state names. The Workplan/feature-status remain stale for BG-04. Do not claim this change request complete until the host placement, consumers, validation, and documentation are aligned.
+
+## 11. TASK-BKG-10 CLOSURE BRIEF (issued 2026-11-02)
+
+**Purpose.** Close DEC-177 / DEC-178 / DEC-180 as one reviewed, validated unit. This brief converts the open red gates and as-built drift into owned, ordered work. It does **not** change approved business scope: lifecycle/payment separation, ordinal mapping, `EventEndDate`, `BookingStatusHistory`, BG-04 scheduled polling, and the `+08:00` request contract are already approved by DEC-177 / DEC-178 / DEC-180 and §8.
+
+**Working rules.** Preserve all pre-existing WIP. No `git checkout --`, `reset`, `stash`, `clean`, or overwrite. No migration against Development, production, or an existing Docker volume. Do not claim a suite passed without a fresh run in this closure. AGENT 01 owns `governance/`, `business/`, `architecture/`, `implementation/`, `docs/`, and `WORKFLOW_STATE.md`; AGENT 02 owns `src/backend`; AGENT 03 owns `src/frontend/salscatersuite-ui`.
+
+### 11.1 Verified evidence at brief issue (this session)
+
+| Gate | Command | Result |
+| :--- | :--- | :--- |
+| Frontend type check | `npx tsc -b` | **FAIL** — 3 errors: `BookingEditPage.tsx(70,10)` and `(105,10)` TS2322 `children` not on `AlertBannerProps`; `BookingDossierGrid.tsx(28,3)` TS6133 unused `onOpenEdit` |
+| Frontend dashboard test | `vitest run src/features/dashboard/__tests__/DashboardPage.test.tsx` | **FAIL** — 1 failed / 9 passed; `DashboardPage.test.tsx:91` `getByText('October 2026')` matches two elements (`2026-11` and `2026-10`) |
+| Backend create contract | `dotnet test … --filter BookingCreationTests` | **FAIL** — 1 failed / 0 passed; line 38 exact-body assertion expects `{transactionId, bookingNumber, status}` but the approved additive body now carries `paymentState` and `eventEndDate` |
+| Backend classifier guard | `dotnet test … --filter An_unknown_payment_state_should_be_rejected` | **PASS** — 1/1. The previously recorded 1042/1043 failure does **not** reproduce; re-run the full suite before quoting totals |
+| Host placement | code inspection | `WebApi/Program.cs:36-38` still configures and registers `BookingLifecycleHostedService`; `Worker/Program.cs` exits after a warning; `Worker/BackgroundServices/BookingLifecycleWorker.cs` is a no-op |
+| Cutover guard | code inspection | `BookingLifecycleOptions.Enabled = true`; `WebApi/appsettings.json` `"BookingLifecycle": { "Enabled": true }`; Worker has **no** `appsettings*.json` |
+| Migration `Down` | code inspection | `20261031144115_AddBookingLifecyclePaymentStateAndHistory.Down` rewrites ordinals unconditionally — **not fail-closed** |
+| `+08:00` contract | code inspection | `CreateBookingRequest.StartDate/EndDate` are still `DateTime`; no offset validator; workbench still emits `${date}T${time}Z` |
+| Frontend vocabulary | code inspection | `dashboard.types.ts` `BookingStatus` still includes `DepositPaid`/`FullyPaid`; `booking.types.ts` payment state still `AwaitingDeposit|PartiallyPaid|Settled`; `bookingVocabulary.ts` still maps the old labels |
+| Decision log | code inspection | **DEC-180 is duplicated** at two rows (same ID/date); `DEC-036` and `DEC-178` still describe the API host as the BG-04 location without a supersession pointer |
+
+### 11.2 Closure work items
+
+**P0 — red gates and literal contract violations (must pass before anything is called complete).**
+
+| # | Item | Owner | Acceptance |
+| :--- | :--- | :--- | :--- |
+| P0-1 | Fix the 3 `tsc` errors. Replace `AlertBanner` `children`/`tone` misuse with its real contract (`title`, `errors`, `variant`); remove or wire the unused `onOpenEdit` | AGENT 03 | `npx tsc -b` → 0 errors |
+| P0-2 | Fix `DashboardPage.test.tsx:91` duplicate-month match without weakening the assertion | AGENT 03 | Dashboard test green; full Vitest green |
+| P0-3 | Update `BookingCreationTests` exact-body assertion to the approved additive `CreateBookingResponse` (`transactionId`, `bookingNumber`, `status`, `paymentState`, `eventEndDate`) and assert the new field semantics | AGENT 02 | Integration `BookingCreationTests` green |
+| P0-4 | Make Worker the **sole** BG-04 host: move `BookingLifecycleHostedService` registration into `Worker`, remove the WebApi registration/config, make `BookingLifecycleWorker` run the real loop, add Worker `appsettings.json` + `appsettings.Development.json` and container configuration | AGENT 02 | No lifecycle poller in WebApi; Worker starts, respects `Enabled`, and polls when enabled |
+| P0-5 | Default the cutover guard **off**: `BookingLifecycleOptions.Enabled = false` and `"BookingLifecycle": { "Enabled": false }` in every committed config | AGENT 02 | Options default and all committed configs false; no `EventEndDate` query when disabled |
+| P0-6 | Fail-closed migration `Down`: restore baseline ordinals only when no post-cutover history rows, no post-cutover bookings lacking a baseline, and no post-cutover payments exist; otherwise `THROW` with a clear message. Never reconstruct from payment sums | AGENT 02 | Disposable round-trip test proves both the safe path and the failure path |
+| P0-7 | Implement the approved `+08:00` contract: `CreateBookingRequest.StartDate/EndDate` as `DateTimeOffset`; validator rejects any offset other than `+08:00` with `400`; persist local components; update workbench payload and request types | AGENT 02 (API) + AGENT 03 (payload/types) | API tests for accepted `+08:00`, rejected `Z`/other offsets; frontend sends `+08:00` |
+| P0-8 | Complete frontend lifecycle/payment vocabulary: `BookingStatus` lifecycle-only; `BookingPaymentState = PendingPayment|DepositPaid|FullyPaid`; labels **Pending Payment / Deposit Paid / Fully Paid**; mutually exclusive filters; update fixtures, tests, chips, register, dashboard, customer statement, calendar consumers | AGENT 03 | `npx tsc -b`, full Vitest, and production build green; no legacy payment names remain in frontend source |
+
+**P1 — governance and document realignment (AGENT 01).**
+
+| # | Item | Acceptance |
+| :--- | :--- | :--- |
+| P1-1 | Remove the duplicate DEC-180 row; keep both distinct constraints (Worker host + default-disabled guard); add supersession pointers from DEC-036/DEC-178 | One DEC-180 row; DEC-036/178 cross-reference DEC-180 |
+| P1-2 | Realign `docs/salscatersuite_project_structure_workplan.md`: Worker project, `Infrastructure/BackgroundJobs`, `BookingStatusHistory`, `PaymentState`, migration count, Docker files/scripts, routes/client-surface deltas, build/run/test commands; append change-log row and refresh "Last aligned" | Sections 2–4, 7, 9–11 match the as-built tree |
+| P1-3 | Update `docs/salscatersuite_background_services_workplan.md` BG-04 status, host, and dependencies to DEC-180 | BG-04 states Worker host + default-disabled + pending/implemented truthfully |
+| P1-4 | Update `implementation/feature-status.md`: current cycle through DEC-180, 19 entities / 10 migrations, RSK-077, suite totals from the fresh run | No stale DEC-176 headline; counts copied from an actual run |
+| P1-5 | Reconcile `business/`, `architecture/`, `governance/` artifacts already amended in §7 against the as-built code (payment surfaces, `EventEndDate`, history, filters) | Contracts, dictionary, domain model, RTM, scenarios consistent |
+
+**P2 — release hygiene (needs owner authorization).**
+
+| # | Item | Acceptance |
+| :--- | :--- | :--- |
+| P2-1 | Isolated Docker smoke test (separate Compose project/database, **no** existing `mssql-data`, no `--reset`, no `down -v`) | SPA, login, authenticated catalogue, Swagger green against the isolated DB |
+| P2-2 | Commit the cycle on `Edit-Booking-feature` with the governance/workplan realignment in the same commit set | Clean, reviewable history; no WIP discarded |
+
+### 11.3 Close gates (AGENT 01, independent)
+
+1. `dotnet build src/backend/SalsCaterSuite.slnx -c Release` → 0 warnings / 0 errors.
+2. Backend unit + integration suites → **copy actual totals**, including the migration round-trip and config-default tests.
+3. `npx tsc -b`, full Vitest, `npm run build` → green, with actual file/test counts.
+4. Migration scripts reviewed and exercised only on disposable databases; no persistent DB touched.
+5. Workplan, BG plan, feature status, decision log, RTM, and risk register realigned in this cycle.
+6. Explicit disclosure of anything not run (live browser E2E, clean clone, persistent deployment).
+
+**Delegation status:** brief issued. P0 work may start immediately in the two disjoint trees; P1 runs concurrently and does not modify backend or frontend source; P2 waits for the owner's explicit authorization.
+
+---
+
+# Workflow State — Proposed General Booking Amendment (Deferred) (2026-10-31)
+
+| Field | Value |
+| :--- | :--- |
+| **Cycle** | General booking amendment: controlled edits to booking terms and repricing |
+| **Source** | Owner direction in this conversation: “we will implement this after DEC-177 finishes”; follow-up proposed eligibility based on lifecycle status and payments versus the original total |
+| **Stage** | **Specify / deferred.** This is a planning-only workplan. Do not begin implementation until DEC-177 has finished, its approved implementation has been validated and closed, and the owner resolves the amendment-policy questions below. |
+| **Workplan constraints** | `docs/salscatersuite_project_structure_workplan.md` §§2.2–2.6 (existing backend layers, repositories, controller and test projects), §3 (existing bookings feature, route and client API inventory), §4 (migration safety), §§9–11 (status, change log and verification); `business/bookings-events-operations-feature-spec.md` §§1.5 and 9; `architecture/approved-api-contracts.md` §§14–16; DEC-037 repository-only persistence |
+| **Working-tree constraint** | Preserve the DEC-177/178 and Worker/Docker WIP described in the preceding workflow section. Do not stage, delete, overwrite, reset, stash, clean, or normalize it. This plan authorizes no implementation, migration, database operation, or structural change. |
+
+## 1. Verified facts (Inspect; re-verify after DEC-177)
+
+- The existing implementation is not an approved general amendment workflow. The approved feature specification excludes general booking edits pending a separate commercial ruling (DEC-133).
+- The as-built frontend contains `BookingEditPage.tsx` and a `bookings/:transactionId/edit` route, although the route table and approved API surface in the main workplan do not list them. The page currently edits only event date and headcount.
+- `BookingsController` exposes `PUT /api/bookings/{id}` and `UpdateBookingCoreCommand` calls `Booking.UpdateCoreDetails`; the current request supports only event date and headcount. The endpoint and its underlying behavior are not evidence of approved policy.
+- `Booking.UpdateCoreDetails` changes `PackageAmount`, `Subtotal`, and `AmountDue` when headcount changes while retaining the existing discount and surcharge. The current path does not use the shared quote/pricing pipeline, enforce the add-on/menu change window, or check the authoritative payment sum against the recalculated amount due.
+- The add-on replacement command already revalidates add-ons and refuses a recalculation that would put collected payments above the new amount due. This is relevant prior art, not a complete amendment implementation.
+- No update-specific booking integration or unit tests were found during planning. Re-enumerate the tests and all consumers after DEC-177 closes because that cycle changes lifecycle/payment semantics.
+- DEC-177/178 implementation is currently paused and its working tree contains uncommitted lifecycle work. Its completion and close-out are a hard prerequisite for this feature.
+
+## 2. Proposed policy from the owner (not yet a complete implementation approval)
+
+The owner's proposed eligibility rule is conjunctive:
+
+1. Lifecycle status must be `Pending` or `Confirmed`.
+2. Authoritative payments collected must be **strictly less than 50%** of the **original booking total**. Exactly 50% and above are ineligible.
+3. If either condition fails, reject the amendment without changing the booking, its lines, payments, or audit history.
+4. The amendment may change headcount, package/tier, price, surcharge, discount, deposit, and add-ons.
+
+Treat these rules as a proposal to formalize in the owner-approved specification after DEC-177; do not infer missing definitions, broaden allowed lifecycle states, or rely on client-side gating. The backend must enforce the eligibility decision atomically.
+
+## 3. Blocking owner decisions before implementation
+
+1. **Original total definition and preservation:** confirm whether “original booking total” means the initial net contract amount after initial surcharge, add-ons, and discount, before payments/deposit. Decide how to preserve it immutably for new bookings and how to handle existing bookings that were edited before a baseline existed. Do not use the mutable current `AmountDue` as the original.
+2. **Payment numerator:** confirm the numerator is the sum of non-soft-deleted payment entries, not `Booking.AmountPaid`; decide whether issued refunds affect this eligibility test. Existing rules report refunds separately from collected payments.
+3. **Zero original total:** decide whether amendments are prohibited, allowed under a documented exception, or evaluated by another owner-approved rule. Do not divide by zero or silently treat the threshold as satisfied.
+4. **Rounding and exact boundary:** confirm whether the comparison uses exact decimal arithmetic on `collected × 100 < originalTotal × 50`, with no intermediate rounding; preserve the stated strict inequality.
+5. **Deposit meaning:** clarify whether changing the stated/required deposit is allowed independently of the 50% test and confirm it is not itself a payment and does not affect the numerator.
+6. **Discount behavior:** specify how a headcount-band discount is recalculated when headcount changes, and how an explicit discount code, fixed amount, cap, and owner-authorized manual price/discount override interact.
+7. **Tier/headcount dependencies:** define whether tier changes retain, clear, or require revalidation/replacement of the saved dish selection and add-ons; define behavior when the chosen headcount is outside the tier's eligibility/capacity.
+8. **Surcharge behavior:** decide whether a surcharge is recomputed from current municipality/tier rates or retained as a manually amended amount; preserve the existing frozen-price policy unless explicitly amended.
+9. **Lock window:** decide whether add-on amendments remain subject to the existing menu-change cutoff and whether changing the event date moves the cutoff. Menu selection continues to obey its approved lock rule unless the owner explicitly changes it.
+10. **Audit and concurrency:** confirm the amendment audit record required (actor, timestamp, before/after values and line changes) and how concurrent payments/amendments are serialized. The payment threshold and overpayment guard must use authoritative data and a transaction/concurrency strategy so a payment cannot race past the gate.
+11. **Existing update endpoint and screen:** decide whether to evolve the current `PUT /api/bookings/{id}` and edit page or deprecate/replace them with an explicit amendment/quote workflow. Reconcile the current unlisted route/endpoint with DEC-133 and the workplan before exposure.
+
+## 4. Planned feature shape (subject to approval)
+
+- Prefer one server-authoritative amendment use case that validates lifecycle and the original-total payment threshold, obtains/recomputes a quote using approved pricing rules, validates the requested tier/headcount/add-ons/menu consequences, checks the final amount due against authoritative collected payments, and commits the complete amendment atomically.
+- Reuse the repository-only architecture: interfaces in Application `Common/Interfaces`, implementations in Infrastructure `Persistence/Repositories`, one request-scoped `SalsCaterSuiteDbContext`, and one `SaveChangesAsync` for the amendment. No EF Core, `IQueryable`, `DbContext`, or Identity types in Application; no generic unit-of-work layer.
+- The API contract must publish eligibility failures distinctly and consistently as validation errors. The request must not permit protected totals or payment-state fields to be mass-assigned; the server computes authoritative totals.
+- The frontend should present the current contract, a server-generated amendment preview (including line/discount/surcharge/deposit differences and eligibility result), and an explicit confirmation before save. Retain the user's draft after recoverable errors; disable duplicate submits; never calculate authoritative financial values locally.
+- Limit all files to the existing bookings feature, existing backend projects/layers, existing test projects, and AGENT 01-owned business/governance artifacts. No new project, controller, feature folder, route, repository, top-level folder, package, or layer dependency is approved by this draft. If the eventual contract requires a new route/controller/repository or schema boundary, stop for AGENT 01 approval and a same-cycle workplan/decision-log update.
+
+## 5. Acceptance criteria and required tests (to finalize after owner decisions)
+
+1. Eligibility accepts only `Pending`/`Confirmed`; every other lifecycle status is rejected. Payment state does not masquerade as lifecycle status after DEC-177.
+2. For each eligible lifecycle status, collected below 50% passes; exactly 50% and above fail. Test values immediately below, at, and above the threshold, including decimal-cent values and authoritative soft-delete behavior.
+3. Original total remains unchanged after repeated amendments and is read from the approved immutable source. Existing-booking baseline behavior is explicit and tested.
+4. Any failed validation, quote, threshold check, concurrency check, or overpayment guard leaves all booking, add-on, selection, payment, and audit records unchanged.
+5. Headcount/tier/price/surcharge/discount/deposit/add-on edits follow the owner-approved repricing rules and continue to reconcile against the shared net-due calculator, ledger, register, contract, and reports.
+6. Tier/headcount changes handle selection and add-on eligibility exactly as approved; no stale menu selection or invalid add-on is silently retained.
+7. The final amount due cannot fall below authoritative collected payments unless an owner-approved credit/refund rule explicitly permits it.
+8. Concurrent payment and amendment attempts cannot bypass the 50% gate or overpayment check; verify the selected transaction/concurrency strategy.
+9. API tests cover authorization, invalid lifecycle, exact threshold boundaries, original-total preservation, validation errors, atomicity/rollback, concurrent updates, and persistence projections.
+10. Frontend tests cover eligibility display, quote refresh for every relevant field, threshold boundary presentation from server results, confirmation, failed-submit draft preservation, and duplicate-submit prevention.
+11. Reconcile the route, endpoint, API contract, workplan, tests and navigation so there is no hidden/direct-URL-only edit surface. Add a visible entry point only if included in the approved workflow.
+12. Run the existing targeted suites first, then the backend build/unit/integration suites and frontend focused/full tests/build as applicable. Migration validation must use disposable databases only; no persistent database operation without explicit owner authorization.
+
+## 6. Risks and dependencies
+
+- **Hard dependency:** DEC-177/178 must be implemented, validated, and closed first; this plan must be re-based on its actual lifecycle enum, payment-state projection, and dirty-tree disposition.
+- The 50% rule is unsafe until the original-total baseline is immutable and its legacy-data treatment is settled.
+- Headcount changes affect package pricing, surcharge, add-on line totals, automatic discounts, selection quotas, and outstanding balances. Applying only some of these updates would create unreconciled contracts.
+- Tier changes can make the saved dish selection invalid; add-on amount behavior can be headcount-dependent. Both need explicit replacement/retention semantics.
+- The existing general edit endpoint currently performs partial repricing without the proposed gate. Whether it should be disabled/restricted before the full amendment workflow is a separate owner-controlled safety decision; no code change is authorized by this plan.
+- Exposing the route before API and financial tests are complete risks unauthorized or inconsistent edits. Keep the plan at Specify/Review and do not delegate implementation yet.
+
+## 7. Work sequence and delegation gate
+
+1. **Wait for DEC-177 close.** Preserve all WIP and do not implement this feature concurrently.
+2. **Re-inspect as built.** AGENT 01 verifies the final status/payment model, amendment route/endpoint behavior, original-total data availability, current API/workplan alignment, and any uncommitted changes.
+3. **Resolve owner decisions.** AGENT 01 records approved rulings in `governance/decision-log.md`, updates the business rules/specification, API contracts, domain/data definitions, scenarios/traceability/risk register, and only then requests Debater review.
+4. **Debater review.** Review the revised `WORKFLOW_STATE.md` against the current main workplan before delegation; append `## Debater Review` with a binary decision.
+5. **Delegate bounded proposals then implementation.** Only after owner decisions and Debater approval, request separate AGENT 02 backend and AGENT 03 frontend proposals citing the applicable workplan sections. AGENT 01 approves both proposals before implementation. Backend and frontend stay in their ownership boundaries.
+6. **Review and validate.** Check business arithmetic independently, ensure persistence atomicity and endpoint compatibility, run the required tests, and reconcile every related surface.
+7. **Close.** AGENT 01 updates feature status, approved contracts/specs, decision log and risks; realigns the main project workplan sections affected by actual code; reports test evidence and remaining issues. No migrations are applied to persistent databases without owner approval.
+
+## 8. Current disposition
+
+- **Implementation status:** Not authorized; explicitly deferred until DEC-177 finishes.
+- **Business status:** Owner-proposed eligibility rule captured; definitions in §3 remain unresolved and must not be invented.
+- **Debater review:** Requested for this planning-only proposal. A review approval would approve the plan for the next specification/decision stage only, not authorize implementation.
+- **Files changed in this planning step:** `WORKFLOW_STATE.md` only. No code, API contract, business rule, decision-log entry, workplan, database, or migration changed.
+
+## Debater Review
+
+- **Decision:** APPROVE.
+- **Rationale:** The plan is appropriately deferred and disciplined. It withholds implementation until DEC-177/178 is implemented, validated, and closed, and requires owner decisions before final specification or delegation. It respects the current repository boundaries and DEC-037 repository-only persistence.
+- **Findings:**
+  1. **Scope and structure:** The plan stays within existing booking features, backend layers and test projects. It identifies the as-built edit page/route and `PUT` endpoint discrepancy and requires reconciliation before the edit surface is exposed; it does not authorize an unapproved route, project, dependency, repository, or schema boundary.
+  2. **DEC-177 prerequisite:** Correctly requires close-out and re-inspection against the final lifecycle/payment model before proceeding.
+  3. **Owner decisions:** Original-total preservation, payment/refund treatment, zero-total behavior, rounding, discount recalculation, tier dependencies, surcharge policy, lock windows, audit/concurrency and endpoint strategy remain unresolved and are not invented.
+  4. **Edge cases and tests:** Covers strict 50% boundaries, immutable baselines, overpayment, concurrency, atomicity, tier/headcount dependencies, tests across backend/API/frontend and disposable migration validation.
+- **Proposed better plan:** None. Improvements would be premature until DEC-177 closes and the listed owner decisions are resolved.
+- **Disposition:** Approval applies to the planning/specification stage only. No implementation delegation or code change is authorized.

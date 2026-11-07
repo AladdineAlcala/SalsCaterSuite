@@ -23,7 +23,7 @@ import {
   supportsExtendedArea,
 } from '../bookingVocabulary'
 import type { BookingQuoteHeldRate } from '../bookingVocabulary'
-import { WorkbenchSelectField, WorkbenchTextField } from './WorkbenchFields'
+import { WorkbenchComboboxField, WorkbenchSelectField, WorkbenchTextField } from './WorkbenchFields'
 
 export interface WorkbenchTierEngineProps {
   draft: BookingWorkbenchDraft
@@ -197,7 +197,7 @@ export function WorkbenchTierEngine({
         />
 
         {isAreaOffered ? (
-          <WorkbenchSelectField
+          <WorkbenchComboboxField
             id="booking-area-filter"
             label="Area filter"
             value={draft.areaFilterId}
