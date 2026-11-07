@@ -46,6 +46,7 @@ export function BookingDossierGrid({
           isTimeline={isTimeline}
           onDownloadContract={onDownloadContract}
           onOpenMenu={onOpenMenu}
+          onOpenEdit={onOpenEdit}
         />
       ))}
     </div>

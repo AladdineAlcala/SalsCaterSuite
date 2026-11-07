@@ -264,7 +264,7 @@ describe('CustomerMasterPage', () => {
 
     // The BR-10 lifecycle name, humanised through the shared helper — the
     // same label the Operations Dashboard shows.
-    expect(within(agedCard).getByText('Deposit Paid')).toBeInTheDocument()
+    expect(within(agedCard).getByText('Confirmed')).toBeInTheDocument()
     // The aging label is the server's own display string, rendered verbatim.
     expect(within(agedCard).getByText('Over 90 days overdue')).toBeInTheDocument()
 
@@ -285,19 +285,17 @@ describe('CustomerMasterPage', () => {
     await openCustomer('Tan, Liza')
     await userEvent.click(screen.getByRole('tab', { name: 'Ledger History' }))
 
-    // The server's wire name `FullyPaid` is rendered as "Fully Paid" …
+    // Lifecycle statuses are now rendered through the shared vocabulary, so a
+    // `Confirmed` wire value stays "Confirmed".
     const paidCard = (await screen.findByText(/BK-20260410-00544 • 10 Apr 2026/)).closest(
       'li',
     ) as HTMLElement
-    expect(within(paidCard).getByText('Fully Paid')).toBeInTheDocument()
-    expect(within(paidCard).queryByText('FullyPaid')).not.toBeInTheDocument()
+    expect(within(paidCard).getByText('Confirmed')).toBeInTheDocument()
 
-    // … and `DepositPaid` as "Deposit Paid".
     const depositCard = screen.getByText(/BK-20251204-00588 • 4 Dec 2025/).closest(
       'li',
     ) as HTMLElement
-    expect(within(depositCard).getByText('Deposit Paid')).toBeInTheDocument()
-    expect(within(depositCard).queryByText('DepositPaid')).not.toBeInTheDocument()
+    expect(within(depositCard).getByText('Confirmed')).toBeInTheDocument()
   })
 
   it('keeps the raw text of a booking status the client does not know', async () => {

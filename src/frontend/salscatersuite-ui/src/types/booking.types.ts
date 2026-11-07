@@ -19,14 +19,15 @@
 import type { BookingStatus } from './dashboard.types'
 
 /**
- * BR-28 — the **payment-state** vocabulary (DEC-117).
+ * BR-28 — the **payment-state** vocabulary (DEC-177).
  *
  * These three names answer "how far along is the payment?" and are mutually
  * exclusive and exhaustive. They are **not** lifecycle names: the lifecycle
- * vocabulary (`BookingStatus`) owns `DepositPaid` and `FullyPaid`, and the two
- * vocabularies never share a name.
+ * vocabulary (`BookingStatus`) is lifecycle-only (`Pending`, `Confirmed`, …),
+ * while payment progress is reported separately as one of these three values.
+ * Display labels are "Pending Payment", "Deposit Paid", "Fully Paid".
  */
-export type BookingPaymentState = 'AwaitingDeposit' | 'PartiallyPaid' | 'Settled'
+export type BookingPaymentState = 'PendingPayment' | 'DepositPaid' | 'FullyPaid'
 
 /**
  * The `BookingType` enum names — the wire value is the enum **name**
@@ -753,9 +754,9 @@ export interface CreateBookingRequest {
   noOfPerson: number
   occasion: string
   venue: string
-  /** The event start, as an ISO date-time. */
+  /** The event start, as an ISO date-time with an explicit +08:00 offset (Asia/Manila). */
   startDate: string
-  /** The event end, as an ISO date-time. */
+  /** The event end, as an ISO date-time with an explicit +08:00 offset (Asia/Manila). */
   endDate: string
   eventColor: string | null
   packageId: number | null
@@ -798,6 +799,10 @@ export interface CreateBookingResponse {
   bookingNumber: string
   /** The `BookingStatus` name of the created booking. */
   status: BookingStatus
+  /** The separate payment state of the created booking (DEC-177). */
+  paymentState: BookingPaymentState
+  /** The event end date of the created booking. */
+  eventEndDate: string
 }
 
 /* ------------------------------------------------------------------------- *

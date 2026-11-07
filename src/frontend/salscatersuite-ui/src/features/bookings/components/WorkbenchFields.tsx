@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
+import { Combobox } from '@/components/ui/Combobox'
 import { cn } from '@/utils/cn'
 
 const CONTROL_CLASS =
@@ -266,5 +267,56 @@ export function WorkbenchCheckbox({
         </p>
       ) : null}
     </div>
+  )
+}
+
+export interface WorkbenchComboboxFieldProps {
+  id: string
+  label: string
+  value: string
+  onChange: (value: string) => void
+  /** The options — every one of them comes from a server-published catalogue. */
+  options: WorkbenchSelectOption[]
+  /** The label of the empty option, e.g. "Select a client". */
+  placeholder: string
+  error?: string
+  hint?: string
+  className?: string
+  disabled?: boolean
+  required?: boolean
+}
+
+/** A searchable combobox field with a dropdown list that filters as you type. */
+export function WorkbenchComboboxField({
+  id,
+  label,
+  value,
+  onChange,
+  options,
+  placeholder,
+  error,
+  hint,
+  className,
+  disabled,
+  required,
+}: WorkbenchComboboxFieldProps) {
+  const describedBy =
+    [error ? `${id}-error` : null, hint ? `${id}-hint` : null].filter(Boolean).join(' ') ||
+    undefined
+
+  return (
+    <WorkbenchFieldShell id={id} label={label} error={error} hint={hint} className={className}>
+      <Combobox
+        id={id}
+        value={value}
+        onChange={onChange}
+        options={options}
+        placeholder={placeholder}
+        disabled={disabled || false}
+        required={required}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy}
+      />
+    </WorkbenchFieldShell>
   )
 }

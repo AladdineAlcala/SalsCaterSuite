@@ -38,6 +38,7 @@ public static class DependencyInjection
         services.AddScoped<CancelBookingCommand>();
         services.AddScoped<UpdateBookingCoreCommand>();
         services.AddScoped<GetBookingDetailsQuery>();
+        services.AddScoped<IBookingLifecycleTransitionService, BookingLifecycleTransitionService>();
         services.AddScoped<GetBookingLedgerQuery>();
 
         // The Bookings & Events Register and the Reservation Workbench (REQ-BKG-05). The

@@ -32,6 +32,7 @@ public class SalsCaterSuiteDbContext : IdentityDbContext<ApplicationUser, Applic
     // frozen add-on lines. They are child rows of the booking aggregate.
     public DbSet<BookingMenu> BookingMenus => Set<BookingMenu>();
     public DbSet<BookingAddOn> BookingAddOns => Set<BookingAddOn>();
+    public DbSet<BookingStatusHistory> BookingStatusHistories => Set<BookingStatusHistory>();
 
     // REQ-PKG-02 (DEC-077): the course-coverage ruleset and the package-to-municipality
     // coverage matrix.
@@ -218,6 +219,10 @@ public class SalsCaterSuiteDbContext : IdentityDbContext<ApplicationUser, Applic
         builder.ApplyConfiguration(new DepartmentConfiguration());
         builder.ApplyConfiguration(new BookingMenuConfiguration());
         builder.ApplyConfiguration(new BookingAddOnConfiguration());
+
+        // DEC-178: durable booking lifecycle history. The relationship is configured here so a
+        // status change and its history row commit together.
+        builder.ApplyConfiguration(new BookingStatusHistoryConfiguration());
     }
 }
 

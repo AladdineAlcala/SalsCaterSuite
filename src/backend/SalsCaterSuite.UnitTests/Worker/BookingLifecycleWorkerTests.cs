@@ -7,6 +7,12 @@ using SalsCaterSuite.Domain.Enums;
 using SalsCaterSuite.Worker.BackgroundServices;
 using Xunit;
 
+/// <summary>
+/// The old date-only worker predicates are gone (DEC-178). This file keeps the domain
+/// rejection of completing an excluded lifecycle status, and proves the retained worker
+/// type no longer exposes the old transition predicates.
+/// </summary>
+
 public class BookingLifecycleWorkerTests
 {
     private static Booking CreateConfirmedBooking(DateOnly eventDate, TimeSpan? packoutTime = null)
@@ -46,53 +52,10 @@ public class BookingLifecycleWorkerTests
     }
 
     [Fact]
-    public void ShouldAdvanceToInProgress_WhenConfirmedOnEventDate()
+    public void The_retained_worker_should_not_expose_the_retired_date_only_predicates()
     {
-        var booking = CreateConfirmedBooking(DateOnly.FromDateTime(DateTime.UtcNow));
-
-        var result = BookingLifecycleWorker.ShouldAdvanceToInProgress(booking, DateTime.UtcNow);
-
-        result.Should().BeTrue();
-    }
-
-    [Fact]
-    public void ShouldNotAdvanceToInProgress_WhenConfirmedBeforeEventDate()
-    {
-        var futureDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1));
-        var booking = CreateConfirmedBooking(futureDate);
-
-        var result = BookingLifecycleWorker.ShouldAdvanceToInProgress(booking, DateTime.UtcNow);
-
-        result.Should().BeFalse();
-    }
-
-    [Fact]
-    public void ShouldAutoComplete_WhenInProgressAndPackoutGraceWindowHasPassed()
-    {
-        var eventDate = DateOnly.FromDateTime(DateTime.UtcNow);
-        var packoutTime = new TimeSpan(18, 0, 0);
-        var booking = CreateInProgressBooking(eventDate, packoutTime);
-        var now = eventDate.ToDateTime(new TimeOnly(19, 30), DateTimeKind.Utc);
-
-        var result = BookingLifecycleWorker.ShouldAutoComplete(booking, now);
-
-        result.Should().BeTrue();
-    }
-
-    [Fact]
-    public void ShouldNotAutoComplete_WhenBookingIsCancelledRescheduledOrNoShow()
-    {
-        var eventDate = DateOnly.FromDateTime(DateTime.UtcNow);
-        var packoutTime = new TimeSpan(18, 0, 0);
-        var now = eventDate.ToDateTime(new TimeOnly(20, 0), DateTimeKind.Utc);
-
-        var cancelled = CreateBookingWithStatus(BookingStatus.Cancelled, eventDate, packoutTime);
-        var rescheduled = CreateBookingWithStatus(BookingStatus.Rescheduled, eventDate, packoutTime);
-        var noShow = CreateBookingWithStatus(BookingStatus.NoShow, eventDate, packoutTime);
-
-        BookingLifecycleWorker.ShouldAutoComplete(cancelled, now).Should().BeFalse();
-        BookingLifecycleWorker.ShouldAutoComplete(rescheduled, now).Should().BeFalse();
-        BookingLifecycleWorker.ShouldAutoComplete(noShow, now).Should().BeFalse();
+        typeof(BookingLifecycleWorker).GetMethod("ShouldAdvanceToInProgress").Should().BeNull();
+        typeof(BookingLifecycleWorker).GetMethod("ShouldAutoComplete").Should().BeNull();
     }
 
     [Fact]

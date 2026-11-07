@@ -135,6 +135,10 @@ public class ReplaceBookingAddonsCommand
             discountAmount: newDiscount,
             taxAmount: booking.TaxAmount);
 
+        // The live payments were loaded with the line items. Overwrite the cache-based
+        // refresh so a headcount-independent due change cannot leave payment state stale.
+        booking.RefreshPaymentStatus();
+
         booking.UpdatedDate = DateTime.UtcNow;
 
         await _bookings.SaveChangesAsync(cancellationToken);

@@ -61,7 +61,7 @@ const SELECT_CLASS =
  * does not exist (DEC-101).
  *
  * The **Overdue only** chip is a **separate dimension**, clearly labelled as
- * such — a partly-paid booking is both `PartiallyPaid` and overdue, so the
+ * such — a partly-paid booking is both `DepositPaid` and overdue, so the
  * two can never be folded into one vocabulary (BR-28).
  *
  * The **timeline** toggle is a **server-side sort**: it asks for the

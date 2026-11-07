@@ -48,7 +48,7 @@ public class GetCalendarEventsQuery
                        : "Confirmed";
 
             var eventStart = b.EventDate.ToDateTime(TimeOnly.FromTimeSpan(b.EventStartTime));
-            var eventEnd = b.EventDate.ToDateTime(TimeOnly.FromTimeSpan(b.EventEndTime));
+            var eventEnd = b.EventEndDate.ToDateTime(TimeOnly.FromTimeSpan(b.EventEndTime));
 
             return new CalendarEventResponse
             {

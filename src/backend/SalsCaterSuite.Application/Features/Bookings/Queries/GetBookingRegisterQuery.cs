@@ -146,6 +146,7 @@ public class GetBookingRegisterQuery
             TransactionId = booking.TransactionId,
             BookingNumber = booking.BookingNumber,
             EventDate = booking.EventDate,
+            EventEndDate = booking.EventEndDate,
             EventStartTime = booking.EventStartTime,
             EventEndTime = booking.EventEndTime,
             CallTime = booking.CallTime,

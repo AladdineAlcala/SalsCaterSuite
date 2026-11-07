@@ -88,7 +88,9 @@ describe('DashboardPage', () => {
     expect(
       await screen.findByRole('heading', { name: "Sal's CaterSuite Operations Dashboard" }),
     ).toBeInTheDocument()
-    expect(screen.getByText('October 2026')).toBeInTheDocument()
+    expect(
+      screen.getByRole('option', { name: 'October 2026', selected: true }),
+    ).toBeInTheDocument()
     expect(screen.getByText('35.0%')).toBeInTheDocument()
     expect(screen.getByText('70.6%')).toBeInTheDocument()
 
@@ -119,7 +121,7 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Santos, Maria')).toBeInTheDocument()
     expect(screen.getByText('Silver Wedding Anniversary')).toBeInTheDocument()
     expect(screen.getByText('28 Oct 2026 • 250 pax')).toBeInTheDocument()
-    expect(screen.getByText('Confirmed')).toBeInTheDocument()
+    expect(screen.getAllByText('Confirmed')).toHaveLength(2)
     expect(screen.getByText('Premier Wedding Package')).toBeInTheDocument()
     expect(screen.getByText('₱285,000.00')).toBeInTheDocument()
     expect(screen.getByText('₱85,000.00')).toBeInTheDocument()

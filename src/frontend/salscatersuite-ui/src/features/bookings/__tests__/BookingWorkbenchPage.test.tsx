@@ -189,6 +189,14 @@ async function waitForEnabled(label: string): Promise<HTMLSelectElement> {
   return control
 }
 
+async function selectAreaFilter(areaId: string) {
+  const area = areaCatalogueFixture.find((item) => String(item.areaId) === areaId)
+  if (!area) throw new Error(`Area fixture ${areaId} was not found`)
+
+  await userEvent.click(await waitForEnabled('Area filter'))
+  await userEvent.click(await screen.findByRole('option', { name: area.areaDetails }))
+}
+
 /**
  * Fills every input the server needs before it can price the booking.
  *
@@ -441,12 +449,12 @@ describe('BookingWorkbenchPage', () => {
 
     // A Regular tier may carry the out-of-town amount, so the filter appears.
     fireEvent.change(screen.getByLabelText('Package type'), { target: { value: 'Regular' } })
-    const areaFilter = await waitForEnabled('Area filter')
+    await waitForEnabled('Area filter')
     expect(screen.queryByLabelText('Municipality')).not.toBeInTheDocument()
 
     // The area filter is answered by the server through `areaId`, and the tier
     // list asks for the active tiers only (AC-BKG-93).
-    fireEvent.change(areaFilter, { target: { value: '4' } })
+    await selectAreaFilter('4')
     await waitFor(() => {
       expect(
         api.requests.some(
@@ -678,10 +686,10 @@ describe('BookingWorkbenchPage', () => {
     expect(tierControl).toBeDisabled()
     expect(screen.getByText('Choose the event area to load its tiers')).toBeInTheDocument()
 
-    const areaFilter = await waitForEnabled('Area filter') as HTMLSelectElement
-    expect(areaFilter.required).toBe(true)
+    const areaFilter = await waitForEnabled('Area filter')
+    expect(areaFilter).toHaveAttribute('aria-required', 'true')
 
-    fireEvent.change(areaFilter, { target: { value: '6' } })
+    await selectAreaFilter('6')
     await waitFor(() => {
       expect(
         api.requests.some(
@@ -714,7 +722,7 @@ describe('BookingWorkbenchPage', () => {
     fireEvent.change(screen.getByLabelText('Package type'), { target: { value: 'Regular' } })
     expect(screen.getByLabelText('Buffet tier')).toHaveValue('')
 
-    fireEvent.change(screen.getByLabelText('Area filter'), { target: { value: '4' } })
+    await selectAreaFilter('4')
     await waitForEnabled('Buffet tier')
     fireEvent.change(screen.getByLabelText('Buffet tier'), { target: { value: '31' } })
 
@@ -726,7 +734,7 @@ describe('BookingWorkbenchPage', () => {
     fireEvent.change(screen.getByLabelText('Buffet tier'), { target: { value: '24' } })
 
     // An area change — including a clear — clears the tier in the same update.
-    fireEvent.change(screen.getByLabelText('Area filter'), { target: { value: '5' } })
+    await selectAreaFilter('5')
     expect(screen.getByLabelText('Buffet tier')).toHaveValue('')
 
     // A non-eligible type hides and clears the area.
@@ -768,8 +776,7 @@ describe('BookingWorkbenchPage', () => {
 
     await waitForEnabled('Package type')
     fireEvent.change(screen.getByLabelText('Package type'), { target: { value: 'Regular' } })
-    const areaFilter = await waitForEnabled('Area filter')
-    fireEvent.change(areaFilter, { target: { value: '4' } })
+    await selectAreaFilter('4')
     await waitFor(() => {
       expect(heldAreaFetches.some((fetch) => fetch.areaId === 4)).toBe(true)
     })
@@ -784,7 +791,7 @@ describe('BookingWorkbenchPage', () => {
     // previous area's tier cannot be selected while the list stands in.
     // userEvent honors the `disabled` attribute, so a selection attempt on
     // the held picker fails (fireEvent would bypass it and prove nothing).
-    fireEvent.change(screen.getByLabelText('Area filter'), { target: { value: '5' } })
+    await selectAreaFilter('5')
     const tierControl = screen.getByLabelText('Buffet tier') as HTMLSelectElement
     expect(tierControl).toHaveValue('')
     expect(tierControl).toBeDisabled()
@@ -812,7 +819,7 @@ describe('BookingWorkbenchPage', () => {
     ).toBeInTheDocument()
     expect(screen.getByLabelText('Buffet tier')).toBeDisabled()
 
-    fireEvent.change(screen.getByLabelText('Area filter'), { target: { value: '4' } })
+    await selectAreaFilter('4')
     await waitFor(() => {
       expect(heldAreaFetches.filter((fetch) => fetch.areaId === 4).length).toBeGreaterThan(0)
     })
@@ -927,8 +934,7 @@ describe('BookingWorkbenchPage', () => {
     // The type options are the stored types after trimming — exact values.
     fireEvent.change(screen.getByLabelText('Package type'), { target: { value: 'Regular' } })
     // The Regular gate needs an area before the picker opens (AC-BKG-93).
-    const areaFilter = await waitForEnabled('Area filter')
-    fireEvent.change(areaFilter, { target: { value: '4' } })
+    await selectAreaFilter('4')
     await waitForEnabled('Buffet tier')
     const buffet = screen.getByLabelText('Buffet tier')
     expect(within(buffet).getByText(/Whitespace Regular Tier/)).toBeInTheDocument()
@@ -947,8 +953,7 @@ describe('BookingWorkbenchPage', () => {
 
     await waitForEnabled('Package type')
     fireEvent.change(screen.getByLabelText('Package type'), { target: { value: 'Regular' } })
-    const areaFilter = await waitForEnabled('Area filter')
-    fireEvent.change(areaFilter, { target: { value: '4' } })
+    await selectAreaFilter('4')
     await waitForEnabled('Buffet tier')
     fireEvent.change(screen.getByLabelText('Buffet tier'), { target: { value: '31' } })
 
@@ -974,7 +979,7 @@ describe('BookingWorkbenchPage', () => {
 
     await waitForEnabled('Package type')
     fireEvent.change(screen.getByLabelText('Package type'), { target: { value: 'Regular' } })
-    fireEvent.change(await waitForEnabled('Area filter'), { target: { value: '4' } })
+    await selectAreaFilter('4')
     const buffet = await waitForEnabled('Buffet tier')
 
     // Mock fidelity — the fixture's inactive Morning Briefing row never
@@ -995,7 +1000,7 @@ describe('BookingWorkbenchPage', () => {
     fireEvent.change(screen.getByLabelText('Event date'), { target: { value: '2026-11-20' } })
     await waitForEnabled('Package type')
     fireEvent.change(screen.getByLabelText('Package type'), { target: { value: 'Regular' } })
-    fireEvent.change(await waitForEnabled('Area filter'), { target: { value: '4' } })
+    await selectAreaFilter('4')
     await waitForEnabled('Buffet tier')
     fireEvent.change(screen.getByLabelText('Buffet tier'), { target: { value: '31' } })
     fireEvent.change(screen.getByLabelText('Contract headcount'), { target: { value: '120' } })

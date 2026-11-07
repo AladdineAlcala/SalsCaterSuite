@@ -1,9 +1,19 @@
-# Dependencies and build output are produced inside the image.
-node_modules
-dist
-dist-ssr
-coverage
-
-# Runtime and editor noise.
-*.log
-.vs/
+**/.git
+**/.vs
+**/.vscode
+**/node_modules
+**/dist
+**/logs
+**/*.log
+**/.env
+**/.env.local
+**/coverage
+**/*.user
+**/*.suo
+**/.DS_Store
+**/Thumbs.db
+**/Dockerfile*
+**/.dockerignore
+**/*.md
+**/*.tsbuildinfo
+!**/README.md

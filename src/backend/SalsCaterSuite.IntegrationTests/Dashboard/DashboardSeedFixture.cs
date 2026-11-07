@@ -159,8 +159,8 @@ public sealed class DashboardSeedFixture : IAsyncLifetime
         // The records are built once every booking carries its final state and its final
         // payment total, so the expected figures below are the seeded truth.
         Bookings.Add(pending with { Status = BookingStatus.Pending });
-        Bookings.Add(depositPaid with { Status = BookingStatus.DepositPaid, AmountPaid = 20_000m });
-        Bookings.Add(fullyPaid with { Status = BookingStatus.FullyPaid, AmountPaid = 20_000m });
+        Bookings.Add(depositPaid with { Status = BookingStatus.Pending, AmountPaid = 20_000m });
+        Bookings.Add(fullyPaid with { Status = BookingStatus.Pending, AmountPaid = 20_000m });
         Bookings.Add(confirmed with { Status = BookingStatus.Confirmed });
         Bookings.Add(completed with { Status = BookingStatus.Completed });
         Bookings.Add(cancelled with { Status = BookingStatus.Cancelled, AmountPaid = 50_000m });

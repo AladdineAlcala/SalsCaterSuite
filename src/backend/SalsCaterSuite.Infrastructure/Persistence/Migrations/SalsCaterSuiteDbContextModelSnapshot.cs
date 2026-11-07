@@ -383,6 +383,10 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                         .HasColumnType("date")
                         .HasColumnName("eventDate");
 
+                    b.Property<DateOnly>("EventEndDate")
+                        .HasColumnType("date")
+                        .HasColumnName("eventEndDate");
+
                     b.Property<TimeSpan>("EventEndTime")
                         .HasColumnType("time")
                         .HasColumnName("endTime");
@@ -434,6 +438,12 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                     b.Property<TimeSpan?>("PackoutTime")
                         .HasColumnType("time")
                         .HasColumnName("packoutTime");
+
+                    b.Property<int>("PaymentState")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("payment_state");
 
                     b.Property<decimal>("PricePerHead")
                         .HasPrecision(18, 2)
@@ -642,6 +652,78 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                         .HasFilter("[is_deleted] = 0");
 
                     b.ToTable("BookingMenu", (string)null);
+                });
+
+            modelBuilder.Entity("SalsCaterSuite.Domain.Entities.BookingStatusHistory", b =>
+                {
+                    b.Property<int>("BookingStatusHistoryId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("bookingStatusHistoryId");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("BookingStatusHistoryId"));
+
+                    b.Property<string>("ActorSource")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("actorSource");
+
+                    b.Property<string>("CreatedByUser")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("createdByUser");
+
+                    b.Property<DateTime?>("CreatedDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("createdDate");
+
+                    b.Property<DateTime>("EffectiveAtUtc")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("effectiveAtUtc");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("PreviousStatusName")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("previousStatusName");
+
+                    b.Property<int?>("PreviousStatusOrdinal")
+                        .HasColumnType("int")
+                        .HasColumnName("previousStatusOrdinal");
+
+                    b.Property<DateTime>("RecordedAtUtc")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("recordedAtUtc");
+
+                    b.Property<string>("StatusName")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("statusName");
+
+                    b.Property<int>("StatusOrdinal")
+                        .HasColumnType("int")
+                        .HasColumnName("statusOrdinal");
+
+                    b.Property<int>("TransactionId")
+                        .HasColumnType("int")
+                        .HasColumnName("trn_Id");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("updatedDate");
+
+                    b.HasKey("BookingStatusHistoryId");
+
+                    b.HasIndex("TransactionId");
+
+                    b.ToTable("BookingStatusHistory", (string)null);
                 });
 
             modelBuilder.Entity("SalsCaterSuite.Domain.Entities.CourseCategory", b =>
@@ -1651,6 +1733,17 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                     b.Navigation("Menu");
                 });
 
+            modelBuilder.Entity("SalsCaterSuite.Domain.Entities.BookingStatusHistory", b =>
+                {
+                    b.HasOne("SalsCaterSuite.Domain.Entities.Booking", "Booking")
+                        .WithMany("StatusHistory")
+                        .HasForeignKey("TransactionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Booking");
+                });
+
             modelBuilder.Entity("SalsCaterSuite.Domain.Entities.Menu", b =>
                 {
                     b.HasOne("SalsCaterSuite.Domain.Entities.CourseCategory", "CourseCategory")
@@ -1751,6 +1844,8 @@ namespace SalsCaterSuite.Infrastructure.Persistence.Migrations
                     b.Navigation("Payments");
 
                     b.Navigation("Refunds");
+
+                    b.Navigation("StatusHistory");
                 });
 
             modelBuilder.Entity("SalsCaterSuite.Domain.Entities.CourseCategory", b =>

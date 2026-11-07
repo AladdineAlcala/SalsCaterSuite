@@ -190,14 +190,14 @@ public class GetBookingDossierSummaryQueryTests
         states.Should().HaveCount(3);
         states.Sum(state => state.Count).Should().Be(result.Data.Pipeline.BookingCount);
 
-        states.Single(state => state.Key == BookingPaymentState.AwaitingDeposit).Count.Should().Be(1);
-        states.Single(state => state.Key == BookingPaymentState.PartiallyPaid).Count.Should().Be(1);
-        states.Single(state => state.Key == BookingPaymentState.Settled).Count.Should().Be(1);
+        states.Single(state => state.Key == BookingPaymentState.PendingPayment).Count.Should().Be(1);
+        states.Single(state => state.Key == BookingPaymentState.DepositPaid).Count.Should().Be(1);
+        states.Single(state => state.Key == BookingPaymentState.FullyPaid).Count.Should().Be(1);
 
         // The amount of a state is its outstanding amount (KPI-37).
-        states.Single(state => state.Key == BookingPaymentState.AwaitingDeposit).Amount.Should().Be(50_000m);
-        states.Single(state => state.Key == BookingPaymentState.PartiallyPaid).Amount.Should().Be(30_000m);
-        states.Single(state => state.Key == BookingPaymentState.Settled).Amount.Should().Be(0m);
+        states.Single(state => state.Key == BookingPaymentState.PendingPayment).Amount.Should().Be(50_000m);
+        states.Single(state => state.Key == BookingPaymentState.DepositPaid).Amount.Should().Be(30_000m);
+        states.Single(state => state.Key == BookingPaymentState.FullyPaid).Amount.Should().Be(0m);
     }
 
     [Fact]

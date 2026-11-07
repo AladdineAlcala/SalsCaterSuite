@@ -25,15 +25,17 @@ public class BookingValidationTests
         var client = await _fixture.CreateAdministratorClientAsync();
         var customerId = await client.CreateCustomerAsync("Validation", "Scenario9");
 
-        var start = DateTime.UtcNow.Date.AddDays(30).AddHours(10);
+        var start = DateTime.SpecifyKind(DateTime.UtcNow.Date.AddDays(30).AddHours(10), DateTimeKind.Unspecified);
+        var startOffset = new DateTimeOffset(start, TimeSpan.FromHours(8));
+        var endOffset = startOffset.AddHours(4);
 
         var payload = caseName switch
         {
             "noOfPerson = 0" => new BookingPayload(customerId, NoOfPerson: 0, OverridePricePerHead: 450m),
             "endDate earlier than startDate" => new BookingPayload(customerId, NoOfPerson: 100, OverridePricePerHead: 450m)
             {
-                StartDate = start,
-                EndDate = start.AddHours(-2)
+                StartDate = startOffset,
+                EndDate = startOffset.AddHours(-2)
             },
             "occasion longer than 150 characters" => new BookingPayload(
                 customerId, NoOfPerson: 100, OverridePricePerHead: 450m)
@@ -42,6 +44,11 @@ public class BookingValidationTests
             },
             _ => throw new ArgumentOutOfRangeException(nameof(caseName), caseName, null)
         };
+
+        if (caseName != "endDate earlier than startDate")
+        {
+            payload = payload with { StartDate = startOffset, EndDate = endOffset };
+        }
 
         var before = await _fixture.QueryAsync(context => context.Bookings.CountAsync());
 

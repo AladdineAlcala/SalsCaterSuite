@@ -12,7 +12,7 @@ export interface BookingPaymentStateChipProps {
  * The booking **payment-state** chip.
  *
  * The payment state is a **separate vocabulary** from the lifecycle status
- * (DEC-117): `AwaitingDeposit`, `PartiallyPaid` and `Settled` answer "how far
+ * (DEC-177): `PendingPayment`, `DepositPaid` and `FullyPaid` answer "how far
  * along is the payment?", while the lifecycle status answers "where is the
  * booking?". The two never share a name.
  *

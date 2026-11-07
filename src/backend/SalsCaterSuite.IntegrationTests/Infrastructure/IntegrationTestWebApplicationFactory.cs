@@ -76,6 +76,8 @@ public sealed class IntegrationTestWebApplicationFactory : WebApplicationFactory
         builder.UseSetting("ConnectionStrings:SalsCaterSuiteDb", ConnectionString);
         builder.UseSetting("Database:ApplyMigrationsOnStartup", "false");
         builder.UseSetting("Database:SeedOnStartup", "false");
+        // BG-04 must not mutate seeded past events while a test is asserting them (DEC-178).
+        builder.UseSetting("BookingLifecycle:Enabled", "false");
         // Test-run noise control only: EF command logging is not needed for assertions. Nothing
         // about the API's own behaviour depends on this. Serilog owns the logging pipeline now
         // (DEC-092), so the override moves from the legacy "Logging:LogLevel" subtree to the
@@ -101,6 +103,7 @@ public sealed class IntegrationTestWebApplicationFactory : WebApplicationFactory
                 ["ConnectionStrings:SalsCaterSuiteDb"] = ConnectionString,
                 ["Database:ApplyMigrationsOnStartup"] = "false",
                 ["Database:SeedOnStartup"] = "false",
+                ["BookingLifecycle:Enabled"] = "false",
                 ["Serilog:MinimumLevel:Override:Microsoft.EntityFrameworkCore.Database.Command"] = "Warning",
 
                 // The host setting above materialises the whole "Serilog:MinimumLevel:Override:..."

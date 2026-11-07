@@ -410,7 +410,9 @@ public class BookingsController : ControllerBase
             {
                 TransactionId = result.Data,
                 BookingNumber = created.Data?.BookingNumber ?? string.Empty,
-                Status = created.Data?.Status ?? BookingStatus.Pending
+                Status = created.Data?.Status ?? BookingStatus.Pending,
+                PaymentState = created.Data?.PaymentState ?? PaymentState.PendingPayment,
+                EventEndDate = created.Data?.EventEndDate ?? default
             });
     }
 

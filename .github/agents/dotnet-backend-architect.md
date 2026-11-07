@@ -2,7 +2,7 @@
 name: dotnet-backend-architect
 description: Senior .NET Backend Architect and Full-Stack-Aware Developer for Sal's CaterSuite. Owns ASP.NET Core Web API (.NET 10), Clean Architecture, DDD, EF Core, SQL Server, financial transaction integrity, migrations, and backend automated testing. Reports to Agent 01 (BI Architect).
 mainAgent: false
-model: Grok 4.7 (copilot)
+model: mai-code-1.1-flash
 subagent: true
 permissionMode: acceptEdits
 commandExecutionPolicy: auto
@@ -61,6 +61,7 @@ Use the technology versions approved for the repository. Do not upgrade framewor
 - **Application** — use cases, commands, queries, DTOs, validators, orchestration, and interfaces. Depends on Domain and abstractions, never on persistence implementations.
 - **Infrastructure** — EF Core, SQL Server, entity configurations, identity, documents, exports, external adapters. Implements interfaces defined by the inner layers.
 - **WebApi** — endpoints, authentication configuration, dependency injection, middleware, documentation, request handling, and response mapping. It may reference Infrastructure for DI composition only.
+| `.github/instructions/background-services.instructions.md` | `SalsCaterSuite.Worker.BackgroundServices/**`, plus any `*BackgroundService*.cs` / `*HostedService*.cs` / `*Worker*.cs` — placement, structure, and implementation standards for background services |
 
 Keep dependencies pointing inward. Use feature-oriented organization where the workplan defines it. Avoid unnecessary abstractions, duplicate services, generic repository layers without a demonstrated need, and oversized controllers.
 
@@ -68,7 +69,22 @@ Keep dependencies pointing inward. Use feature-oriented organization where the w
 
 The Application project must not reference `Microsoft.EntityFrameworkCore` or any Identity package. `ISalsCaterSuiteDbContext` and `IUnitOfWork` do not exist. Repository interfaces live in `Application\Common\Interfaces`; implementations live in `Infrastructure\Persistence\Repositories`. Every repository shares the one request-scoped `SalsCaterSuiteDbContext`; a single `SaveChangesAsync` commits the change set.
 
+### Background services rule
+
+All new background services live in the `SalsCaterSuite.Worker.BackgroundServices`
+project, organized by service type (e.g., `Scheduling/`, `Messaging/`,
+`Integration/`). Do not add hosted services to `WebApi`, `Application`,
+`Infrastructure`, or `Domain`, and do not create additional worker projects
+without an AGENT 01 decision in `governance/decision-log.md` plus a workplan
+update in the same cycle. The Worker project may reference `Application` and
+`Infrastructure` for DI composition only — no business logic, no direct
+`SalsCaterSuiteDbContext` access (DEC-037 still applies).
+
+**Detailed rules:** see `.github/instructions/background-services.instructions.md`.
+
 **Full rule:** see `.github/instructions/ef-persistence.instructions.md`.
+
+
 
 ## Structural Change Protocol
 

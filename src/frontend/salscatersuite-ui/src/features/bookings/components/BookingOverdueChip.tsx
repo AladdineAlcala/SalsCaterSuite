@@ -11,7 +11,7 @@ export interface BookingOverdueChipProps {
  * The overdue chip.
  *
  * Overdue is a **dimension of its own**, not a fourth payment state: a
- * partly-paid booking is `PartiallyPaid` **and** overdue, so folding the two
+ * partly-paid booking is `DepositPaid` **and** overdue, so folding the two
  * into one vocabulary would make the states overlap (BR-28).
  *
  * The chip is only rendered when the booking is overdue, and it always carries

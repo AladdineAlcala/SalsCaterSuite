@@ -7,7 +7,7 @@ import type { AreaDto } from '@/types/package.types'
 import type { BookingQuote } from '@/types/booking.types'
 import type { BookingWorkbenchDraft, BookingWorkbenchErrors } from '../bookingVocabulary'
 import { NOT_STATED, supportsExtendedArea } from '../bookingVocabulary'
-import { WorkbenchCheckbox, WorkbenchSelectField } from './WorkbenchFields'
+import { WorkbenchCheckbox, WorkbenchComboboxField } from './WorkbenchFields'
 
 export interface WorkbenchLogisticsBlockProps {
   draft: BookingWorkbenchDraft
@@ -85,7 +85,7 @@ export function WorkbenchLogisticsBlock({
 
         {canCarryExtendedArea ? (
           <>
-            <WorkbenchSelectField
+            <WorkbenchComboboxField
               id="booking-municipality"
               label="Municipality"
               value={draft.extendedAreaId}

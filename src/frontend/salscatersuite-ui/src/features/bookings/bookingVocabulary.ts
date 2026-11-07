@@ -92,15 +92,16 @@ export interface PaymentStateMeta {
 }
 
 /**
- * The three payment states (BR-28, DEC-117).
+ * The three payment states (BR-28, DEC-177).
  *
- * The labels are the reference's wording: *Fully paid*, *Partially paid* and
- * *Awaiting initial deposit*. The wire values stay the enum names.
+ * Display labels are exactly "Pending Payment", "Deposit Paid", "Fully Paid".
+ * The wire values stay the enum names (`PendingPayment`, `DepositPaid`,
+ * `FullyPaid`).
  */
 export const PAYMENT_STATE_META: Record<BookingPaymentState, PaymentStateMeta> = {
-  AwaitingDeposit: { label: 'Awaiting initial deposit', tone: 'warning', icon: Hourglass },
-  PartiallyPaid: { label: 'Partially paid', tone: 'info', icon: Wallet },
-  Settled: { label: 'Fully paid', tone: 'success', icon: CircleCheckBig },
+  PendingPayment: { label: 'Pending Payment', tone: 'warning', icon: Hourglass },
+  DepositPaid: { label: 'Deposit Paid', tone: 'info', icon: Wallet },
+  FullyPaid: { label: 'Fully Paid', tone: 'success', icon: CircleCheckBig },
 }
 
 /**
@@ -124,9 +125,9 @@ export function getPaymentStateMeta(
 
 /** The payment states in the order the filter offers them. */
 export const PAYMENT_STATE_ORDER: readonly BookingPaymentState[] = [
-  'AwaitingDeposit',
-  'PartiallyPaid',
-  'Settled',
+  'PendingPayment',
+  'DepositPaid',
+  'FullyPaid',
 ]
 
 /** One entry of the payment-state filter dropdown. */
@@ -446,8 +447,6 @@ export function isMenuSelectionComplete(
 export const BOOKING_STATUS_FILTER_OPTIONS: readonly BookingStatus[] = [
   'Pending',
   'Confirmed',
-  'DepositPaid',
-  'FullyPaid',
   'InProgress',
   'Completed',
   'Cancelled',

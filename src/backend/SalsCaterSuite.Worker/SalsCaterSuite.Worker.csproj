@@ -12,7 +12,17 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\SalsCaterSuite.Application\SalsCaterSuite.Application.csproj" />
     <ProjectReference Include="..\SalsCaterSuite.Infrastructure\SalsCaterSuite.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="appsettings.Development.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

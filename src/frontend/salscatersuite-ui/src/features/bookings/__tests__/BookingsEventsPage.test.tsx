@@ -107,7 +107,7 @@ describe('BookingsEventsPage', () => {
 
     // The lifecycle status and the payment state are two separate labels.
     expect(within(firstCard).getByText('Confirmed')).toBeInTheDocument()
-    expect(within(firstCard).getByText('Fully paid')).toBeInTheDocument()
+    expect(within(firstCard).getByText('Fully Paid')).toBeInTheDocument()
 
     // The countdown is the server's `daysUntilEvent`, never the browser's clock.
     expect(firstCard).toHaveTextContent('In 29 days')
@@ -115,7 +115,7 @@ describe('BookingsEventsPage', () => {
     // The third card is overdue — a dimension of its own, not a payment state.
     const thirdCard = cards[2]
     expect(within(thirdCard).getByText('Overdue')).toBeInTheDocument()
-    expect(within(thirdCard).getByText('Awaiting initial deposit')).toBeInTheDocument()
+    expect(within(thirdCard).getByText('Pending Payment')).toBeInTheDocument()
   })
 
   it('renders the totals strip and the four KPI cards from the server’s aggregate', async () => {
@@ -158,7 +158,7 @@ describe('BookingsEventsPage', () => {
 
     fireEvent.change(screen.getByLabelText('Search bookings'), { target: { value: 'gala' } })
     fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'Confirmed' } })
-    fireEvent.change(screen.getByLabelText('Payment'), { target: { value: 'Settled' } })
+    fireEvent.change(screen.getByLabelText('Payment'), { target: { value: 'FullyPaid' } })
     await userEvent.click(screen.getByText('Overdue only'))
     await userEvent.click(screen.getByText('Timeline'))
 
@@ -166,7 +166,7 @@ describe('BookingsEventsPage', () => {
       const params = lastRegisterParams(requests)
       expect(params.search).toBe('gala')
       expect(params.status).toBe('Confirmed')
-      expect(params.paymentState).toBe('Settled')
+      expect(params.paymentState).toBe('FullyPaid')
       expect(params.overdue).toBe(true)
       expect(params.sort).toBe('EventDateAsc')
     })

@@ -8,6 +8,7 @@ using SalsCaterSuite.Application;
 using SalsCaterSuite.Application.Common.Authorization;
 using Serilog;
 using SalsCaterSuite.Infrastructure;
+using SalsCaterSuite.Infrastructure.BackgroundJobs;
 using SalsCaterSuite.Infrastructure.Persistence;
 using SalsCaterSuite.WebApi.Logging;
 using SalsCaterSuite.WebApi.Middleware;
@@ -30,6 +31,8 @@ builder.Services.AddSingleton<SensitiveDataRedactor>();
 
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
+
+// BG-04 runs in the Worker host only (DEC-180). No duplicate poller in WebApi.
 
 // JWT Authentication
 var jwtSection = builder.Configuration.GetSection("Jwt");

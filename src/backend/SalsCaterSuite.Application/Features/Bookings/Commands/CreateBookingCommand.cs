@@ -217,9 +217,9 @@ public class CreateBookingCommand
                 noOfPerson: request.NoOfPerson,
                 bookType: request.BookType,
                 typeOfService: request.TypeOfService,
-                eventDate: DateOnly.FromDateTime(request.StartDate),
-                startDate: request.StartDate,
-                endDate: request.EndDate,
+                eventDate: DateOnly.FromDateTime(request.StartDate.DateTime),
+                startDate: request.StartDate.DateTime,
+                endDate: request.EndDate.DateTime,
                 occasion: request.Occasion,
                 venue: request.Venue,
                 eventColor: request.EventColor,
@@ -316,10 +316,11 @@ public class CreateBookingCommand
             booking.Payments.Add(payment);
             payment.Booking = booking;
 
-            // The domain method refreshes the denormalized AmountPaid cache and the lifecycle
-            // status. The confirmation is applied afterwards, so a confirmed booking that
-            // carries a deposit is published as Confirmed (BR-33, AC-BKG-24).
+            // The domain method refreshes the denormalized AmountPaid cache only. The payment
+            // is already on the booking collection, so the authoritative sum overwrites the
+            // provisional cache. Lifecycle status is not changed by a payment (DEC-177).
             booking.RecordPayment(request.InitialPayment.AmountPaid);
+            booking.RefreshPaymentStatus();
         }
 
         // A draft stays Pending; a confirmed booking becomes Confirmed (BR-33, DEC-107).

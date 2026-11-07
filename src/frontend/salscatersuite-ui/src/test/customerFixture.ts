@@ -167,7 +167,7 @@ export const customerStatementFixture: CustomerStatement = {
       amount: 245000,
       paid: 150000,
       balance: 95000,
-      status: 'DepositPaid',
+      status: 'Confirmed',
       agingBucket: 'Over90Days',
       agingBucketLabel: 'Over 90 days overdue',
     },
@@ -194,7 +194,7 @@ export const customerStatementFixture: CustomerStatement = {
       paid: 96000,
       balance: 0,
       // A compound BR-10 name: the client renders the humanised label.
-      status: 'FullyPaid',
+      status: 'Confirmed',
       agingBucket: null,
       agingBucketLabel: null,
     },

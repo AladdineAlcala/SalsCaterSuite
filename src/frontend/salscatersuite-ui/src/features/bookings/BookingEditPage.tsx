@@ -67,9 +67,11 @@ export function BookingEditPage() {
   if (bookingQuery.isError || !bookingQuery.data) {
     return (
       <div className="p-space-lg">
-        <AlertBanner tone="error" title="Booking not found">
-          {readErrorMessages(bookingQuery.error ?? 'The booking could not be loaded.')}
-        </AlertBanner>
+        <AlertBanner
+          variant="error"
+          title="Booking not found"
+          errors={readErrorMessages(bookingQuery.error ?? 'The booking could not be loaded.')}
+        />
       </div>
     )
   }
@@ -102,9 +104,7 @@ export function BookingEditPage() {
       </div>
 
       {submitErrors.length > 0 && (
-        <AlertBanner tone="error" title="Unable to save booking">
-          {submitErrors}
-        </AlertBanner>
+        <AlertBanner variant="error" title="Unable to save booking" errors={submitErrors} />
       )}
 
       <form
